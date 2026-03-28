@@ -45,31 +45,21 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
 
   Future<void> _checkPermissions() async {
     final micStatus = await Permission.microphone.status;
-    if (micStatus.isGranted) {
-      setState(() => _hasPermission = true);
-    }
+    setState(() => _hasPermission = micStatus.isGranted);
   }
 
   Future<bool> _requestPermissions() async {
-    // Request microphone permission
     var micStatus = await Permission.microphone.request();
     if (micStatus.isPermanentlyDenied) {
       await openAppSettings();
       return false;
     }
-    
-    // For Android 13+, we need to request audio permission specifically
+
+    // For older Android versions
     if (Platform.isAndroid) {
-      // Request storage permissions for older Android versions
-      if (await Permission.storage.isGranted == false) {
-        await Permission.storage.request();
-      }
-      // For Android 13+ (READ_MEDIA_AUDIO)
-      if (await Permission.audio.isGranted == false) {
-        await Permission.audio.request();
-      }
+      await Permission.storage.request();
     }
-    
+
     final hasPermission = await Permission.microphone.isGranted;
     setState(() => _hasPermission = hasPermission);
     return hasPermission;
@@ -84,26 +74,16 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
   }
 
   Future<void> _startRecording() async {
-    // Request permissions first
     final hasPermission = await _requestPermissions();
     if (!hasPermission) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Permissão do microfone necessária!'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
+      _showSnackBar('Permissão do microfone necessária!', isError: true);
       return;
     }
 
     _recordingBloc.add(StartRecording());
     _pulseController.repeat(reverse: true);
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) {
-        setState(() {});
-      }
+      if (mounted) setState(() {});
     });
     HapticUtils.mediumImpact();
   }
@@ -119,9 +99,7 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
     _recordingBloc.add(ResumeRecording());
     _pulseController.repeat(reverse: true);
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) {
-        setState(() {});
-      }
+      if (mounted) setState(() {});
     });
     HapticUtils.mediumImpact();
   }
@@ -131,23 +109,22 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
     _timer?.cancel();
     _pulseController.stop();
     HapticUtils.heavyImpact();
-
-    // Show saved message
+    // Wait a bit for bloc to process, then check result
+    await Future.delayed(const Duration(milliseconds: 500));
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Gravação salva com sucesso!'),
-          backgroundColor: AppColors.success,
-          action: SnackBarAction(
-            label: 'Ver',
-            textColor: Colors.white,
-            onPressed: () {
-              // Navigate to library
-            },
-          ),
-        ),
-      );
+      setState(() {});
     }
+  }
+
+  void _showSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? AppColors.error : AppColors.success,
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   String _formatDuration(Duration duration) {
@@ -160,97 +137,113 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
   Widget build(BuildContext context) {
     return BlocProvider.value(
       value: _recordingBloc,
-      child: BlocBuilder<RecordingBloc, RecordingState>(
-        builder: (context, state) {
-          final isRecording = state is RecordingInProgress;
-          final isPaused = state is RecordingPaused;
-          
-          return Scaffold(
-            backgroundColor: AppColors.backgroundPrimary,
-            body: SafeArea(
-              child: Column(
-                children: [
-                  // Header
-                  Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Row(
-                      children: [
-                        const Text(
-                          'Nova Gravação',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        const Spacer(),
-                        if (!_hasPermission)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: AppColors.warning.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.warning_amber, color: AppColors.warning, size: 16),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Sem permissão',
-                                  style: TextStyle(color: AppColors.warning, fontSize: 12),
-                                ),
-                              ],
-                            ),
-                          ),
-                        if (isRecording)
-                          _buildLiveIndicator(),
-                      ],
-                    ),
-                  ),
-
-                  const Spacer(),
-
-                  // Recording Visualizer
-                  _buildRecordingVisualizer(isRecording, isPaused),
-
-                  const SizedBox(height: 40),
-
-                  // Timer Display
-                  Text(
-                    _formatDuration(state.duration),
-                    style: const TextStyle(
-                      fontSize: 48,
-                      fontWeight: FontWeight.w300,
-                      color: AppColors.textPrimary,
-                      letterSpacing: 4,
-                    ),
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  // Status Text
-                  Text(
-                    _getStatusText(isRecording, isPaused, state),
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: isRecording
-                          ? (isPaused ? AppColors.tertiaryAccent : AppColors.primaryAccent)
-                          : AppColors.textTertiary,
-                    ),
-                  ),
-
-                  const Spacer(),
-
-                  // Controls
-                  _buildControls(isRecording, isPaused, state),
-
-                  const SizedBox(height: 40),
-                ],
-              ),
-            ),
-          );
+      child: BlocListener<RecordingBloc, RecordingState>(
+        listener: (context, state) {
+          // Show error if any
+          if (state is RecordingError) {
+            _showSnackBar(state.errorMessage, isError: true);
+          }
+          // Show success when recording stopped
+          if (state is RecordingState && state.recording.status == RecordingStatus.idle) {
+            if (state.recording.filePath != null && state.recording.filePath!.isNotEmpty) {
+              _showSnackBar('Gravação salva!');
+            }
+          }
         },
+        child: BlocBuilder<RecordingBloc, RecordingState>(
+          builder: (context, state) {
+            final isRecording = state is RecordingInProgress;
+            final isPaused = state is RecordingPaused;
+
+            return Scaffold(
+              backgroundColor: AppColors.backgroundPrimary,
+              body: SafeArea(
+                child: Column(
+                  children: [
+                    // Header
+                    Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Row(
+                        children: [
+                          const Text(
+                            'Nova Gravação',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const Spacer(),
+                          if (!_hasPermission)
+                            GestureDetector(
+                              onTap: _requestPermissions,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: AppColors.warning.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.warning_amber, color: AppColors.warning, size: 16),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Permitir',
+                                      style: TextStyle(color: AppColors.warning, fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          if (isRecording) _buildLiveIndicator(),
+                        ],
+                      ),
+                    ),
+
+                    const Spacer(),
+
+                    // Visualizer
+                    _buildRecordingVisualizer(isRecording, isPaused),
+
+                    const SizedBox(height: 40),
+
+                    // Timer
+                    Text(
+                      _formatDuration(state.duration),
+                      style: const TextStyle(
+                        fontSize: 48,
+                        fontWeight: FontWeight.w300,
+                        color: AppColors.textPrimary,
+                        letterSpacing: 4,
+                      ),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // Status
+                    Text(
+                      _getStatusText(isRecording, isPaused, state),
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: isRecording
+                            ? (isPaused ? AppColors.tertiaryAccent : AppColors.primaryAccent)
+                            : AppColors.textTertiary,
+                      ),
+                    ),
+
+                    const Spacer(),
+
+                    // Controls
+                    _buildControls(isRecording, isPaused, state),
+
+                    const SizedBox(height: 40),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -270,11 +263,7 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
           SizedBox(width: 6),
           Text(
             'AO VIVO',
-            style: TextStyle(
-              color: AppColors.error,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: AppColors.error, fontSize: 12, fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -327,9 +316,7 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
                     ? (isPaused ? Icons.pause : Icons.mic)
                     : Icons.mic_none,
                 size: 64,
-                color: isRecording
-                    ? AppColors.backgroundPrimary
-                    : AppColors.textTertiary,
+                color: isRecording ? AppColors.backgroundPrimary : AppColors.textTertiary,
               ),
             ),
           ),
@@ -340,7 +327,6 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
 
   Widget _buildControls(bool isRecording, bool isPaused, RecordingState state) {
     if (!isRecording) {
-      // Start Recording Button
       return GestureDetector(
         onTap: _startRecording,
         child: Container(
@@ -357,20 +343,14 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
               ),
             ],
           ),
-          child: const Icon(
-            Icons.mic,
-            color: AppColors.backgroundPrimary,
-            size: 36,
-          ),
+          child: const Icon(Icons.mic, color: AppColors.backgroundPrimary, size: 36),
         ),
       );
     }
 
-    // Recording Controls
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Cancel Button
         _buildControlButton(
           icon: Icons.close,
           onTap: () {
@@ -380,20 +360,14 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
           },
           color: AppColors.textTertiary,
         ),
-
         const SizedBox(width: 32),
-
-        // Pause/Resume Button
         _buildControlButton(
           icon: isPaused ? Icons.play_arrow : Icons.pause,
           onTap: isPaused ? _resumeRecording : _pauseRecording,
           color: AppColors.secondaryAccent,
           isLarge: true,
         ),
-
         const SizedBox(width: 32),
-
-        // Stop Button
         _buildControlButton(
           icon: Icons.stop,
           onTap: _stopRecording,
@@ -425,16 +399,12 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
   }
 
   String _getStatusText(bool isRecording, bool isPaused, RecordingState state) {
-    if (!_hasPermission) {
-      return 'Toque para permitir e gravar';
-    }
+    if (!_hasPermission) return 'Toque para permitir';
     if (!isRecording) {
-      if (state is RecordingError) {
-        return 'Erro: ${state.errorMessage}';
-      }
-      return 'Toque para começar a gravar';
+      if (state is RecordingError) return 'Erro: ${state.errorMessage}';
+      return 'Toque para gravar';
     }
-    if (isPaused) return 'Gravação pausada';
+    if (isPaused) return 'Pausado';
     return 'Gravando...';
   }
 }
