@@ -19,7 +19,6 @@ class LlamaBindings {
   static Function? _llama_token_nl;
   static Function? _llama_token_eos;
   static Function? _llama_token_bos;
-  static Function? _llama_token_eos;
   static Function? _llama_eval;
   static Function? _llama_get_token_text;
   static Function? _llama_token_get_text;
