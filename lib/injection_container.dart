@@ -1,5 +1,4 @@
 import 'package:get_it/get_it.dart';
-
 import 'data/repositories/transcription_repository_impl.dart';
 import 'domain/repositories/transcription_repository.dart';
 import 'core/services/ai_service.dart';
@@ -14,20 +13,9 @@ Future<void> setupDependencies() async {
   getIt.registerLazySingleton<AIService>(() => AIService());
   getIt.registerLazySingleton<RecordingService>(() => RecordingService());
   
-  // Register BLoCs - using factory for fresh instances
-  getIt.registerFactory<RecordingBloc>(
-    () => RecordingBloc(
-      recordingService: getIt<RecordingService>(),
-      aiService: getIt<AIService>(),
-    ),
-  );
-  
-  getIt.registerFactory<TranscriptionBloc>(
-    () => TranscriptionBloc(
-      aiService: getIt<AIService>(),
-      repository: getIt<TranscriptionRepository>(),
-    ),
-  );
+  // Register BLoCs - using factory with NO parameters (they use default constructors)
+  getIt.registerFactory<RecordingBloc>(() => RecordingBloc());
+  getIt.registerFactory<TranscriptionBloc>(() => TranscriptionBloc());
   
   // Register repository
   getIt.registerLazySingleton<TranscriptionRepository>(

@@ -14,7 +14,7 @@ class TranscriptionState extends Equatable {
   
   const TranscriptionState({
     this.status = TranscriptionStatus.initial,
-    this.transcriptions = const [],
+    this.transcriptions = const <Transcription>[],
     this.selectedTranscription,
     this.currentWordIndex = 0,
     this.currentPosition = Duration.zero,

@@ -36,3 +36,22 @@ class RecordingState extends Equatable {
   @override
   List<Object?> get props => [recording, error, isProcessing];
 }
+
+// Recording state subtypes for easier type checking
+class RecordingInProgress extends RecordingState {
+  RecordingInProgress({required super.recording, super.error, super.isProcessing}) 
+    : super(recording: recording);
+}
+
+class RecordingPaused extends RecordingState {
+  RecordingPaused({required super.recording, super.error, super.isProcessing}) 
+    : super(recording: recording);
+}
+
+class RecordingError extends RecordingState {
+  final String message;
+  RecordingError({required this.message, required super.recording}) : super(recording: recording);
+  
+  @override
+  String get message => message;
+}

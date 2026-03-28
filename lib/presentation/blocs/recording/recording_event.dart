@@ -35,3 +35,5 @@ class ProcessRecording extends RecordingEvent {
   @override
   List<Object?> get props => [filePath];
 }
+
+class CancelRecording extends RecordingEvent {}

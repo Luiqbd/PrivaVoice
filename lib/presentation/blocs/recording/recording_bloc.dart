@@ -14,7 +14,7 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
   Timer? _amplitudeTimer;
   Timer? _durationTimer;
   DateTime? _startTime;
-  
+
   RecordingBloc() : super(RecordingState.initial()) {
     on<StartRecording>(_onStartRecording);
     on<StopRecording>(_onStopRecording);
@@ -22,8 +22,9 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
     on<ResumeRecording>(_onResumeRecording);
     on<UpdateAmplitude>(_onUpdateAmplitude);
     on<UpdateDuration>(_onUpdateDuration);
+    on<CancelRecording>(_onCancelRecording);
   }
-  
+
   Future<void> _onStartRecording(
     StartRecording event,
     Emitter<RecordingState> emit,
@@ -32,10 +33,10 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
       if (await _recorder.hasPermission()) {
         final directory = await getApplicationDocumentsDirectory();
         final filePath = '${directory.path}/recordings/${const Uuid().v4()}.m4a';
-        
+
         // Create recordings directory
         await Directory('${directory.path}/recordings').create(recursive: true);
-        
+
         await _recorder.start(
           const RecordConfig(
             encoder: AudioEncoder.aacLc,
@@ -44,17 +45,18 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
           ),
           path: filePath,
         );
-        
+
         _startTime = DateTime.now();
         
-        emit(state.copyWith(
-          recording: state.recording.copyWith(
-            status: RecordingStatus.recording,
-            filePath: filePath,
-            startedAt: _startTime,
-          ),
-        ));
-        
+        // Emit RecordingInProgress state
+        final newRecording = Recording(
+          id: const Uuid().v4(),
+          status: RecordingStatus.recording,
+          filePath: filePath,
+          startedAt: _startTime,
+        );
+        emit(RecordingInProgress(recording: newRecording));
+
         // Start amplitude monitoring
         _amplitudeTimer = Timer.periodic(
           const Duration(milliseconds: 100),
@@ -63,7 +65,7 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
             add(UpdateAmplitude(amplitude.current));
           },
         );
-        
+
         // Start duration timer
         _durationTimer = Timer.periodic(
           const Duration(seconds: 1),
@@ -73,14 +75,14 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
             }
           },
         );
-        
+
         await HapticUtils.heavyImpact();
       }
     } catch (e) {
-      emit(state.copyWith(error: e.toString()));
+      emit(RecordingError(message: e.toString(), recording: state.recording));
     }
   }
-  
+
   Future<void> _onStopRecording(
     StopRecording event,
     Emitter<RecordingState> emit,
@@ -88,22 +90,21 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
     try {
       _amplitudeTimer?.cancel();
       _durationTimer?.cancel();
-      
+
       final path = await _recorder.stop();
-      
-      emit(state.copyWith(
-        recording: state.recording.copyWith(
-          status: RecordingStatus.idle,
-          filePath: path,
-        ),
-      ));
-      
+
+      final stoppedRecording = state.recording.copyWith(
+        status: RecordingStatus.idle,
+        filePath: path,
+      );
+      emit(RecordingState(recording: stoppedRecording));
+
       await HapticUtils.mediumImpact();
     } catch (e) {
-      emit(state.copyWith(error: e.toString()));
+      emit(RecordingError(message: e.toString(), recording: state.recording));
     }
   }
-  
+
   Future<void> _onPauseRecording(
     PauseRecording event,
     Emitter<RecordingState> emit,
@@ -111,20 +112,19 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
     await _recorder.pause();
     _amplitudeTimer?.cancel();
     _durationTimer?.cancel();
-    
-    emit(state.copyWith(
-      recording: state.recording.copyWith(status: RecordingStatus.paused),
-    ));
-    
+
+    final pausedRecording = state.recording.copyWith(status: RecordingStatus.paused);
+    emit(RecordingPaused(recording: pausedRecording));
+
     await HapticUtils.lightImpact();
   }
-  
+
   Future<void> _onResumeRecording(
     ResumeRecording event,
     Emitter<RecordingState> emit,
   ) async {
     await _recorder.resume();
-    
+
     _amplitudeTimer = Timer.periodic(
       const Duration(milliseconds: 100),
       (_) async {
@@ -132,7 +132,7 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
         add(UpdateAmplitude(amplitude.current));
       },
     );
-    
+
     _durationTimer = Timer.periodic(
       const Duration(seconds: 1),
       (_) {
@@ -141,32 +141,47 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
         }
       },
     );
-    
-    emit(state.copyWith(
-      recording: state.recording.copyWith(status: RecordingStatus.recording),
-    ));
-    
+
+    final resumedRecording = state.recording.copyWith(status: RecordingStatus.recording);
+    emit(RecordingInProgress(recording: resumedRecording));
+
     await HapticUtils.lightImpact();
   }
-  
+
   void _onUpdateAmplitude(
     UpdateAmplitude event,
     Emitter<RecordingState> emit,
   ) {
-    emit(state.copyWith(
-      recording: state.recording.copyWith(amplitude: event.amplitude),
-    ));
+    final updated = state.recording.copyWith(amplitude: event.amplitude);
+    if (state is RecordingInProgress) {
+      emit(RecordingInProgress(recording: updated));
+    } else if (state is RecordingPaused) {
+      emit(RecordingPaused(recording: updated));
+    }
   }
-  
+
   void _onUpdateDuration(
     UpdateDuration event,
     Emitter<RecordingState> emit,
   ) {
-    emit(state.copyWith(
-      recording: state.recording.copyWith(duration: event.duration),
-    ));
+    final updated = state.recording.copyWith(duration: event.duration);
+    if (state is RecordingInProgress) {
+      emit(RecordingInProgress(recording: updated));
+    } else if (state is RecordingPaused) {
+      emit(RecordingPaused(recording: updated));
+    }
   }
   
+  Future<void> _onCancelRecording(
+    CancelRecording event,
+    Emitter<RecordingState> emit,
+  ) async {
+    _amplitudeTimer?.cancel();
+    _durationTimer?.cancel();
+    await _recorder.stop();
+    emit(RecordingState.initial());
+  }
+
   @override
   Future<void> close() {
     _amplitudeTimer?.cancel();

@@ -1,12 +1,15 @@
-import '../../injection_container.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-//import 'package:permission_handler/permission_handler.dart';
+// Add permission_handler for microphone/storage permissions
+import 'package:permission_handler/permission_handler.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/haptic_utils.dart';
+import '../../injection_container.dart';
 import '../blocs/recording/recording_bloc.dart';
+import '../blocs/recording/recording_event.dart';
+import '../blocs/recording/recording_state.dart';
 
 class RecordPage extends StatefulWidget {
   const RecordPage({super.key});
@@ -24,10 +27,8 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _recordingBloc = RecordingBloc(
-      recordingService: getIt<RecordingBloc>(),
-      aiService: getIt<RecordingBloc>(),
-    );
+    // Create BLoC from getIt (no parameters needed)
+    _recordingBloc = getIt<RecordingBloc>();
     
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 1500),
