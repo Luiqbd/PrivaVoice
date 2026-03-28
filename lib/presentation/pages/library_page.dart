@@ -11,10 +11,10 @@ class LibraryPage extends StatefulWidget {
   const LibraryPage({super.key});
 
   @override
-  State<LibraryPage> createState() => _LibraryPageState();
+  State<LibraryPage> createState() => LibraryPageState();
 }
 
-class _LibraryPageState extends State<LibraryPage> {
+class LibraryPageState extends State<LibraryPage> {
   late TranscriptionBloc _transcriptionBloc;
 
   @override
@@ -29,6 +29,12 @@ class _LibraryPageState extends State<LibraryPage> {
   void dispose() {
     _transcriptionBloc.close();
     super.dispose();
+  }
+
+  // Public method to refresh library from parent
+  void refreshLibrary() {
+    debugPrint('LibraryPage: Refreshing...');
+    _transcriptionBloc.add(LoadTranscriptions());
   }
 
   @override
@@ -55,19 +61,14 @@ class _LibraryPageState extends State<LibraryPage> {
                       ),
                     ),
                     const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryAccent.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Text(
-                        'Todas',
-                        style: TextStyle(
-                          color: AppColors.primaryAccent,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
+                    // Refresh button
+                    IconButton(
+                      onPressed: () {
+                        _transcriptionBloc.add(LoadTranscriptions());
+                      },
+                      icon: const Icon(
+                        Icons.refresh,
+                        color: AppColors.primaryAccent,
                       ),
                     ),
                   ],
@@ -90,18 +91,24 @@ class _LibraryPageState extends State<LibraryPage> {
                       return _buildEmptyState();
                     }
 
-                    return ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: state.transcriptions.length,
-                      itemBuilder: (context, index) {
-                        final transcription = state.transcriptions[index];
-                        return TranscriptionCard(
-                          transcription: transcription,
-                          onTap: () {
-                            // Navigate to detail
-                          },
-                        );
+                    return RefreshIndicator(
+                      onRefresh: () async {
+                        _transcriptionBloc.add(LoadTranscriptions());
                       },
+                      color: AppColors.primaryAccent,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: state.transcriptions.length,
+                        itemBuilder: (context, index) {
+                          final transcription = state.transcriptions[index];
+                          return TranscriptionCard(
+                            transcription: transcription,
+                            onTap: () {
+                              // Navigate to detail
+                            },
+                          );
+                        },
+                      ),
                     );
                   },
                 ),
@@ -121,7 +128,7 @@ class _LibraryPageState extends State<LibraryPage> {
           Container(
             width: 80,
             height: 80,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               shape: BoxShape.circle,
               color: AppColors.surface,
             ),
@@ -146,6 +153,18 @@ class _LibraryPageState extends State<LibraryPage> {
             style: TextStyle(
               color: AppColors.textTertiary,
               fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () {
+              _transcriptionBloc.add(LoadTranscriptions());
+            },
+            icon: const Icon(Icons.refresh),
+            label: const Text('Atualizar'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryAccent,
+              foregroundColor: Colors.white,
             ),
           ),
         ],
