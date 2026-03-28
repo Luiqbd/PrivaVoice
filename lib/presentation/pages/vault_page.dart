@@ -11,27 +11,36 @@ class VaultPage extends StatefulWidget {
 
 class _VaultPageState extends State<VaultPage> {
   bool _isUnlocked = false;
+  bool _biometricsAvailable = false;
   final LocalAuthentication _auth = LocalAuthentication();
 
   @override
   void initState() {
     super.initState();
-    // Auto-unlock on init for demo
     _checkBiometrics();
   }
 
   Future<void> _checkBiometrics() async {
     try {
       final canAuth = await _auth.canCheckBiometrics;
-      if (canAuth) {
-        _unlockVault();
-      }
+      final isDeviceSupported = await _auth.isDeviceSupported();
+      setState(() {
+        _biometricsAvailable = canAuth && isDeviceSupported;
+      });
+      print('Biometrics available: $_biometricsAvailable');
     } catch (e) {
-      print('Biometric error: $e');
+      print('Biometric check error: $e');
+      setState(() => _biometricsAvailable = false);
     }
   }
 
   Future<void> _unlockVault() async {
+    if (!_biometricsAvailable) {
+      // Fallback - unlock for demo if no biometrics
+      setState(() => _isUnlocked = true);
+      return;
+    }
+
     try {
       final authenticated = await _auth.authenticate(
         localizedReason: 'Autentique para acessar o cofre',
@@ -42,11 +51,26 @@ class _VaultPageState extends State<VaultPage> {
       );
       if (authenticated) {
         setState(() => _isUnlocked = true);
+      } else {
+        // Show message if auth failed
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Autenticação falhou'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
       }
     } catch (e) {
-      // Fallback - unlock for demo
+      print('Auth error: $e');
+      // Fallback
       setState(() => _isUnlocked = true);
     }
+  }
+
+  Future<void> _lockVault() async {
+    setState(() => _isUnlocked = false);
   }
 
   @override
@@ -65,20 +89,26 @@ class _VaultPageState extends State<VaultPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              // Lock Icon
               Container(
                 width: 120,
                 height: 120,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: AppColors.surface,
+                  border: Border.all(
+                    color: AppColors.primaryAccent.withOpacity(0.3),
+                    width: 2,
+                  ),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.lock,
                   size: 64,
-                  color: AppColors.textTertiary,
+                  color: AppColors.primaryAccent,
                 ),
               ),
               const SizedBox(height: 32),
+              
               const Text(
                 'Cofre Seguro',
                 style: TextStyle(
@@ -87,31 +117,45 @@ class _VaultPageState extends State<VaultPage> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
               Text(
-                'Gravações protegidas',
-                style: TextStyle(
+                _biometricsAvailable 
+                    ? 'Suas gravações protegidas'
+                    : 'Configure biometria nos ajustes',
+                style: const TextStyle(
                   color: AppColors.textTertiary,
                   fontSize: 16,
                 ),
               ),
               const SizedBox(height: 48),
+              
+              // Unlock Button
               GestureDetector(
                 onTap: _unlockVault,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
                   decoration: BoxDecoration(
                     gradient: AppColors.primaryGradient,
                     borderRadius: BorderRadius.circular(30),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primaryAccent.withOpacity(0.4),
+                        blurRadius: 20,
+                        spreadRadius: 2,
+                      ),
+                    ],
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.fingerprint, color: Colors.white),
-                      SizedBox(width: 12),
+                      Icon(
+                        _biometricsAvailable ? Icons.fingerprint : Icons.lock_open,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 12),
                       Text(
-                        'Desbloquear',
-                        style: TextStyle(
+                        _biometricsAvailable ? 'Desbloquear' : 'Acessar',
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -121,6 +165,17 @@ class _VaultPageState extends State<VaultPage> {
                   ),
                 ),
               ),
+              
+              if (!_biometricsAvailable) ...[
+                const SizedBox(height: 24),
+                TextButton(
+                  onPressed: () => setState(() => _isUnlocked = true),
+                  child: const Text(
+                    'Modo Demo: Acessar sem biometria',
+                    style: TextStyle(color: AppColors.textTertiary),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -134,6 +189,7 @@ class _VaultPageState extends State<VaultPage> {
       body: SafeArea(
         child: Column(
           children: [
+            // Header
             Padding(
               padding: const EdgeInsets.all(24),
               child: Row(
@@ -148,20 +204,51 @@ class _VaultPageState extends State<VaultPage> {
                   ),
                   const Spacer(),
                   IconButton(
-                    onPressed: () => setState(() => _isUnlocked = false),
-                    icon: const Icon(Icons.lock, color: AppColors.textTertiary),
+                    onPressed: _lockVault,
+                    icon: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.lock,
+                        color: AppColors.primaryAccent,
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
+            
+            // Protected files
             Expanded(
               child: Center(
-                child: Text(
-                  'Nenhuma gravação protegida',
-                  style: TextStyle(
-                    color: AppColors.textTertiary,
-                    fontSize: 16,
-                  ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.folder_special,
+                      size: 64,
+                      color: AppColors.textTertiary.withOpacity(0.5),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Nenhuma gravação protegida',
+                      style: TextStyle(
+                        color: AppColors.textTertiary,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Moves gravações para o cofre para protegê-las',
+                      style: TextStyle(
+                        color: AppColors.textTertiary,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

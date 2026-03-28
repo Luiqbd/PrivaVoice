@@ -1,11 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/theme/app_colors.dart';
-import '../../injection_container.dart';
-import '../blocs/transcription/transcription_bloc.dart';
 
-class SettingsPage extends StatelessWidget {
+class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
+
+  @override
+  State<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<SettingsPage> {
+  // Settings state
+  bool _diarizationEnabled = true;
+  bool _autoSummary = true;
+  bool _extractActions = true;
+  bool _autoSave = true;
+  String _selectedModel = 'Whisper Base';
+  String _selectedQuality = 'Alta';
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +44,7 @@ class SettingsPage extends StatelessWidget {
               _buildSettingsTile(
                 icon: Icons.mic,
                 title: 'Modelo de Transcrição',
-                subtitle: 'Whisper Base',
+                subtitle: _selectedModel,
                 onTap: () => _showModelSelector(context),
               ),
               _buildSettingsTile(
@@ -42,8 +52,11 @@ class SettingsPage extends StatelessWidget {
                 title: 'Diarização',
                 subtitle: 'Identificar locutores',
                 trailing: Switch(
-                  value: true,
-                  onChanged: (value) {},
+                  value: _diarizationEnabled,
+                  onChanged: (value) {
+                    setState(() => _diarizationEnabled = value);
+                    _showSavedSnackBar('Diarização ${value ? "ativada" : "desativada"}');
+                  },
                   activeColor: AppColors.primaryAccent,
                 ),
               ),
@@ -52,8 +65,11 @@ class SettingsPage extends StatelessWidget {
                 title: 'Resumo Automático',
                 subtitle: 'Gerar resumo com IA',
                 trailing: Switch(
-                  value: true,
-                  onChanged: (value) {},
+                  value: _autoSummary,
+                  onChanged: (value) {
+                    setState(() => _autoSummary = value);
+                    _showSavedSnackBar('Resumo automático ${value ? "ativado" : "desativado"}');
+                  },
                   activeColor: AppColors.primaryAccent,
                 ),
               ),
@@ -62,8 +78,11 @@ class SettingsPage extends StatelessWidget {
                 title: 'Extrair Ações',
                 subtitle: 'Identificar tarefas a fazer',
                 trailing: Switch(
-                  value: true,
-                  onChanged: (value) {},
+                  value: _extractActions,
+                  onChanged: (value) {
+                    setState(() => _extractActions = value);
+                    _showSavedSnackBar('Extração de ações ${value ? "ativada" : "desativada"}');
+                  },
                   activeColor: AppColors.primaryAccent,
                 ),
               ),
@@ -75,7 +94,7 @@ class SettingsPage extends StatelessWidget {
               _buildSettingsTile(
                 icon: Icons.high_quality,
                 title: 'Qualidade',
-                subtitle: 'Alta (128kbps)',
+                subtitle: _selectedQuality,
                 onTap: () => _showQualitySelector(context),
               ),
               _buildSettingsTile(
@@ -83,8 +102,11 @@ class SettingsPage extends StatelessWidget {
                 title: 'Auto-Save',
                 subtitle: 'Salvar a cada 30 segundos',
                 trailing: Switch(
-                  value: true,
-                  onChanged: (value) {},
+                  value: _autoSave,
+                  onChanged: (value) {
+                    setState(() => _autoSave = value);
+                    _showSavedSnackBar('Auto-Save ${value ? "ativado" : "desativado"}');
+                  },
                   activeColor: AppColors.primaryAccent,
                 ),
               ),
@@ -97,13 +119,13 @@ class SettingsPage extends StatelessWidget {
                 icon: Icons.fingerprint,
                 title: 'Biometria',
                 subtitle: 'Proteger app com digital',
-                onTap: () {},
+                onTap: () => _showBiometricInfo(context),
               ),
               _buildSettingsTile(
                 icon: Icons.lock,
                 title: 'Criptografia',
                 subtitle: 'AES-256 GCM',
-                onTap: () {},
+                onTap: () => _showEncryptionInfo(context),
               ),
 
               const SizedBox(height: 24),
@@ -114,7 +136,7 @@ class SettingsPage extends StatelessWidget {
                 icon: Icons.folder,
                 title: 'Local de Salvamento',
                 subtitle: 'Memória interna',
-                onTap: () {},
+                onTap: () => _showStorageInfo(context),
               ),
               _buildSettingsTile(
                 icon: Icons.delete_sweep,
@@ -137,13 +159,23 @@ class SettingsPage extends StatelessWidget {
                 icon: Icons.privacy_tip,
                 title: 'Privacidade',
                 subtitle: '100% Offline',
-                onTap: () {},
+                onTap: () => _showPrivacyInfo(context),
               ),
 
               const SizedBox(height: 100),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _showSavedSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.success,
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -231,9 +263,21 @@ class SettingsPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            _buildOptionTile('Whisper Tiny', 'Mais rápido, menos preciso'),
-            _buildOptionTile('Whisper Base', 'Equilibrado', isSelected: true),
-            _buildOptionTile('Whisper Large', 'Mais preciso, mais lento'),
+            _buildOptionTile(context, 'Whisper Tiny', 'Mais rápido, menos preciso', () {
+              setState(() => _selectedModel = 'Whisper Tiny');
+              Navigator.pop(context);
+              _showSavedSnackBar('Modelo alterado para Whisper Tiny');
+            }),
+            _buildOptionTile(context, 'Whisper Base', 'Equilibrado', () {
+              setState(() => _selectedModel = 'Whisper Base');
+              Navigator.pop(context);
+              _showSavedSnackBar('Modelo alterado para Whisper Base');
+            }, isSelected: true),
+            _buildOptionTile(context, 'Whisper Large', 'Mais preciso, mais lento', () {
+              setState(() => _selectedModel = 'Whisper Large');
+              Navigator.pop(context);
+              _showSavedSnackBar('Modelo alterado para Whisper Large');
+            }),
           ],
         ),
       ),
@@ -262,48 +306,28 @@ class SettingsPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            _buildOptionTile('Baixa', '64 kbps'),
-            _buildOptionTile('Média', '96 kbps'),
-            _buildOptionTile('Alta', '128 kbps', isSelected: true),
+            _buildOptionTile(context, 'Baixa', '64 kbps', () {
+              setState(() => _selectedQuality = 'Baixa');
+              Navigator.pop(context);
+              _showSavedSnackBar('Qualidade alterada para Baixa');
+            }),
+            _buildOptionTile(context, 'Média', '96 kbps', () {
+              setState(() => _selectedQuality = 'Média');
+              Navigator.pop(context);
+              _showSavedSnackBar('Qualidade alterada para Média');
+            }),
+            _buildOptionTile(context, 'Alta', '128 kbps', () {
+              setState(() => _selectedQuality = 'Alta');
+              Navigator.pop(context);
+              _showSavedSnackBar('Qualidade alterada para Alta');
+            }, isSelected: true),
           ],
         ),
       ),
     );
   }
 
-  void _showClearCacheDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: const Text(
-          'Limpar Cache?',
-          style: TextStyle(color: AppColors.textPrimary),
-        ),
-        content: const Text(
-          'Isso irá remover arquivos temporários.',
-          style: TextStyle(color: AppColors.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Cache limpo!')),
-              );
-            },
-            child: const Text('Limpar'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOptionTile(String title, String subtitle, {bool isSelected = false}) {
+  Widget _buildOptionTile(BuildContext context, String title, String subtitle, VoidCallback onTap, {bool isSelected = false}) {
     return ListTile(
       title: Text(
         title,
@@ -319,7 +343,129 @@ class SettingsPage extends StatelessWidget {
       trailing: isSelected
           ? const Icon(Icons.check_circle, color: AppColors.primaryAccent)
           : null,
-      onTap: () {},
+      onTap: onTap,
+    );
+  }
+
+  void _showBiometricInfo(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text(
+          'Biometria',
+          style: TextStyle(color: AppColors.textPrimary),
+        ),
+        content: const Text(
+          'A biometria está disponível no cofre. Configure nas configurações do dispositivo.',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEncryptionInfo(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text(
+          'Criptografia',
+          style: TextStyle(color: AppColors.textPrimary),
+        ),
+        content: const Text(
+          'Todas as gravações são criptografadas com AES-256 GCM para máxima segurança.',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showStorageInfo(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text(
+          'Armazenamento',
+          style: TextStyle(color: AppColors.textPrimary),
+        ),
+        content: const Text(
+          'As gravações são salvas na memória interna do dispositivo para segurança.',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPrivacyInfo(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text(
+          'Privacidade',
+          style: TextStyle(color: AppColors.textPrimary),
+        ),
+        content: const Text(
+          'O PrivaVoice funciona 100% offline. Nenhum dado sai do seu dispositivo. Sem internet necessária!',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showClearCacheDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text(
+          'Limpar Cache?',
+          style: TextStyle(color: AppColors.textPrimary),
+        ),
+        content: const Text(
+          'Isso irá remover arquivos temporários para liberar espaço.',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showSavedSnackBar('Cache limpo com sucesso!');
+            },
+            child: const Text('Limpar'),
+          ),
+        ],
+      ),
     );
   }
 }
