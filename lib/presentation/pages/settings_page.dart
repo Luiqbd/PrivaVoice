@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../core/constants/app_constants.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/theme/app_colors.dart';
+import '../../injection_container.dart';
+import '../blocs/transcription/transcription_bloc.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -27,61 +29,118 @@ class SettingsPage extends StatelessWidget {
                 ),
               ),
 
-              // Security Section
-              _buildSectionTitle('Segurança'),
+              // AI Settings Section
+              _buildSectionHeader('Inteligência Artificial'),
               _buildSettingsTile(
-                icon: Icons.fingerprint,
-                title: 'Biometria',
-                subtitle: 'Proteção por impressão digital',
+                icon: Icons.mic,
+                title: 'Modelo de Transcrição',
+                subtitle: 'Whisper Base',
+                onTap: () => _showModelSelector(context),
+              ),
+              _buildSettingsTile(
+                icon: Icons.people,
+                title: 'Diarização',
+                subtitle: 'Identificar locutores',
                 trailing: Switch(
                   value: true,
-                  onChanged: (_) {},
+                  onChanged: (value) {},
                   activeColor: AppColors.primaryAccent,
                 ),
               ),
               _buildSettingsTile(
-                icon: Icons.lock_outline,
-                title: 'Bloqueio Automático',
-                subtitle: 'Bloquear após 5 minutos',
-                onTap: () {},
+                icon: Icons.summarize,
+                title: 'Resumo Automático',
+                subtitle: 'Gerar resumo com IA',
+                trailing: Switch(
+                  value: true,
+                  onChanged: (value) {},
+                  activeColor: AppColors.primaryAccent,
+                ),
               ),
               _buildSettingsTile(
-                icon: Icons.delete_outline,
-                title: 'Limpar Dados',
-                subtitle: 'Liberar espaço temporário',
-                onTap: () {},
-                textColor: AppColors.error,
+                icon: Icons.task_alt,
+                title: 'Extrair Ações',
+                subtitle: 'Identificar tarefas a fazer',
+                trailing: Switch(
+                  value: true,
+                  onChanged: (value) {},
+                  activeColor: AppColors.primaryAccent,
+                ),
               ),
 
               const SizedBox(height: 24),
 
-              // Subscription Section
-              _buildSectionTitle('Assinatura'),
-              _buildSubscriptionCard(),
+              // Recording Settings
+              _buildSectionHeader('Gravação'),
+              _buildSettingsTile(
+                icon: Icons.high_quality,
+                title: 'Qualidade',
+                subtitle: 'Alta (128kbps)',
+                onTap: () => _showQualitySelector(context),
+              ),
+              _buildSettingsTile(
+                icon: Icons.save,
+                title: 'Auto-Save',
+                subtitle: 'Salvar a cada 30 segundos',
+                trailing: Switch(
+                  value: true,
+                  onChanged: (value) {},
+                  activeColor: AppColors.primaryAccent,
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Security Settings
+              _buildSectionHeader('Segurança'),
+              _buildSettingsTile(
+                icon: Icons.fingerprint,
+                title: 'Biometria',
+                subtitle: 'Proteger app com digital',
+                onTap: () {},
+              ),
+              _buildSettingsTile(
+                icon: Icons.lock,
+                title: 'Criptografia',
+                subtitle: 'AES-256 GCM',
+                onTap: () {},
+              ),
+
+              const SizedBox(height: 24),
+
+              // Storage Settings
+              _buildSectionHeader('Armazenamento'),
+              _buildSettingsTile(
+                icon: Icons.folder,
+                title: 'Local de Salvamento',
+                subtitle: 'Memória interna',
+                onTap: () {},
+              ),
+              _buildSettingsTile(
+                icon: Icons.delete_sweep,
+                title: 'Limpar Cache',
+                subtitle: 'Libera espaço',
+                onTap: () => _showClearCacheDialog(context),
+              ),
 
               const SizedBox(height: 24),
 
               // About Section
-              _buildSectionTitle('Sobre'),
+              _buildSectionHeader('Sobre'),
               _buildSettingsTile(
-                icon: Icons.info_outline,
+                icon: Icons.info,
                 title: 'Versão',
                 subtitle: '1.0.0',
-              ),
-              _buildSettingsTile(
-                icon: Icons.privacy_tip_outlined,
-                title: 'Privacidade',
-                subtitle: 'Nossa política de privacidade',
                 onTap: () {},
               ),
               _buildSettingsTile(
-                icon: Icons.description_outlined,
-                title: 'Termos de Uso',
-                subtitle: 'Leia nossos termos',
+                icon: Icons.privacy_tip,
+                title: 'Privacidade',
+                subtitle: '100% Offline',
                 onTap: () {},
               ),
 
-              const SizedBox(height: 40),
+              const SizedBox(height: 100),
             ],
           ),
         ),
@@ -89,14 +148,14 @@ class SettingsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
+  Widget _buildSectionHeader(String title) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
       child: Text(
         title,
         style: const TextStyle(
           fontSize: 14,
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w600,
           color: AppColors.primaryAccent,
           letterSpacing: 1.2,
         ),
@@ -110,25 +169,27 @@ class SettingsPage extends StatelessWidget {
     required String subtitle,
     Widget? trailing,
     VoidCallback? onTap,
-    Color? textColor,
   }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: ListTile(
-        onTap: onTap,
         leading: Container(
-          width: 40,
-          height: 40,
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(12),
+            color: AppColors.primaryAccent.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(icon, color: textColor ?? AppColors.textSecondary),
+          child: Icon(icon, color: AppColors.primaryAccent, size: 20),
         ),
         title: Text(
           title,
-          style: TextStyle(
-            color: textColor ?? AppColors.textPrimary,
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 16,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -136,116 +197,129 @@ class SettingsPage extends StatelessWidget {
           subtitle,
           style: const TextStyle(
             color: AppColors.textTertiary,
-            fontSize: 12,
+            fontSize: 13,
           ),
         ),
-        trailing: trailing ?? (onTap != null ? const Icon(Icons.chevron_right, color: AppColors.textTertiary) : null),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        trailing: trailing ?? const Icon(
+          Icons.chevron_right,
+          color: AppColors.textTertiary,
+        ),
+        onTap: onTap,
       ),
     );
   }
 
-  Widget _buildSubscriptionCard() {
-    final originalPrice = AppConstants.monthlyPrice;
-    final discountedPrice = originalPrice * 0.5;
-    
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 24),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.primaryAccent.withOpacity(0.15),
-            AppColors.secondaryAccent.withOpacity(0.1),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.primaryAccent.withOpacity(0.3)),
+  void _showModelSelector(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Badge
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppColors.tertiaryAccent,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Text(
-              '50% OFF',
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Modelo de Transcrição',
               style: TextStyle(
-                color: AppColors.backgroundPrimary,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
-                fontSize: 12,
+                color: AppColors.textPrimary,
               ),
             ),
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Price
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                'R\$ ${discountedPrice.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(
-                  '/mês',
-                  style: TextStyle(
-                    color: AppColors.textTertiary,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 4),
-          
-          Text(
-            'De R\$ ${originalPrice.toStringAsFixed(2)}/mês',
-            style: const TextStyle(
-              color: AppColors.textTertiary,
-              decoration: TextDecoration.lineThrough,
-              fontSize: 14,
-            ),
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Trial Button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {},
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryAccent,
-                foregroundColor: AppColors.backgroundPrimary,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Text(
-                'Testar Grátis por 7 Dias',
-                style: TextStyle(fontWeight: FontWeight.bold),
+            const SizedBox(height: 16),
+            _buildOptionTile('Whisper Tiny', 'Mais rápido, menos preciso'),
+            _buildOptionTile('Whisper Base', 'Equilibrado', isSelected: true),
+            _buildOptionTile('Whisper Large', 'Mais preciso, mais lento'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showQualitySelector(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Qualidade de Gravação',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
               ),
             ),
+            const SizedBox(height: 16),
+            _buildOptionTile('Baixa', '64 kbps'),
+            _buildOptionTile('Média', '96 kbps'),
+            _buildOptionTile('Alta', '128 kbps', isSelected: true),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showClearCacheDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text(
+          'Limpar Cache?',
+          style: TextStyle(color: AppColors.textPrimary),
+        ),
+        content: const Text(
+          'Isso irá remover arquivos temporários.',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Cache limpo!')),
+              );
+            },
+            child: const Text('Limpar'),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildOptionTile(String title, String subtitle, {bool isSelected = false}) {
+    return ListTile(
+      title: Text(
+        title,
+        style: const TextStyle(
+          color: AppColors.textPrimary,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: const TextStyle(color: AppColors.textTertiary),
+      ),
+      trailing: isSelected
+          ? const Icon(Icons.check_circle, color: AppColors.primaryAccent)
+          : null,
+      onTap: () {},
     );
   }
 }

@@ -1,9 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-// Add permission_handler for microphone/storage permissions
 import 'package:permission_handler/permission_handler.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/haptic_utils.dart';
 import '../../injection_container.dart';
@@ -23,13 +24,13 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
   Timer? _timer;
   late final AnimationController _pulseController;
   late final Animation<double> _pulseAnimation;
+  bool _hasPermission = false;
 
   @override
   void initState() {
     super.initState();
-    // Create BLoC from getIt (no parameters needed)
     _recordingBloc = getIt<RecordingBloc>();
-    
+
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
@@ -37,27 +38,41 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
-    
-    // Request permissions on init
-    _requestPermissions();
+
+    // Check permissions on init
+    _checkPermissions();
   }
 
-  Future<void> _requestPermissions() async {
-    // Request microphone permission
-    final micStatus = await Permission.microphone.request();
+  Future<void> _checkPermissions() async {
+    final micStatus = await Permission.microphone.status;
     if (micStatus.isGranted) {
-      print('Permissions: Microphone granted');
-    } else {
-      print('Permissions: Microphone denied - $micStatus');
+      setState(() => _hasPermission = true);
+    }
+  }
+
+  Future<bool> _requestPermissions() async {
+    // Request microphone permission
+    var micStatus = await Permission.microphone.request();
+    if (micStatus.isPermanentlyDenied) {
+      await openAppSettings();
+      return false;
     }
     
-    // Request storage permission (for saving recordings)
-    final storageStatus = await Permission.storage.request();
-    if (storageStatus.isGranted) {
-      print('Permissions: Storage granted');
-    } else {
-      print('Permissions: Storage denied - $storageStatus');
+    // For Android 13+, we need to request audio permission specifically
+    if (Platform.isAndroid) {
+      // Request storage permissions for older Android versions
+      if (await Permission.storage.isGranted == false) {
+        await Permission.storage.request();
+      }
+      // For Android 13+ (READ_MEDIA_AUDIO)
+      if (await Permission.audio.isGranted == false) {
+        await Permission.audio.request();
+      }
     }
+    
+    final hasPermission = await Permission.microphone.isGranted;
+    setState(() => _hasPermission = hasPermission);
+    return hasPermission;
   }
 
   @override
@@ -68,7 +83,21 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
     super.dispose();
   }
 
-  void _startRecording() {
+  Future<void> _startRecording() async {
+    // Request permissions first
+    final hasPermission = await _requestPermissions();
+    if (!hasPermission) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Permissão do microfone necessária!'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+      return;
+    }
+
     _recordingBloc.add(StartRecording());
     _pulseController.repeat(reverse: true);
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -97,11 +126,28 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
     HapticUtils.mediumImpact();
   }
 
-  void _stopRecording() {
+  Future<void> _stopRecording() async {
     _recordingBloc.add(StopRecording());
     _timer?.cancel();
     _pulseController.stop();
     HapticUtils.heavyImpact();
+
+    // Show saved message
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Gravação salva com sucesso!'),
+          backgroundColor: AppColors.success,
+          action: SnackBarAction(
+            label: 'Ver',
+            textColor: Colors.white,
+            onPressed: () {
+              // Navigate to library
+            },
+          ),
+        ),
+      );
+    }
   }
 
   String _formatDuration(Duration duration) {
@@ -138,6 +184,25 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
                           ),
                         ),
                         const Spacer(),
+                        if (!_hasPermission)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: AppColors.warning.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.warning_amber, color: AppColors.warning, size: 16),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Sem permissão',
+                                  style: TextStyle(color: AppColors.warning, fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
                         if (isRecording)
                           _buildLiveIndicator(),
                       ],
@@ -198,19 +263,12 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.error, width: 1),
       ),
-      child: Row(
+      child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: const BoxDecoration(
-              color: AppColors.error,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 6),
-          const Text(
+          Icon(Icons.fiber_manual_record, color: AppColors.error, size: 12),
+          SizedBox(width: 6),
+          Text(
             'AO VIVO',
             style: TextStyle(
               color: AppColors.error,
@@ -367,10 +425,12 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
   }
 
   String _getStatusText(bool isRecording, bool isPaused, RecordingState state) {
+    if (!_hasPermission) {
+      return 'Toque para permitir e gravar';
+    }
     if (!isRecording) {
-      // Check for error states
       if (state is RecordingError) {
-        return 'Erro: ${state.message}';
+        return 'Erro: ${state.errorMessage}';
       }
       return 'Toque para começar a gravar';
     }
