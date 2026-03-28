@@ -39,18 +39,13 @@ if (-not (Test-Path "whisper.cpp")) {
     git clone --depth 1 https://github.com/ggerganov/whisper.cpp.git
 }
 
-# Clone llama.cpp
-if (-not (Test-Path "llama.cpp")) {
-    git clone --depth 1 https://github.com/ggerganov/llama.cpp.git
-}
-
 # Build Whisper for ARM64
 Write-Host "Building Whisper ARM64..."
 Set-Location "$BUILD_DIR\whisper.cpp"
 New-Item -ItemType Directory -Force -Path build | Out-Null
 Set-Location build
 
-cmake .. -G "Ninja" -DCMAKE_TOOLCHAIN_FILE="$NDKHome\build\cmake\android.toolchain.cmake" -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-24 -DBUILD_SHARED_LIBS=ON -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=OFF
+cmake .. -G "Ninja" -DCMAKE_TOOLCHAIN_FILE="$NDKHome\build\cmake\android.toolchain.cmake" -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-24 -DBUILD_SHARED_LIBS=ON -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=OFF -DWHISPER_BUILD_SERVER=OFF
 cmake --build . -- -j4
 
 Copy-Item "src\libwhisper.so" "$CPP_DIR\libwhisper-arm64-v8a.so"
@@ -62,30 +57,36 @@ Remove-Item -Recurse -Force build
 New-Item -ItemType Directory -Force -Path build | Out-Null
 Set-Location build
 
-cmake .. -G "Ninja" -DCMAKE_TOOLCHAIN_FILE="$NDKHome\build\cmake\android.toolchain.cmake" -DANDROID_ABI=x86_64 -DANDROID_PLATFORM=android-24 -DBUILD_SHARED_LIBS=ON -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=OFF
+cmake .. -G "Ninja" -DCMAKE_TOOLCHAIN_FILE="$NDKHome\build\cmake\android.toolchain.cmake" -DANDROID_ABI=x86_64 -DANDROID_PLATFORM=android-24 -DBUILD_SHARED_LIBS=ON -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=OFF -DWHISPER_BUILD_SERVER=OFF
 cmake --build . -- -j4
 
 Copy-Item "src\libwhisper.so" "$CPP_DIR\libwhisper-x86_64.so"
 Write-Host "Done: libwhisper-x86_64.so"
 
-# Build Llama for ARM64
+# Clone llama.cpp for ggml only (not building llama examples)
+if (-not (Test-Path "llama.cpp")) {
+    git clone --depth 1 https://github.com/ggerganov/llama.cpp.git
+}
+
+# Build GGML library (needed for whisper)
+Write-Host "Building GGML for ARM64..."
 Set-Location "$BUILD_DIR\llama.cpp"
 New-Item -ItemType Directory -Force -Path build | Out-Null
 Set-Location build
 
-cmake .. -G "Ninja" -DCMAKE_TOOLCHAIN_FILE="$NDKHome\build\cmake\android.toolchain.cmake" -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-24 -DBUILD_SHARED_LIBS=ON -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF
+cmake .. -G "Ninja" -DCMAKE_TOOLCHAIN_FILE="$NDKHome\build\cmake\android.toolchain.cmake" -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-24 -DBUILD_SHARED_LIBS=ON -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_SERVER=OFF
 cmake --build . -- -j4
 
 Copy-Item "src\libllama.so" "$CPP_DIR\libllama-arm64-v8a.so"
 Write-Host "Done: libllama-arm64-v8a.so"
 
-# Build Llama for x86_64
+# Build GGML for x86_64
 Set-Location ".."
 Remove-Item -Recurse -Force build
 New-Item -ItemType Directory -Force -Path build | Out-Null
 Set-Location build
 
-cmake .. -G "Ninja" -DCMAKE_TOOLCHAIN_FILE="$NDKHome\build\cmake\android.toolchain.cmake" -DANDROID_ABI=x86_64 -DANDROID_PLATFORM=android-24 -DBUILD_SHARED_LIBS=ON -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF
+cmake .. -G "Ninja" -DCMAKE_TOOLCHAIN_FILE="$NDKHome\build\cmake\android.toolchain.cmake" -DANDROID_ABI=x86_64 -DANDROID_PLATFORM=android-24 -DBUILD_SHARED_LIBS=ON -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_SERVER=OFF
 cmake --build . -- -j4
 
 Copy-Item "src\libllama.so" "$CPP_DIR\libllama-x86_64.so"
