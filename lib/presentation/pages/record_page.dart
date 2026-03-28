@@ -1,191 +1,358 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter/services.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/haptic_utils.dart';
-import '../../domain/entities/recording.dart';
-import '../blocs/recording/recording_bloc.dart';
-import '../blocs/recording/recording_event.dart';
-import '../blocs/recording/recording_state.dart';
 
-class RecordPage extends StatelessWidget {
+class RecordPage extends StatefulWidget {
   const RecordPage({super.key});
+
+  @override
+  State<RecordPage> createState() => _RecordPageState();
+}
+
+class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateMixin {
+  bool _isRecording = false;
+  bool _isPaused = false;
+  Duration _recordingDuration = Duration.zero;
+  Timer? _timer;
+  late final AnimationController _pulseController;
+  late final Animation<double> _pulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  void _startRecording() {
+    setState(() {
+      _isRecording = true;
+      _isPaused = false;
+    });
+    _pulseController.repeat(reverse: true);
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      setState(() {
+        _recordingDuration += const Duration(seconds: 1);
+      });
+    });
+    HapticUtils.mediumImpact();
+  }
+
+  void _pauseRecording() {
+    setState(() {
+      _isPaused = true;
+    });
+    _timer?.cancel();
+    _pulseController.stop();
+    HapticUtils.lightImpact();
+  }
+
+  void _resumeRecording() {
+    setState(() {
+      _isPaused = false;
+    });
+    _pulseController.repeat(reverse: true);
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      setState(() {
+        _recordingDuration += const Duration(seconds: 1);
+      });
+    });
+    HapticUtils.mediumImpact();
+  }
+
+  void _stopRecording() {
+    _timer?.cancel();
+    _pulseController.stop();
+    setState(() {
+      _isRecording = false;
+      _isPaused = false;
+    });
+    HapticUtils.heavyImpact();
+    
+    // Show success
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Gravação salva!'),
+        backgroundColor: AppColors.primaryAccent,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  String _formatDuration(Duration duration) {
+    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.backgroundPrimary,
-      appBar: AppBar(
-        title: const Text('PrivaVoice'),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            onPressed: () {},
-          ),
-        ],
-      ),
-      body: BlocBuilder<RecordingBloc, RecordingState>(
-        builder: (context, state) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Recording indicator
-                _buildRecordingIndicator(state.recording.status),
-                const SizedBox(height: 32),
-                // Duration display
-                Text(
-                  _formatDuration(state.recording.duration),
-                  style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                    fontFamily: 'RobotoMono',
-                    color: AppColors.textPrimary,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Row(
+                children: [
+                  const Text(
+                    'Nova Gravação',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                // Amplitude visualization
-                _buildAmplitudeVisualizer(state.recording.amplitude),
-                const SizedBox(height: 48),
-                // Recording controls
-                _buildRecordingControls(context, state.recording.status),
-                const SizedBox(height: 24),
-                // Status text
-                Text(
-                  _getStatusText(state.recording.status),
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
+                  const Spacer(),
+                  if (_isRecording)
+                    _buildLiveIndicator(),
+                ],
+              ),
             ),
-          );
-        },
+            
+            const Spacer(),
+            
+            // Recording Visualizer
+            _buildRecordingVisualizer(),
+            
+            const SizedBox(height: 40),
+            
+            // Timer Display
+            Text(
+              _formatDuration(_recordingDuration),
+              style: const TextStyle(
+                fontSize: 48,
+                fontWeight: FontWeight.w300,
+                color: AppColors.textPrimary,
+                letterSpacing: 4,
+              ),
+            ),
+            
+            const SizedBox(height: 8),
+            
+            // Status Text
+            Text(
+              _getStatusText(),
+              style: TextStyle(
+                fontSize: 16,
+                color: _isRecording 
+                    ? (_isPaused ? AppColors.tertiaryAccent : AppColors.primaryAccent)
+                    : AppColors.textTertiary,
+              ),
+            ),
+            
+            const Spacer(),
+            
+            // Controls
+            _buildControls(),
+            
+            const SizedBox(height: 40),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildRecordingIndicator(RecordingStatus status) {
-    if (status != RecordingStatus.recording) {
-      return Container(
-        width: 120,
-        height: 120,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: AppColors.surface,
-          border: Border.all(color: AppColors.surfaceVariant, width: 3),
-        ),
-        child: const Icon(Icons.mic, size: 60, color: AppColors.textSecondary),
-      );
-    }
-    
+  Widget _buildLiveIndicator() {
     return Container(
-      width: 120,
-      height: 120,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: AppColors.primaryGradient,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primaryAccent.withOpacity(0.5),
-            blurRadius: 30,
-            spreadRadius: 5,
+        color: AppColors.error.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.error, width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              color: AppColors.error,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          const Text(
+            'AO VIVO',
+            style: TextStyle(
+              color: AppColors.error,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),
-      child: const Icon(Icons.mic, size: 60, color: AppColors.backgroundPrimary),
     );
   }
 
-  Widget _buildAmplitudeVisualizer(double? amplitude) {
-    final normalizedAmplitude = ((amplitude ?? -160) + 160) / 160;
-    return Container(
-      width: 200,
-      height: 60,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        color: AppColors.surface,
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          FractionallySizedBox(
-            widthFactor: normalizedAmplitude.clamp(0.0, 1.0),
+  Widget _buildRecordingVisualizer() {
+    return AnimatedBuilder(
+      animation: _pulseAnimation,
+      builder: (context, child) {
+        return Container(
+          width: 200,
+          height: 200,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: _isRecording 
+                ? RadialGradient(
+                    colors: [
+                      AppColors.primaryAccent.withOpacity(0.3 * _pulseAnimation.value),
+                      AppColors.primaryAccent.withOpacity(0.1 * _pulseAnimation.value),
+                      Colors.transparent,
+                    ],
+                  )
+                : null,
+            color: _isRecording ? null : AppColors.surface,
+            border: Border.all(
+              color: _isRecording 
+                  ? AppColors.primaryAccent.withOpacity(0.5)
+                  : AppColors.surfaceVariant,
+              width: 2,
+            ),
+            boxShadow: _isRecording ? [
+              BoxShadow(
+                color: AppColors.primaryAccent.withOpacity(0.3),
+                blurRadius: 30 * _pulseAnimation.value,
+                spreadRadius: 10 * _pulseAnimation.value,
+              ),
+            ] : null,
+          ),
+          child: Center(
             child: Container(
+              width: 160,
+              height: 160,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(30),
-                gradient: AppColors.primaryGradient,
+                shape: BoxShape.circle,
+                color: _isRecording ? AppColors.primaryAccent : AppColors.surface,
+              ),
+              child: Icon(
+                _isRecording 
+                    ? (_isPaused ? Icons.pause : Icons.mic)
+                    : Icons.mic_none,
+                size: 64,
+                color: _isRecording 
+                    ? AppColors.backgroundPrimary 
+                    : AppColors.textTertiary,
               ),
             ),
           ),
-          const Text('音量', style: TextStyle(color: AppColors.textTertiary)),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildRecordingControls(BuildContext context, RecordingStatus status) {
+  Widget _buildControls() {
+    if (!_isRecording) {
+      // Start Recording Button
+      return GestureDetector(
+        onTap: _startRecording,
+        child: Container(
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: AppColors.primaryGradient,
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primaryAccent.withOpacity(0.4),
+                blurRadius: 20,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.mic,
+            color: AppColors.backgroundPrimary,
+            size: 36,
+          ),
+        ),
+      );
+    }
+
+    // Recording Controls
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        if (status == RecordingStatus.recording || status == RecordingStatus.paused)
-          IconButton(
-            onPressed: () {
-              HapticUtils.mediumImpact();
-              context.read<RecordingBloc>().add(StopRecording());
-            },
-            icon: Container(
-              width: 72,
-              height: 72,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.error,
-              ),
-              child: const Icon(Icons.stop, size: 36, color: AppColors.textPrimary),
-            ),
-          )
-        else
-          IconButton(
-            onPressed: () {
-              HapticUtils.heavyImpact();
-              context.read<RecordingBloc>().add(StartRecording());
-            },
-            icon: Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: AppColors.primaryGradient,
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primaryAccent.withOpacity(0.4),
-                    blurRadius: 20,
-                    spreadRadius: 2,
-                  ),
-                ],
-              ),
-              child: const Icon(Icons.mic, size: 40, color: AppColors.backgroundPrimary),
-            ),
-          ),
+        // Cancel Button
+        _buildControlButton(
+          icon: Icons.close,
+          onTap: () {
+            setState(() {
+              _isRecording = false;
+              _isPaused = false;
+              _recordingDuration = Duration.zero;
+            });
+            _timer?.cancel();
+            _pulseController.stop();
+          },
+          color: AppColors.textTertiary,
+        ),
+        
+        const SizedBox(width: 32),
+        
+        // Pause/Resume Button
+        _buildControlButton(
+          icon: _isPaused ? Icons.play_arrow : Icons.pause,
+          onTap: _isPaused ? _resumeRecording : _pauseRecording,
+          color: AppColors.secondaryAccent,
+          isLarge: true,
+        ),
+        
+        const SizedBox(width: 32),
+        
+        // Stop Button
+        _buildControlButton(
+          icon: Icons.stop,
+          onTap: _stopRecording,
+          color: AppColors.error,
+        ),
       ],
     );
   }
 
-  String _formatDuration(Duration? duration) {
-    final d = duration ?? Duration.zero;
-    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
+  Widget _buildControlButton({
+    required IconData icon,
+    required VoidCallback onTap,
+    required Color color,
+    bool isLarge = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: isLarge ? 72 : 56,
+        height: isLarge ? 72 : 56,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: AppColors.surface,
+          border: Border.all(color: color, width: 2),
+        ),
+        child: Icon(icon, color: color, size: isLarge ? 32 : 24),
+      ),
+    );
   }
 
-  String _getStatusText(RecordingStatus status) {
-    switch (status) {
-      case RecordingStatus.idle:
-        return 'Toque para gravar';
-      case RecordingStatus.recording:
-        return 'Gravando...';
-      case RecordingStatus.paused:
-        return 'Pausado';
-      case RecordingStatus.processing:
-        return 'Processando...';
-    }
+  String _getStatusText() {
+    if (!_isRecording) return 'Toque para começar a gravar';
+    if (_isPaused) return 'Gravação pausada';
+    return 'Gravando...';
   }
 }
