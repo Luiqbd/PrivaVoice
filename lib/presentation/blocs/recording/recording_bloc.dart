@@ -79,7 +79,7 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
         await HapticUtils.heavyImpact();
       }
     } catch (e) {
-      emit(RecordingError(message: e.toString(), recording: state.recording));
+      emit(RecordingError(errorMessage: e.toString(), recording: state.recording));
     }
   }
 
@@ -101,7 +101,7 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
 
       await HapticUtils.mediumImpact();
     } catch (e) {
-      emit(RecordingError(message: e.toString(), recording: state.recording));
+      emit(RecordingError(errorMessage: e.toString(), recording: state.recording));
     }
   }
 
