@@ -1,17 +1,40 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../blocs/transcription/transcription_state.dart';
+import '../blocs/transcription/transcription_event.dart';
 import '../../core/theme/app_colors.dart';
 import '../../injection_container.dart';
 import '../blocs/transcription/transcription_bloc.dart';
+import '../widgets/transcription_card.dart';
 
-class LibraryPage extends StatelessWidget {
+class LibraryPage extends StatefulWidget {
   const LibraryPage({super.key});
 
   @override
+  State<LibraryPage> createState() => _LibraryPageState();
+}
+
+class _LibraryPageState extends State<LibraryPage> {
+  late TranscriptionBloc _transcriptionBloc;
+
+  @override
+  void initState() {
+    super.initState();
+    _transcriptionBloc = getIt<TranscriptionBloc>();
+    // Load transcriptions when page opens
+    _transcriptionBloc.add(LoadTranscriptions());
+  }
+
+  @override
+  void dispose() {
+    _transcriptionBloc.close();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => getIt<TranscriptionBloc>(),
+    return BlocProvider.value(
+      value: _transcriptionBloc,
       child: Scaffold(
         backgroundColor: AppColors.backgroundPrimary,
         body: SafeArea(
@@ -51,11 +74,11 @@ class LibraryPage extends StatelessWidget {
                 ),
               ),
 
-              // List
+              // Content
               Expanded(
                 child: BlocBuilder<TranscriptionBloc, TranscriptionState>(
                   builder: (context, state) {
-                    if (state is TranscriptionLoading) {
+                    if (state.status == TranscriptionStatus.loading) {
                       return const Center(
                         child: CircularProgressIndicator(
                           color: AppColors.primaryAccent,
@@ -63,36 +86,21 @@ class LibraryPage extends StatelessWidget {
                       );
                     }
 
-                    final items = state.transcriptions;
-                    if (items.isEmpty) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.mic_none,
-                              size: 64,
-                              color: AppColors.textTertiary,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Nenhuma gravação',
-                              style: TextStyle(
-                                color: AppColors.textTertiary,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
+                    if (state.transcriptions.isEmpty) {
+                      return _buildEmptyState();
                     }
 
                     return ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      itemCount: items.length,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: state.transcriptions.length,
                       itemBuilder: (context, index) {
-                        final item = items[index];
-                        return _buildRecordingItem(item);
+                        final transcription = state.transcriptions[index];
+                        return TranscriptionCard(
+                          transcription: transcription,
+                          onTap: () {
+                            // Navigate to detail
+                          },
+                        );
                       },
                     );
                   },
@@ -105,66 +113,43 @@ class LibraryPage extends StatelessWidget {
     );
   }
 
-  Widget _buildRecordingItem(dynamic item) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 48,
-            height: 48,
+            width: 80,
+            height: 80,
             decoration: BoxDecoration(
-              color: AppColors.primaryAccent.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
+              shape: BoxShape.circle,
+              color: AppColors.surface,
             ),
             child: const Icon(
-              Icons.mic,
-              color: AppColors.primaryAccent,
+              Icons.mic_none,
+              size: 40,
+              color: AppColors.textTertiary,
             ),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.title ?? 'Gravação',
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _formatDuration(item.duration ?? Duration.zero),
-                  style: TextStyle(
-                    color: AppColors.textTertiary,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
+          const SizedBox(height: 24),
+          const Text(
+            'Nenhuma gravação',
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
             ),
           ),
-          Icon(
-            item.hasTranscription ? Icons.check_circle : Icons.mic_none,
-            color: item.hasTranscription 
-                ? AppColors.primaryAccent 
-                : AppColors.textTertiary,
+          const SizedBox(height: 8),
+          const Text(
+            'Suas gravações aparecerão aqui',
+            style: TextStyle(
+              color: AppColors.textTertiary,
+              fontSize: 16,
+            ),
           ),
         ],
       ),
     );
-  }
-
-  String _formatDuration(Duration duration) {
-    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
   }
 }
