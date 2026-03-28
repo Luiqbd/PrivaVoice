@@ -14,6 +14,7 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
   Timer? _amplitudeTimer;
   Timer? _durationTimer;
   DateTime? _startTime;
+  String? _currentFilePath;
 
   RecordingBloc() : super(RecordingState.initial()) {
     on<StartRecording>(_onStartRecording);
@@ -32,7 +33,7 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
     try {
       if (await _recorder.hasPermission()) {
         final directory = await getApplicationDocumentsDirectory();
-        final filePath = '${directory.path}/recordings/${const Uuid().v4()}.m4a';
+        _currentFilePath = '${directory.path}/recordings/${const Uuid().v4()}.m4a';
 
         // Create recordings directory
         await Directory('${directory.path}/recordings').create(recursive: true);
@@ -43,21 +44,19 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
             bitRate: 128000,
             sampleRate: 44100,
           ),
-          path: filePath,
+          path: _currentFilePath,
         );
 
         _startTime = DateTime.now();
         
-        // Emit RecordingInProgress state
         final newRecording = Recording(
           id: const Uuid().v4(),
           status: RecordingStatus.recording,
-          filePath: filePath,
+          filePath: _currentFilePath,
           startedAt: _startTime,
         );
         emit(RecordingInProgress(recording: newRecording));
 
-        // Start amplitude monitoring
         _amplitudeTimer = Timer.periodic(
           const Duration(milliseconds: 100),
           (_) async {
@@ -66,7 +65,6 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
           },
         );
 
-        // Start duration timer
         _durationTimer = Timer.periodic(
           const Duration(seconds: 1),
           (_) {
@@ -97,8 +95,20 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
         status: RecordingStatus.idle,
         filePath: path,
       );
-      emit(RecordingState(recording: stoppedRecording));
+      
+      // Save the recording path in a temp var before emitting new state
+      final savedPath = path;
+      final savedDuration = state.recording.duration;
+      
+      emit(RecordingState(
+        recording: stoppedRecording,
+        isProcessing: true,  // Mark as processing for AI
+      ));
 
+      // TODO: Call AI to process the audio here
+      // For now just show saved
+      print('Recording saved to: $savedPath');
+      
       await HapticUtils.mediumImpact();
     } catch (e) {
       emit(RecordingError(errorMessage: e.toString(), recording: state.recording));
@@ -171,7 +181,7 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
       emit(RecordingPaused(recording: updated));
     }
   }
-  
+
   Future<void> _onCancelRecording(
     CancelRecording event,
     Emitter<RecordingState> emit,
@@ -179,6 +189,7 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
     _amplitudeTimer?.cancel();
     _durationTimer?.cancel();
     await _recorder.stop();
+    _currentFilePath = null;
     emit(RecordingState.initial());
   }
 
