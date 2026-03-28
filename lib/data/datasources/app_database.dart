@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
+import 'dart:io';
 
 class TranscriptionData {
   final String id;
@@ -61,6 +62,7 @@ class TranscriptionData {
 
 class AppDatabase {
   static Database? _database;
+  static const String _dbName = 'privavoice.db';
 
   static Future<Database> get database async {
     if (_database != null) return _database!;
@@ -69,33 +71,51 @@ class AppDatabase {
   }
 
   static Future<Database> _initDatabase() async {
+    debugPrint('AppDatabase: Initializing database...');
+    
+    // Initialize FFI
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
-    final documentsDirectory = await getApplicationDocumentsDirectory();
-    final path = p.join(documentsDirectory.path, 'privavoice.db');
-
-    debugPrint('AppDatabase: Opening database at $path');
+    
+    // Get proper documents directory (persistent storage)
+    final directory = await getApplicationDocumentsDirectory();
+    final dbPath = p.join(directory.path, 'databases', _dbName);
+    
+    // Create databases directory if needed
+    final dbDir = Directory(p.dirname(dbPath));
+    if (!await dbDir.exists()) {
+      await dbDir.create(recursive: true);
+    }
+    
+    debugPrint('AppDatabase: Database path = $dbPath');
 
     return await openDatabase(
-      path,
+      dbPath,
       version: 1,
       onCreate: (db, version) async {
+        debugPrint('AppDatabase: Creating table...');
         await db.execute('''
-          CREATE TABLE transcriptions(
+          CREATE TABLE IF NOT EXISTS transcriptions(
             id TEXT PRIMARY KEY,
             title TEXT NOT NULL,
             audioPath TEXT NOT NULL,
-            text TEXT NOT NULL,
-            wordTimestampsJson TEXT NOT NULL,
+            text TEXT NOT NULL DEFAULT '',
+            wordTimestampsJson TEXT NOT NULL DEFAULT '[]',
             createdAt INTEGER NOT NULL,
-            durationMs INTEGER NOT NULL,
-            isEncrypted INTEGER NOT NULL DEFAULT 1,
+            durationMs INTEGER NOT NULL DEFAULT 0,
+            isEncrypted INTEGER NOT NULL DEFAULT 0,
             speakerSegmentsJson TEXT,
             summary TEXT,
             actionItemsJson TEXT
           )
         ''');
-        debugPrint('AppDatabase: Table created!');
+        debugPrint('AppDatabase: Table created successfully!');
+      },
+      onOpen: (db) async {
+        debugPrint('AppDatabase: Database opened!');
+        // Verify table exists
+        final result = await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='transcriptions'");
+        debugPrint('AppDatabase: Tables = $result');
       },
     );
   }
@@ -103,11 +123,17 @@ class AppDatabase {
   static Future<List<TranscriptionData>> getAllTranscriptions() async {
     final db = await database;
     debugPrint('AppDatabase: Fetching all transcriptions...');
+    
     final List<Map<String, dynamic>> maps = await db.query(
       'transcriptions',
       orderBy: 'createdAt DESC',
     );
-    debugPrint('AppDatabase: Found ${maps.length} transcriptions');
+    
+    debugPrint('AppDatabase: Found ${maps.length} records');
+    if (maps.isNotEmpty) {
+      debugPrint('AppDatabase: First record = ${maps.first}');
+    }
+    
     return maps.map((map) => TranscriptionData.fromMap(map)).toList();
   }
 
@@ -124,10 +150,28 @@ class AppDatabase {
 
   static Future<void> insertTranscription(TranscriptionData data) async {
     final db = await database;
-    debugPrint('AppDatabase: Inserting transcription: ${data.title}');
-    debugPrint('AppDatabase: Audio path: ${data.audioPath}');
-    await db.insert('transcriptions', data.toMap());
-    debugPrint('AppDatabase: Insert complete!');
+    debugPrint('AppDatabase: Inserting: id=${data.id}, title=${data.title}');
+    debugPrint('AppDatabase: audioPath=${data.audioPath}');
+    
+    try {
+      await db.insert(
+        'transcriptions',
+        data.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      debugPrint('AppDatabase: Insert successful!');
+      
+      // Verify insert
+      final result = await db.query(
+        'transcriptions',
+        where: 'id = ?',
+        whereArgs: [data.id],
+      );
+      debugPrint('AppDatabase: Verify insert = ${result.length} records');
+    } catch (e) {
+      debugPrint('AppDatabase: Insert error = $e');
+      rethrow;
+    }
   }
 
   static Future<void> updateTranscription(TranscriptionData data) async {
@@ -138,14 +182,17 @@ class AppDatabase {
       where: 'id = ?',
       whereArgs: [data.id],
     );
+    debugPrint('AppDatabase: Update successful!');
   }
 
   static Future<int> deleteTranscription(String id) async {
     final db = await database;
-    return await db.delete(
+    final result = await db.delete(
       'transcriptions',
       where: 'id = ?',
       whereArgs: [id],
     );
+    debugPrint('AppDatabase: Delete result = $result');
+    return result;
   }
 }
