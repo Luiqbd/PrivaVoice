@@ -1,5 +1,4 @@
 import 'dart:async';
-import '../../../domain/entities/recording.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -9,7 +8,8 @@ import 'package:uuid/uuid.dart';
 import '../../../core/utils/haptic_utils.dart';
 import '../../../domain/entities/recording.dart';
 import '../../../domain/entities/transcription.dart';
-import '../../../data/repositories/transcription_repository_impl.dart';
+import '../../../data/models/transcription_model.dart';
+import '../../../data/datasources/app_database.dart';
 import 'recording_event.dart';
 import 'recording_state.dart';
 
@@ -20,7 +20,6 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
   DateTime? _startTime;
   String? _currentFilePath;
   bool _isRecording = false;
-  final TranscriptionRepositoryImpl _repository = TranscriptionRepositoryImpl();
 
   RecordingBloc() : super(RecordingState.initial()) {
     on<StartRecording>(_onStartRecording);
@@ -43,6 +42,7 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
       debugPrint('RecordingBloc: Has permission = $hasPermission');
       
       if (!hasPermission) {
+        debugPrint('RecordingBloc: No permission!');
         emit(RecordingError(
           errorMessage: 'Permissão do microfone negada',
           recording: state.recording,
@@ -55,7 +55,7 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
       
       if (!await recordingsDir.exists()) {
         await recordingsDir.create(recursive: true);
-        debugPrint('RecordingBloc: Created directory');
+        debugPrint('RecordingBloc: Created directory: ${recordingsDir.path}');
       }
       
       final filename = '${const Uuid().v4()}.m4a';
@@ -147,11 +147,12 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
             filePath: path,
           );
           emit(RecordingState(recording: stoppedRecording));
-          
-          // Save to database for library
-          await _saveRecordingToLibrary(path, state.recording.duration ?? Duration.zero);
+
+          // Save to database
+          await _saveToDatabase(path, state.recording.duration ?? Duration.zero);
           
           await HapticUtils.mediumImpact();
+          debugPrint('RecordingBloc: All done!');
         } else {
           emit(RecordingError(
             errorMessage: 'Arquivo vazio',
@@ -170,23 +171,29 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
     }
   }
 
-  Future<void> _saveRecordingToLibrary(String path, Duration duration) async {
+  Future<void> _saveToDatabase(String audioPath, Duration duration) async {
     try {
-      final transcription = Transcription(
-        id: const Uuid().v4(),
-        title: 'Gravação ${DateTime.now().toString().substring(0, 16)}',
-        audioPath: path,
-        text: '',
-        wordTimestamps: [],
-        createdAt: DateTime.now(),
-        duration: duration,
-        isEncrypted: false,
-      );
+      debugPrint('RecordingBloc: Saving to database...');
       
-      await _repository.saveTranscription(transcription);
-      debugPrint('RecordingBloc: Saved to library!');
+      final now = DateTime.now();
+      final transcriptionData = TranscriptionData(
+        id: const Uuid().v4(),
+        title: 'Gravação ${now.day}/${now.month} ${now.hour}:${now.minute.toString().padLeft(2, '0')}',
+        audioPath: audioPath,
+        text: '',
+        wordTimestampsJson: '[]',
+        createdAt: now,
+        durationMs: duration.inMilliseconds,
+        isEncrypted: false,
+        speakerSegmentsJson: null,
+        summary: null,
+        actionItemsJson: null,
+      );
+
+      await AppDatabase.insertTranscription(transcriptionData);
+      debugPrint('RecordingBloc: Saved to database successfully!');
     } catch (e) {
-      debugPrint('RecordingBloc: Error saving to library: $e');
+      debugPrint('RecordingBloc: Database error: $e');
     }
   }
 
