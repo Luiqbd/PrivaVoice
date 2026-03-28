@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import "../../injection_container.dart";
 import 'package:get_it/get_it.dart';
 import '../../core/theme/app_colors.dart';
 import '../../domain/entities/transcription.dart';
