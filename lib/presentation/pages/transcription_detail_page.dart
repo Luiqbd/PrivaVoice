@@ -4,6 +4,8 @@ import '../../core/theme/app_colors.dart';
 import '../../domain/entities/transcription.dart';
 import '../../injection_container.dart';
 import '../blocs/transcription/transcription_bloc.dart';
+import '../blocs/transcription/transcription_event.dart';
+import '../blocs/transcription/transcription_state.dart';
 import '../widgets/speaker_avatar.dart';
 
 class TranscriptionDetailPage extends StatelessWidget {
@@ -17,142 +19,130 @@ class TranscriptionDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => getIt<TranscriptionBloc>()..add(SelectTranscription(transcriptionId))),
+      create: (_) => getIt<TranscriptionBloc>()..add(SelectTranscription(transcriptionId)),
       child: Scaffold(
         backgroundColor: AppColors.backgroundPrimary,
-        body: SafeArea(
-          child: BlocBuilder<TranscriptionBloc, TranscriptionState>(
-            builder: (context, state) {
-              if (state.selectedTranscription == null) {
-                return const Center(
-                  child: CircularProgressIndicator(color: AppColors.primaryAccent),
-                );
-              }
-              
-              final transcription = state.selectedTranscription!;
-              return _buildContent(context, transcription, state);
-            },
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildContent(BuildContext context, Transcription transcription, TranscriptionState state) {
-    return CustomScrollView(
-      slivers: [
-        // App Bar
-        SliverAppBar(
+        appBar: AppBar(
           backgroundColor: AppColors.backgroundPrimary,
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
             onPressed: () => Navigator.pop(context),
           ),
-          title: Text(
-            transcription.title,
-            style: const TextStyle(
+          title: const Text(
+            'Detalhes',
+            style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
           ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.share, color: AppColors.textPrimary),
-              onPressed: () {},
-            ),
-          ],
         ),
-
-        // Speakers Section (Diarization)
-        if (transcription.speakerSegments != null && transcription.speakerSegments!.isNotEmpty)
-          SliverToBoxAdapter(
-            child: _buildSpeakersSection(transcription.speakerSegments!),
-          ),
-
-        // Transcription Text
-        SliverToBoxAdapter(
-          child: _buildTranscriptionText(transcription),
-        ),
-
-        // Summary Section
-        if (transcription.summary != null)
-          SliverToBoxAdapter(
-            child: _buildSummarySection(transcription.summary!),
-          ),
-
-        // Action Items
-        if (transcription.actionItems != null && transcription.actionItems!.isNotEmpty)
-          SliverToBoxAdapter(
-            child: _buildActionItemsSection(transcription.actionItems!),
-          ),
-
-        const SliverToBoxAdapter(
-          child: SizedBox(height: 100),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSpeakersSection(List<SpeakerSegment> segments) {
-    // Get unique speakers
-    final speakers = segments.map((s) => s.speakerId).toSet().toList();
-    
-    return Container(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Locutores Identificados',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: speakers.map((speaker) {
-              return Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: Column(
-                  children: [
-                    SpeakerAvatar(
-                      speakerId: speaker,
-                      isActive: false,
-                      size: 56,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _getSpeakerName(speaker),
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
+        body: BlocBuilder<TranscriptionBloc, TranscriptionState>(
+          builder: (context, state) {
+            if (state.selectedTranscription == null) {
+              return const Center(
+                child: CircularProgressIndicator(color: AppColors.primaryAccent),
               );
-            }).toList(),
-          ),
-        ],
+            }
+            
+            final transcription = state.selectedTranscription!;
+            return _buildContent(context, transcription);
+          },
+        ),
       ),
     );
   }
 
-  String _getSpeakerName(String speakerId) {
-    final speakerNum = int.tryParse(speakerId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 1;
-    return 'Pessoa $speakerNum';
-  }
-
-  Widget _buildTranscriptionText(Transcription transcription) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+  Widget _buildContent(BuildContext context, Transcription transcription) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Title
+          Text(
+            transcription.title,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          
+          // Duration and date
+          Row(
+            children: [
+              const Icon(Icons.access_time, color: AppColors.textTertiary, size: 16),
+              const SizedBox(width: 4),
+              Text(
+                _formatDuration(transcription.duration),
+                style: const TextStyle(color: AppColors.textTertiary),
+              ),
+              const SizedBox(width: 16),
+              const Icon(Icons.calendar_today, color: AppColors.textTertiary, size: 16),
+              const SizedBox(width: 4),
+              Text(
+                _formatDate(transcription.createdAt),
+                style: const TextStyle(color: AppColors.textTertiary),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // Audio file info
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryAccent.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.audio_file,
+                    color: AppColors.primaryAccent,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Arquivo de Áudio',
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        transcription.audioPath.split('/').last,
+                        style: const TextStyle(
+                          color: AppColors.textTertiary,
+                          fontSize: 12,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Transcription text
           const Text(
             'Transcrição',
             style: TextStyle(
@@ -161,209 +151,140 @@ class TranscriptionDetailPage extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 16),
-          if (transcription.speakerSegments != null && transcription.speakerSegments!.isNotEmpty)
-            _buildDiarizedText(transcription.speakerSegments!)
-          else
-            Text(
-              transcription.text,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 16,
-                height: 1.6,
+          const SizedBox(height: 12),
+          
+          if (transcription.text.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(12),
               ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDiarizedText(List<SpeakerSegment> segments) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: segments.map((segment) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SpeakerAvatar(
-                speakerId: segment.speakerId,
-                isActive: false,
-                size: 32,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _getSpeakerName(segment.speakerId),
-                      style: const TextStyle(
-                        color: AppColors.textTertiary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      segment.text,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 16,
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _formatTime(segment.startTime),
-                      style: TextStyle(
-                        color: AppColors.textTertiary.withOpacity(0.5),
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildSummarySection(String summary) {
-    return Container(
-      margin: const EdgeInsets.only(top: 24),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryAccent.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.summarize,
-                  color: AppColors.primaryAccent,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Text(
-                'Resumo',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            summary,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 15,
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionItemsSection(List<String> actionItems) {
-    return Container(
-      margin: const EdgeInsets.only(top: 24),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.secondaryAccent.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.task_alt,
-                  color: AppColors.secondaryAccent,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Text(
-                'Ações a Fazer',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ...actionItems.asMap().entries.map((entry) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
+              child: const Row(
                 children: [
-                  Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.secondaryAccent, width: 2),
-                    ),
-                    child: Center(
-                      child: Text(
-                        '${entry.key + 1}',
-                        style: const TextStyle(
-                          color: AppColors.secondaryAccent,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
+                  Icon(Icons.info_outline, color: AppColors.textTertiary),
+                  SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      entry.value,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 15,
-                      ),
+                      'Transcrição em processamento... Toque no botão para processar com IA.',
+                      style: TextStyle(color: AppColors.textSecondary),
                     ),
                   ),
                 ],
               ),
-            );
-          }),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                transcription.text,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 15,
+                  height: 1.6,
+                ),
+              ),
+            ),
+
+          // Summary
+          if (transcription.summary != null) ...[
+            const SizedBox(height: 24),
+            const Text(
+              'Resumo',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                transcription.summary!,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 15,
+                  height: 1.5,
+                ),
+              ),
+            ),
+          ],
+
+          // Action Items
+          if (transcription.actionItems != null && transcription.actionItems!.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            const Text(
+              'Ações a Fazer',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ...transcription.actionItems!.asMap().entries.map((entry) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppColors.secondaryAccent, width: 2),
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${entry.key + 1}',
+                            style: const TextStyle(
+                              color: AppColors.secondaryAccent,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          entry.value,
+                          style: const TextStyle(color: AppColors.textSecondary),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ],
         ],
       ),
     );
   }
 
-  String _formatTime(Duration duration) {
+  String _formatDuration(Duration duration) {
     final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
     final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
     return '$minutes:$seconds';
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
   }
 }

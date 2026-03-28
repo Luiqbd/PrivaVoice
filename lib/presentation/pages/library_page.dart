@@ -6,6 +6,7 @@ import '../../core/theme/app_colors.dart';
 import '../../injection_container.dart';
 import '../blocs/transcription/transcription_bloc.dart';
 import '../widgets/transcription_card.dart';
+import 'transcription_detail_page.dart';
 
 class LibraryPage extends StatefulWidget {
   const LibraryPage({super.key});
@@ -21,7 +22,6 @@ class LibraryPageState extends State<LibraryPage> {
   void initState() {
     super.initState();
     _transcriptionBloc = getIt<TranscriptionBloc>();
-    // Load transcriptions when page opens
     _transcriptionBloc.add(LoadTranscriptions());
   }
 
@@ -31,10 +31,24 @@ class LibraryPageState extends State<LibraryPage> {
     super.dispose();
   }
 
-  // Public method to refresh library from parent
   void refreshLibrary() {
     debugPrint('LibraryPage: Refreshing...');
     _transcriptionBloc.add(LoadTranscriptions());
+  }
+
+  void _openTranscription(String id) {
+    debugPrint('LibraryPage: Opening transcription $id');
+    _transcriptionBloc.add(SelectTranscription(id));
+    
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BlocProvider.value(
+          value: _transcriptionBloc,
+          child: TranscriptionDetailPage(transcriptionId: id),
+        ),
+      ),
+    );
   }
 
   @override
@@ -61,7 +75,6 @@ class LibraryPageState extends State<LibraryPage> {
                       ),
                     ),
                     const Spacer(),
-                    // Refresh button
                     IconButton(
                       onPressed: () {
                         _transcriptionBloc.add(LoadTranscriptions());
@@ -103,9 +116,7 @@ class LibraryPageState extends State<LibraryPage> {
                           final transcription = state.transcriptions[index];
                           return TranscriptionCard(
                             transcription: transcription,
-                            onTap: () {
-                              // Navigate to detail
-                            },
+                            onTap: () => _openTranscription(transcription.id),
                           );
                         },
                       ),
