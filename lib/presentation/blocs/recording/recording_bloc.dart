@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'dart:io';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:path_provider/path_provider.dart';
@@ -27,40 +28,39 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
     on<CancelRecording>(_onCancelRecording);
   }
 
-  bool get isRecording => _isRecording;
-
   Future<void> _onStartRecording(
     StartRecording event,
     Emitter<RecordingState> emit,
   ) async {
     try {
-      print('RecordingBloc: Starting recording...');
+      debugPrint('RecordingBloc: Starting...');
       
-      // Check permission
+      // Check permission first
       final hasPermission = await _recorder.hasPermission();
-      print('RecordingBloc: Has permission: $hasPermission');
+      debugPrint('RecordingBloc: Has permission = $hasPermission');
       
       if (!hasPermission) {
-        print('RecordingBloc: No permission!');
         emit(RecordingError(
-          errorMessage: 'Sem permissão do microfone',
+          errorMessage: 'Permissão do microfone negada',
           recording: state.recording,
         ));
         return;
       }
 
-      // Get directory
+      // Get documents directory
       final directory = await getApplicationDocumentsDirectory();
       final recordingsDir = Directory('${directory.path}/recordings');
       
-      // Create recordings directory if not exists
+      // Create directory if not exists
       if (!await recordingsDir.exists()) {
         await recordingsDir.create(recursive: true);
-        print('RecordingBloc: Created recordings directory');
+        debugPrint('RecordingBloc: Created directory');
       }
       
-      _currentFilePath = '${recordingsDir.path}/${const Uuid().v4()}.m4a';
-      print('RecordingBloc: File path: $_currentFilePath');
+      // Generate unique filename
+      final filename = '${const Uuid().v4()}.m4a';
+      _currentFilePath = '${recordingsDir.path}/$filename';
+      debugPrint('RecordingBloc: Saving to $_currentFilePath');
 
       // Start recording
       await _recorder.start(
@@ -75,7 +75,7 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
       _isRecording = true;
       _startTime = DateTime.now();
       
-      print('RecordingBloc: Recording started!');
+      debugPrint('RecordingBloc: Recording started!');
 
       final newRecording = Recording(
         id: const Uuid().v4(),
@@ -92,10 +92,10 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
         (_) async {
           if (!_isRecording) return;
           try {
-            final amplitude = await _recorder.getAmplitude();
-            add(UpdateAmplitude(amplitude.current));
+            final amp = await _recorder.getAmplitude();
+            add(UpdateAmplitude(amp.current));
           } catch (e) {
-            print('RecordingBloc: Amplitude error: $e');
+            debugPrint('Amplitude error: $e');
           }
         },
       );
@@ -111,7 +111,7 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
 
       await HapticUtils.heavyImpact();
     } catch (e) {
-      print('RecordingBloc: Error starting: $e');
+      debugPrint('RecordingBloc: Start error: $e');
       _isRecording = false;
       emit(RecordingError(errorMessage: e.toString(), recording: state.recording));
     }
@@ -122,47 +122,50 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
     Emitter<RecordingState> emit,
   ) async {
     try {
-      print('RecordingBloc: Stopping recording...');
+      debugPrint('RecordingBloc: Stopping...');
       _isRecording = false;
       _amplitudeTimer?.cancel();
       _durationTimer?.cancel();
 
       final path = await _recorder.stop();
-      print('RecordingBloc: Stopped, path: $path');
+      debugPrint('RecordingBloc: Stopped, path = $path');
 
       if (path == null || path.isEmpty) {
-        print('RecordingBloc: ERROR - No file was recorded!');
+        debugPrint('ERROR: No file recorded!');
         emit(RecordingError(
-          errorMessage: 'Nenhum arquivo foi gravado',
+          errorMessage: 'Falha ao salvar gravação',
           recording: state.recording,
         ));
         return;
       }
 
-      // Verify file exists
+      // Verify file
       final file = File(path);
-      final exists = await file.exists();
-      print('RecordingBloc: File exists: $exists');
-      
-      if (exists) {
-        final length = await file.length();
-        print('RecordingBloc: File size: $length bytes');
+      if (await file.exists()) {
+        final size = await file.length();
+        debugPrint('RecordingBloc: File saved! Size: $size bytes');
+        
+        if (size > 0) {
+          final stoppedRecording = state.recording.copyWith(
+            status: RecordingStatus.idle,
+            filePath: path,
+          );
+          emit(RecordingState(recording: stoppedRecording));
+          await HapticUtils.mediumImpact();
+        } else {
+          emit(RecordingError(
+            errorMessage: 'Arquivo vazio',
+            recording: state.recording,
+          ));
+        }
+      } else {
+        emit(RecordingError(
+          errorMessage: 'Arquivo não encontrado',
+          recording: state.recording,
+        ));
       }
-
-      final stoppedRecording = state.recording.copyWith(
-        status: RecordingStatus.idle,
-        filePath: path,
-      );
-
-      emit(RecordingState(
-        recording: stoppedRecording,
-      ));
-
-      print('RecordingBloc: Recording saved successfully!');
-      
-      await HapticUtils.mediumImpact();
     } catch (e) {
-      print('RecordingBloc: Error stopping: $e');
+      debugPrint('RecordingBloc: Stop error: $e');
       emit(RecordingError(errorMessage: e.toString(), recording: state.recording));
     }
   }
@@ -175,10 +178,8 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
     _isRecording = false;
     _amplitudeTimer?.cancel();
     _durationTimer?.cancel();
-
-    final pausedRecording = state.recording.copyWith(status: RecordingStatus.paused);
-    emit(RecordingPaused(recording: pausedRecording));
-
+    final paused = state.recording.copyWith(status: RecordingStatus.paused);
+    emit(RecordingPaused(recording: paused));
     await HapticUtils.lightImpact();
   }
 
@@ -188,36 +189,23 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
   ) async {
     await _recorder.resume();
     _isRecording = true;
-
-    _amplitudeTimer = Timer.periodic(
-      const Duration(milliseconds: 100),
-      (_) async {
-        if (!_isRecording) return;
-        try {
-          final amplitude = await _recorder.getAmplitude();
-          add(UpdateAmplitude(amplitude.current));
-        } catch (e) {}
-      },
-    );
-
-    _durationTimer = Timer.periodic(
-      const Duration(seconds: 1),
-      (_) {
-        if (!_isRecording || _startTime == null) return;
-        add(UpdateDuration(DateTime.now().difference(_startTime!)));
-      },
-    );
-
-    final resumedRecording = state.recording.copyWith(status: RecordingStatus.recording);
-    emit(RecordingInProgress(recording: resumedRecording));
-
+    _amplitudeTimer = Timer.periodic(const Duration(milliseconds: 100), (_) async {
+      if (!_isRecording) return;
+      try {
+        final amp = await _recorder.getAmplitude();
+        add(UpdateAmplitude(amp.current));
+      } catch (e) {}
+    });
+    _durationTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!_isRecording || _startTime == null) return;
+      add(UpdateDuration(DateTime.now().difference(_startTime!)));
+    });
+    final resumed = state.recording.copyWith(status: RecordingStatus.recording);
+    emit(RecordingInProgress(recording: resumed));
     await HapticUtils.lightImpact();
   }
 
-  void _onUpdateAmplitude(
-    UpdateAmplitude event,
-    Emitter<RecordingState> emit,
-  ) {
+  void _onUpdateAmplitude(UpdateAmplitude event, Emitter<RecordingState> emit) {
     final updated = state.recording.copyWith(amplitude: event.amplitude);
     if (state is RecordingInProgress) {
       emit(RecordingInProgress(recording: updated));
@@ -226,10 +214,7 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
     }
   }
 
-  void _onUpdateDuration(
-    UpdateDuration event,
-    Emitter<RecordingState> emit,
-  ) {
+  void _onUpdateDuration(UpdateDuration event, Emitter<RecordingState> emit) {
     final updated = state.recording.copyWith(duration: event.duration);
     if (state is RecordingInProgress) {
       emit(RecordingInProgress(recording: updated));
@@ -238,10 +223,7 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
     }
   }
 
-  Future<void> _onCancelRecording(
-    CancelRecording event,
-    Emitter<RecordingState> emit,
-  ) async {
+  Future<void> _onCancelRecording(CancelRecording event, Emitter<RecordingState> emit) async {
     _isRecording = false;
     _amplitudeTimer?.cancel();
     _durationTimer?.cancel();
