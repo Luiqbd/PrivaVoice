@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get_it/get_it.dart';
 import '../../core/theme/app_colors.dart';
 import '../../domain/entities/transcription.dart';
-import '../../injection_container.dart';
+import '../../domain/repositories/transcription_repository.dart';
 import '../blocs/transcription/transcription_bloc.dart';
-import '../blocs/transcription/transcription_event.dart';
 import '../blocs/transcription/transcription_state.dart';
 import '../widgets/speaker_avatar.dart';
 
-class TranscriptionDetailPage extends StatelessWidget {
+class TranscriptionDetailPage extends StatefulWidget {
   final String transcriptionId;
   
   const TranscriptionDetailPage({
@@ -17,44 +17,104 @@ class TranscriptionDetailPage extends StatelessWidget {
   });
 
   @override
+  State<TranscriptionDetailPage> createState() => _TranscriptionDetailPageState();
+}
+
+class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
+  Transcription? _transcription;
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTranscription();
+  }
+
+  Future<void> _loadTranscription() async {
+    try {
+      debugPrint('TranscriptionDetailPage: Loading ${widget.transcriptionId}');
+      final repository = GetIt.instance<TranscriptionRepository>();
+      final transcription = await repository.getTranscriptionById(widget.transcriptionId);
+      debugPrint('TranscriptionDetailPage: Got ${transcription?.title}');
+      if (mounted) {
+        setState(() {
+          _transcription = transcription;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('TranscriptionDetailPage: Error - $e');
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => getIt<TranscriptionBloc>()..add(SelectTranscription(transcriptionId)),
-      child: Scaffold(
+    return Scaffold(
+      backgroundColor: AppColors.backgroundPrimary,
+      appBar: AppBar(
         backgroundColor: AppColors.backgroundPrimary,
-        appBar: AppBar(
-          backgroundColor: AppColors.backgroundPrimary,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-            onPressed: () => Navigator.pop(context),
-          ),
-          title: const Text(
-            'Detalhes',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          onPressed: () => Navigator.pop(context),
         ),
-        body: BlocBuilder<TranscriptionBloc, TranscriptionState>(
-          builder: (context, state) {
-            if (state.selectedTranscription == null) {
-              return const Center(
-                child: CircularProgressIndicator(color: AppColors.primaryAccent),
-              );
-            }
-            
-            final transcription = state.selectedTranscription!;
-            return _buildContent(context, transcription);
-          },
+        title: const Text(
+          'Detalhes',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
+      body: _buildBody(),
     );
   }
 
-  Widget _buildContent(BuildContext context, Transcription transcription) {
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primaryAccent),
+      );
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error, color: AppColors.error, size: 48),
+            const SizedBox(height: 16),
+            Text(
+              'Erro: $_error',
+              style: const TextStyle(color: AppColors.textSecondary),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_transcription == null) {
+      return const Center(
+        child: Text(
+          'Gravação não encontrada',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+      );
+    }
+
+    return _buildContent(_transcription!);
+  }
+
+  Widget _buildContent(Transcription transcription) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
