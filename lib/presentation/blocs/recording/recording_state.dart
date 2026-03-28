@@ -5,13 +5,13 @@ class RecordingState extends Equatable {
   final Recording recording;
   final String? error;
   final bool isProcessing;
-  
+
   const RecordingState({
     required this.recording,
     this.error,
     this.isProcessing = false,
   });
-  
+
   factory RecordingState.initial() {
     return RecordingState(
       recording: Recording(
@@ -21,6 +21,8 @@ class RecordingState extends Equatable {
     );
   }
   
+  Duration get duration => recording.duration ?? Duration.zero;
+
   RecordingState copyWith({
     Recording? recording,
     String? error,
@@ -32,26 +34,30 @@ class RecordingState extends Equatable {
       isProcessing: isProcessing ?? this.isProcessing,
     );
   }
-  
+
   @override
   List<Object?> get props => [recording, error, isProcessing];
 }
 
-// Recording state subtypes for easier type checking
+// RecordingInProgress state
 class RecordingInProgress extends RecordingState {
-  RecordingInProgress({required super.recording, super.error, super.isProcessing}) 
-    : super(recording: recording);
+  RecordingInProgress({required Recording recording, String? error, bool isProcessing = false})
+      : super(recording: recording, error: error, isProcessing: isProcessing);
 }
 
+// RecordingPaused state  
 class RecordingPaused extends RecordingState {
-  RecordingPaused({required super.recording, super.error, super.isProcessing}) 
-    : super(recording: recording);
+  RecordingPaused({required Recording recording, String? error, bool isProcessing = false})
+      : super(recording: recording, error: error, isProcessing: isProcessing);
 }
 
+// RecordingError state
 class RecordingError extends RecordingState {
-  final String message;
-  RecordingError({required this.message, required super.recording}) : super(recording: recording);
+  final String errorMessage;
+  
+  RecordingError({required this.errorMessage, required Recording recording})
+      : super(recording: recording);
   
   @override
-  String get message => message;
+  String get message => errorMessage;
 }

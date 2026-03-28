@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../blocs/transcription/transcription_state.dart';
 import '../../core/theme/app_colors.dart';
 import '../../injection_container.dart';
 import '../blocs/transcription/transcription_bloc.dart';

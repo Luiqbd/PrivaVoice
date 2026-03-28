@@ -1,6 +1,10 @@
 import 'package:equatable/equatable.dart';
 import '../../../domain/entities/transcription.dart';
 
+class TranscriptionLoading extends TranscriptionState {
+  TranscriptionLoading() : super(status: TranscriptionStatus.loading);
+}
+
 enum TranscriptionStatus { initial, loading, loaded, processing, error }
 
 class TranscriptionState extends Equatable {
