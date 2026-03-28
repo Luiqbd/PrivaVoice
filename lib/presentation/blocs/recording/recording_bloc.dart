@@ -44,7 +44,7 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
             bitRate: 128000,
             sampleRate: 44100,
           ),
-          path: _currentFilePath,
+          path: _currentFilePath!,
         );
 
         _startTime = DateTime.now();
