@@ -1,8 +1,12 @@
+import '../../injection_container.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+//import 'package:permission_handler/permission_handler.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/haptic_utils.dart';
+import '../blocs/recording/recording_bloc.dart';
 
 class RecordPage extends StatefulWidget {
   const RecordPage({super.key});
@@ -12,9 +16,7 @@ class RecordPage extends StatefulWidget {
 }
 
 class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateMixin {
-  bool _isRecording = false;
-  bool _isPaused = false;
-  Duration _recordingDuration = Duration.zero;
+  late RecordingBloc _recordingBloc;
   Timer? _timer;
   late final AnimationController _pulseController;
   late final Animation<double> _pulseAnimation;
@@ -22,6 +24,11 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
+    _recordingBloc = RecordingBloc(
+      recordingService: getIt<RecordingBloc>(),
+      aiService: getIt<RecordingBloc>(),
+    );
+    
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
@@ -29,69 +36,71 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
+    
+    // Request permissions on init
+    _requestPermissions();
+  }
+
+  Future<void> _requestPermissions() async {
+    // Request microphone permission
+    final micStatus = await Permission.microphone.request();
+    if (micStatus.isGranted) {
+      print('Permissions: Microphone granted');
+    } else {
+      print('Permissions: Microphone denied - $micStatus');
+    }
+    
+    // Request storage permission (for saving recordings)
+    final storageStatus = await Permission.storage.request();
+    if (storageStatus.isGranted) {
+      print('Permissions: Storage granted');
+    } else {
+      print('Permissions: Storage denied - $storageStatus');
+    }
   }
 
   @override
   void dispose() {
     _timer?.cancel();
     _pulseController.dispose();
+    _recordingBloc.close();
     super.dispose();
   }
 
   void _startRecording() {
-    setState(() {
-      _isRecording = true;
-      _isPaused = false;
-    });
+    _recordingBloc.add(StartRecording());
     _pulseController.repeat(reverse: true);
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      setState(() {
-        _recordingDuration += const Duration(seconds: 1);
-      });
+      if (mounted) {
+        setState(() {});
+      }
     });
     HapticUtils.mediumImpact();
   }
 
   void _pauseRecording() {
-    setState(() {
-      _isPaused = true;
-    });
+    _recordingBloc.add(PauseRecording());
     _timer?.cancel();
     _pulseController.stop();
     HapticUtils.lightImpact();
   }
 
   void _resumeRecording() {
-    setState(() {
-      _isPaused = false;
-    });
+    _recordingBloc.add(ResumeRecording());
     _pulseController.repeat(reverse: true);
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      setState(() {
-        _recordingDuration += const Duration(seconds: 1);
-      });
+      if (mounted) {
+        setState(() {});
+      }
     });
     HapticUtils.mediumImpact();
   }
 
   void _stopRecording() {
+    _recordingBloc.add(StopRecording());
     _timer?.cancel();
     _pulseController.stop();
-    setState(() {
-      _isRecording = false;
-      _isPaused = false;
-    });
     HapticUtils.heavyImpact();
-    
-    // Show success
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Gravação salva!'),
-        backgroundColor: AppColors.primaryAccent,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
   }
 
   String _formatDuration(Duration duration) {
@@ -102,70 +111,80 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.backgroundPrimary,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Row(
+    return BlocProvider.value(
+      value: _recordingBloc,
+      child: BlocBuilder<RecordingBloc, RecordingState>(
+        builder: (context, state) {
+          final isRecording = state is RecordingInProgress;
+          final isPaused = state is RecordingPaused;
+          
+          return Scaffold(
+            backgroundColor: AppColors.backgroundPrimary,
+            body: SafeArea(
+              child: Column(
                 children: [
-                  const Text(
-                    'Nova Gravação',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
+                  // Header
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Row(
+                      children: [
+                        const Text(
+                          'Nova Gravação',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const Spacer(),
+                        if (isRecording)
+                          _buildLiveIndicator(),
+                      ],
                     ),
                   ),
+
                   const Spacer(),
-                  if (_isRecording)
-                    _buildLiveIndicator(),
+
+                  // Recording Visualizer
+                  _buildRecordingVisualizer(isRecording, isPaused),
+
+                  const SizedBox(height: 40),
+
+                  // Timer Display
+                  Text(
+                    _formatDuration(state.duration),
+                    style: const TextStyle(
+                      fontSize: 48,
+                      fontWeight: FontWeight.w300,
+                      color: AppColors.textPrimary,
+                      letterSpacing: 4,
+                    ),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  // Status Text
+                  Text(
+                    _getStatusText(isRecording, isPaused, state),
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: isRecording
+                          ? (isPaused ? AppColors.tertiaryAccent : AppColors.primaryAccent)
+                          : AppColors.textTertiary,
+                    ),
+                  ),
+
+                  const Spacer(),
+
+                  // Controls
+                  _buildControls(isRecording, isPaused, state),
+
+                  const SizedBox(height: 40),
                 ],
               ),
             ),
-            
-            const Spacer(),
-            
-            // Recording Visualizer
-            _buildRecordingVisualizer(),
-            
-            const SizedBox(height: 40),
-            
-            // Timer Display
-            Text(
-              _formatDuration(_recordingDuration),
-              style: const TextStyle(
-                fontSize: 48,
-                fontWeight: FontWeight.w300,
-                color: AppColors.textPrimary,
-                letterSpacing: 4,
-              ),
-            ),
-            
-            const SizedBox(height: 8),
-            
-            // Status Text
-            Text(
-              _getStatusText(),
-              style: TextStyle(
-                fontSize: 16,
-                color: _isRecording 
-                    ? (_isPaused ? AppColors.tertiaryAccent : AppColors.primaryAccent)
-                    : AppColors.textTertiary,
-              ),
-            ),
-            
-            const Spacer(),
-            
-            // Controls
-            _buildControls(),
-            
-            const SizedBox(height: 40),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -203,7 +222,7 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildRecordingVisualizer() {
+  Widget _buildRecordingVisualizer(bool isRecording, bool isPaused) {
     return AnimatedBuilder(
       animation: _pulseAnimation,
       builder: (context, child) {
@@ -212,7 +231,7 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
           height: 200,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: _isRecording 
+            gradient: isRecording
                 ? RadialGradient(
                     colors: [
                       AppColors.primaryAccent.withOpacity(0.3 * _pulseAnimation.value),
@@ -221,14 +240,14 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
                     ],
                   )
                 : null,
-            color: _isRecording ? null : AppColors.surface,
+            color: isRecording ? null : AppColors.surface,
             border: Border.all(
-              color: _isRecording 
+              color: isRecording
                   ? AppColors.primaryAccent.withOpacity(0.5)
                   : AppColors.surfaceVariant,
               width: 2,
             ),
-            boxShadow: _isRecording ? [
+            boxShadow: isRecording ? [
               BoxShadow(
                 color: AppColors.primaryAccent.withOpacity(0.3),
                 blurRadius: 30 * _pulseAnimation.value,
@@ -242,15 +261,15 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
               height: 160,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: _isRecording ? AppColors.primaryAccent : AppColors.surface,
+                color: isRecording ? AppColors.primaryAccent : AppColors.surface,
               ),
               child: Icon(
-                _isRecording 
-                    ? (_isPaused ? Icons.pause : Icons.mic)
+                isRecording
+                    ? (isPaused ? Icons.pause : Icons.mic)
                     : Icons.mic_none,
                 size: 64,
-                color: _isRecording 
-                    ? AppColors.backgroundPrimary 
+                color: isRecording
+                    ? AppColors.backgroundPrimary
                     : AppColors.textTertiary,
               ),
             ),
@@ -260,8 +279,8 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildControls() {
-    if (!_isRecording) {
+  Widget _buildControls(bool isRecording, bool isPaused, RecordingState state) {
+    if (!isRecording) {
       // Start Recording Button
       return GestureDetector(
         onTap: _startRecording,
@@ -296,29 +315,25 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
         _buildControlButton(
           icon: Icons.close,
           onTap: () {
-            setState(() {
-              _isRecording = false;
-              _isPaused = false;
-              _recordingDuration = Duration.zero;
-            });
+            _recordingBloc.add(CancelRecording());
             _timer?.cancel();
             _pulseController.stop();
           },
           color: AppColors.textTertiary,
         ),
-        
+
         const SizedBox(width: 32),
-        
+
         // Pause/Resume Button
         _buildControlButton(
-          icon: _isPaused ? Icons.play_arrow : Icons.pause,
-          onTap: _isPaused ? _resumeRecording : _pauseRecording,
+          icon: isPaused ? Icons.play_arrow : Icons.pause,
+          onTap: isPaused ? _resumeRecording : _pauseRecording,
           color: AppColors.secondaryAccent,
           isLarge: true,
         ),
-        
+
         const SizedBox(width: 32),
-        
+
         // Stop Button
         _buildControlButton(
           icon: Icons.stop,
@@ -350,9 +365,15 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
     );
   }
 
-  String _getStatusText() {
-    if (!_isRecording) return 'Toque para começar a gravar';
-    if (_isPaused) return 'Gravação pausada';
+  String _getStatusText(bool isRecording, bool isPaused, RecordingState state) {
+    if (!isRecording) {
+      // Check for error states
+      if (state is RecordingError) {
+        return 'Erro: ${state.message}';
+      }
+      return 'Toque para começar a gravar';
+    }
+    if (isPaused) return 'Gravação pausada';
     return 'Gravando...';
   }
 }
