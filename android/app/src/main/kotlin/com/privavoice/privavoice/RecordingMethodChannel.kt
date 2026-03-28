@@ -38,7 +38,7 @@ class RecordingMethodChannel {
                     val path = call.argument<String>("path")
                     if (path == null) {
                         result.error("INVALID_ARGS", "Path is required", null)
-                        return
+                        return@setMethodCallHandler
                     }
                     
                     val serviceIntent = Intent(activity, RecordingService::class.java).apply {

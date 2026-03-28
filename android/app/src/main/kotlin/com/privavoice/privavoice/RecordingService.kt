@@ -172,7 +172,7 @@ class RecordingService : Service() {
                 return
             }
             // MediaRecorder automatically flushes, but we can force sync
-            sync()
+            // sync() - removed
         } catch (e: Exception) {
             e.printStackTrace()
         }
