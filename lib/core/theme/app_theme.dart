@@ -57,7 +57,7 @@ class AppTheme {
         ),
         hintStyle: const TextStyle(color: AppColors.textTertiary),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: AppColors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
