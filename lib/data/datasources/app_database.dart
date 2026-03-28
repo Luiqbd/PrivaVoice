@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
@@ -69,6 +69,8 @@ class AppDatabase {
   }
 
   static Future<Database> _initDatabase() async {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
     final documentsDirectory = await getApplicationDocumentsDirectory();
     final path = p.join(documentsDirectory.path, 'privavoice.db');
 
