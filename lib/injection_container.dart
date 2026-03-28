@@ -8,7 +8,8 @@ import 'presentation/blocs/transcription/transcription_bloc.dart';
 
 final getIt = GetIt.instance;
 
-Future<void> setupDependencies() async {
+Future<void> setupDependencies()
+  setupPermissions() async {
   // Register services
   getIt.registerLazySingleton<AIService>(() => AIService());
   getIt.registerLazySingleton<RecordingService>(() => RecordingService());
@@ -21,4 +22,10 @@ Future<void> setupDependencies() async {
   getIt.registerLazySingleton<TranscriptionRepository>(
     () => TranscriptionRepositoryImpl(),
   );
+}
+
+import 'core/services/permission_service.dart';
+
+void setupPermissions() {
+  getIt.registerLazySingleton<PermissionService>(() => PermissionService());
 }

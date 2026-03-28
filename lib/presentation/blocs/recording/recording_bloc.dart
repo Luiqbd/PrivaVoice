@@ -1,12 +1,15 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
+import '../../../domain/entities/recording.dart';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/utils/haptic_utils.dart';
 import '../../../domain/entities/recording.dart';
+import '../../../domain/entities/transcription.dart';
+import '../../../data/repositories/transcription_repository_impl.dart';
 import 'recording_event.dart';
 import 'recording_state.dart';
 
@@ -17,6 +20,7 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
   DateTime? _startTime;
   String? _currentFilePath;
   bool _isRecording = false;
+  final TranscriptionRepositoryImpl _repository = TranscriptionRepositoryImpl();
 
   RecordingBloc() : super(RecordingState.initial()) {
     on<StartRecording>(_onStartRecording);
@@ -35,7 +39,6 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
     try {
       debugPrint('RecordingBloc: Starting...');
       
-      // Check permission first
       final hasPermission = await _recorder.hasPermission();
       debugPrint('RecordingBloc: Has permission = $hasPermission');
       
@@ -47,22 +50,18 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
         return;
       }
 
-      // Get documents directory
       final directory = await getApplicationDocumentsDirectory();
       final recordingsDir = Directory('${directory.path}/recordings');
       
-      // Create directory if not exists
       if (!await recordingsDir.exists()) {
         await recordingsDir.create(recursive: true);
         debugPrint('RecordingBloc: Created directory');
       }
       
-      // Generate unique filename
       final filename = '${const Uuid().v4()}.m4a';
       _currentFilePath = '${recordingsDir.path}/$filename';
       debugPrint('RecordingBloc: Saving to $_currentFilePath');
 
-      // Start recording
       await _recorder.start(
         const RecordConfig(
           encoder: AudioEncoder.aacLc,
@@ -86,7 +85,6 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
       
       emit(RecordingInProgress(recording: newRecording));
 
-      // Start amplitude monitoring
       _amplitudeTimer = Timer.periodic(
         const Duration(milliseconds: 100),
         (_) async {
@@ -100,7 +98,6 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
         },
       );
 
-      // Start duration timer
       _durationTimer = Timer.periodic(
         const Duration(seconds: 1),
         (_) {
@@ -139,18 +136,21 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
         return;
       }
 
-      // Verify file
       final file = File(path);
       if (await file.exists()) {
         final size = await file.length();
         debugPrint('RecordingBloc: File saved! Size: $size bytes');
-        
+
         if (size > 0) {
           final stoppedRecording = state.recording.copyWith(
             status: RecordingStatus.idle,
             filePath: path,
           );
           emit(RecordingState(recording: stoppedRecording));
+          
+          // Save to database for library
+          await _saveRecordingToLibrary(path, state.recording.duration ?? Duration.zero);
+          
           await HapticUtils.mediumImpact();
         } else {
           emit(RecordingError(
@@ -167,6 +167,26 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
     } catch (e) {
       debugPrint('RecordingBloc: Stop error: $e');
       emit(RecordingError(errorMessage: e.toString(), recording: state.recording));
+    }
+  }
+
+  Future<void> _saveRecordingToLibrary(String path, Duration duration) async {
+    try {
+      final transcription = Transcription(
+        id: const Uuid().v4(),
+        title: 'Gravação ${DateTime.now().toString().substring(0, 16)}',
+        audioPath: path,
+        text: '',
+        wordTimestamps: [],
+        createdAt: DateTime.now(),
+        duration: duration,
+        isEncrypted: false,
+      );
+      
+      await _repository.saveTranscription(transcription);
+      debugPrint('RecordingBloc: Saved to library!');
+    } catch (e) {
+      debugPrint('RecordingBloc: Error saving to library: $e');
     }
   }
 
