@@ -1,6 +1,5 @@
 import 'dart:ffi';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
 
 /// Real Whisper.cpp FFI bindings - NO FALLBACKS
@@ -8,8 +7,7 @@ class WhisperBindings {
   static DynamicLibrary? _lib;
   static bool _isLoaded = false;
   static Pointer<Void>? _ctx;
-  
-  // FFI function types
+
   static bool get isAvailable => _isLoaded;
 
   /// Load libwhisper.so
@@ -65,13 +63,12 @@ class WhisperBindings {
     }
 
     try {
-      // Try to get whisper_init_from_file function
-      final initSym = _lib!.tryLookup('whisper_init_from_file');
-      if (initSym != null) {
+      // Lookup FFI functions
+      try {
+        _lib!.lookup('whisper_init_from_file');
         print('Whisper: Found whisper_init_from_file');
-        // Would call the FFI function here
-      } else {
-        print('Whisper: ERROR - whisper_init_from_file NOT FOUND in lib');
+      } catch (e) {
+        print('Whisper: whisper_init_from_file NOT FOUND in lib');
       }
       
       _ctx = calloc<Uint8>(1).cast<Void>();
@@ -121,7 +118,6 @@ class WhisperBindings {
     }
   }
 
-  /// REAL transcription - returns NULL if FFI not available
   static String? full({
     required Pointer<Void> ctx,
     required String audioPath,
@@ -134,7 +130,6 @@ class WhisperBindings {
       return null;
     }
 
-    // Load audio
     final samples = _loadWavAudio(audioPath);
     if (samples == null) {
       print('Whisper: ERROR - Failed to load audio');
@@ -146,28 +141,26 @@ class WhisperBindings {
     final numSamples = (bytes.length - 44) ~/ 2;
     print('Whisper: $numSamples samples ready');
 
-    // Check if FFI is properly bound
     if (_lib == null) {
       print('Whisper: ERROR - libwhisper.so NOT LOADED, cannot transcribe');
       calloc.free(samples);
       return null;
     }
 
-    // Try to call whisper_full FFI
     try {
-      final fullSym = _lib!.tryLookup('whisper_full');
-      if (fullSym == null) {
-        print('Whisper: ERROR - whisper_full NOT FOUND in lib');
+      // Check for whisper_full
+      try {
+        _lib!.lookup('whisper_full');
+        print('Whisper: Found whisper_full');
+      } catch (e) {
+        print('Whisper: ERROR - whisper_full NOT FOUND');
         print('Whisper: FFI functions not available in this library');
         calloc.free(samples);
         return null;
       }
       
-      print('Whisper: Calling whisper_full FFI...');
-      // Would call: whisper_full(ctx, params, samples, numSamples)
-      
       calloc.free(samples);
-      return null; // FFI not fully implemented
+      return null; // FFI call not implemented
     } catch (e) {
       print('Whisper: full() ERROR = $e');
       calloc.free(samples);

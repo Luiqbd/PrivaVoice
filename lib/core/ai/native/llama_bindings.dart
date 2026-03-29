@@ -63,12 +63,11 @@ class LlamaBindings {
     }
 
     try {
-      // Check if llama_init_from_file exists
-      final initSym = _lib!.tryLookup('llama_init_from_file');
-      if (initSym == null) {
-        print('Llama: ERROR - llama_init_from_file NOT FOUND in lib');
-      } else {
+      try {
+        _lib!.lookup('llama_init_from_file');
         print('Llama: Found llama_init_from_file');
+      } catch (e) {
+        print('Llama: llama_init_from_file NOT FOUND in lib');
       }
       
       _ctx = calloc<Uint8>(1).cast<Void>();
@@ -97,19 +96,17 @@ class LlamaBindings {
       return null;
     }
 
-    // Try to call llama_generate FFI
     try {
-      final genSym = _lib!.tryLookup('llama_generate');
-      if (genSym == null) {
-        print('Llama: ERROR - llama_generate NOT FOUND in lib');
+      try {
+        _lib!.lookup('llama_generate');
+        print('Llama: Found llama_generate');
+      } catch (e) {
+        print('Llama: ERROR - llama_generate NOT FOUND');
         print('Llama: FFI functions not available in this library');
         return null;
       }
       
-      print('Llama: Calling llama_generate FFI...');
-      // Would call: llama_generate(ctx, prompt, maxTokens)
-      
-      return null; // FFI not fully implemented
+      return null; // FFI call not implemented
     } catch (e) {
       print('Llama: generate() ERROR = $e');
       return null;
