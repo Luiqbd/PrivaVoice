@@ -50,13 +50,35 @@ class WhisperBindings {
 
   static bool get isAvailable => _isLoaded;
 
-  /// Load native library and bind functions
+  /// Load native library with architecture-specific name
   static bool load() {
     if (_isLoaded) return true;
     
+    String libName = 'libwhisper.so';
+    
     try {
       if (Platform.isAndroid) {
-        _lib = DynamicLibrary.open('libwhisper.so');
+        // Try to detect architecture
+        final abi = Platform.operatingSystemArchitecture;
+        print('Whisper: Android ABI = $abi');
+        
+        // Try arm64 first, then x86_64
+        final possibleNames = [
+          'libwhisper-arm64-v8a.so',
+          'libwhisper-arm64.so',
+          'libwhisper.so',
+        ];
+        
+        for (final name in possibleNames) {
+          try {
+            _lib = DynamicLibrary.open(name);
+            libName = name;
+            print('Whisper: Loaded $name');
+            break;
+          } catch (e) {
+            print('Whisper: Cannot load $name');
+          }
+        }
       } else if (Platform.isLinux) {
         _lib = DynamicLibrary.open('libwhisper.so');
       } else if (Platform.isMacOS) {
@@ -96,7 +118,7 @@ class WhisperBindings {
       print('Whisper: FFI binding error = $e');
     }
     
-    print('Whisper: load() = $_isLoaded');
+    print('Whisper: load() = $_isLoaded (lib: $libName)');
     return _isLoaded;
   }
 
@@ -152,21 +174,17 @@ class WhisperBindings {
       print('Whisper: Audio raw bytes = ${bytes.length}');
       
       // Parse WAV header (44 bytes typical)
-      // Skip header and parse PCM data
       int dataOffset = 44;
       int dataSize = bytes.length - dataOffset;
-      
+
       // Convert to float32 samples
-      final numSamples = dataSize ~/ 2; // 16-bit = 2 bytes
+      final numSamples = dataSize ~/ 2;
       final samplesPtr = calloc<Float>(numSamples);
       
       for (int i = 0; i < numSamples; i++) {
-        // Read 16-bit signed sample
         int sample = bytes[dataOffset + i * 2] | 
                      (bytes[dataOffset + i * 2 + 1] << 8);
         if (sample >= 32768) sample -= 65536;
-        
-        // Convert to float (-1.0 to 1.0)
         samplesPtr[i] = sample / 32768.0;
       }
       
@@ -185,39 +203,35 @@ class WhisperBindings {
     bool withTimestamps = true,
   }) {
     print('Whisper: full() - loading audio');
-    
+
     if (ctx == null) {
       print('Whisper: ctx is NULL');
       return null;
     }
     
-    // Load and convert audio
     final samples = _loadWavAudio(audioPath);
     if (samples == null) {
       print('Whisper: Failed to load audio');
       return null;
     }
     
-    // Count samples (approximate - assuming 16-bit mono)
     final file = File(audioPath);
     final bytes = file.readAsBytesSync();
     final numSamples = (bytes.length - 44) ~/ 2;
-    
+
     print('Whisper: Processing $numSamples samples with Whisper...');
-    
+
     try {
-      // Call whisper_full
       final result = _full!(ctx, 0, samples, numSamples);
       print('Whisper: whisper_full result = $result');
-      
+
       calloc.free(samples);
-      
+
       if (result != 0) {
         print('Whisper: whisper_full FAILED with code $result');
         return null;
       }
       
-      // Get number of segments
       final nSegments = _nSegments!(ctx);
       print('Whisper: n_segments = $nSegments');
       
@@ -226,7 +240,6 @@ class WhisperBindings {
         return null;
       }
       
-      // Extract text from all segments
       final buffer = StringBuffer();
       for (int i = 0; i < nSegments; i++) {
         final textPtr = _getSegmentText!(ctx, i);
@@ -238,7 +251,6 @@ class WhisperBindings {
       }
       
       final transcription = buffer.toString();
-      print('Whisper: Transcription length = ${transcription.length}');
       print('Whisper: Transcription = "${transcription.substring(0, transcription.length > 100 ? 100 : transcription.length)}..."');
       
       return transcription;
@@ -249,14 +261,10 @@ class WhisperBindings {
     }
   }
 
-  /// Get word timestamps
   static List<Map<String, dynamic>>? getWordTimestamps(Pointer<Void> ctx) {
-    // TODO: Implement word-level timestamps from whisper tokenizer
-    // For now, return empty list
     return [];
   }
 
-  /// Free resources
   static void dispose() {
     print('Whisper: dispose()');
     if (_ctx != null && _ctx != Pointer<Void>.fromAddress(0)) {

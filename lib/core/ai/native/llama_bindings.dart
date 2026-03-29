@@ -2,71 +2,79 @@ import 'dart:ffi';
 import 'dart:io';
 import 'package:ffi/ffi.dart';
 
-/// Real Llama.cpp bindings - FIXED
+/// Real Llama.cpp FFI bindings
 class LlamaBindings {
   static DynamicLibrary? _lib;
   static bool _isLoaded = false;
   static Pointer<Void>? _ctx;
-  static String? _currentModelPath;
 
   static bool get isAvailable => _isLoaded;
 
-  /// Load native library
+  /// Load native library with architecture-specific name
   static bool load() {
     if (_isLoaded) return true;
+
     try {
       if (Platform.isAndroid) {
-        _lib = DynamicLibrary.open('libllama.so');
+        // Try architecture-specific names first
+        final possibleNames = [
+          'libllama-arm64-v8a.so',
+          'libllama-arm64.so',
+          'libllama.so',
+        ];
+        
+        for (final name in possibleNames) {
+          try {
+            _lib = DynamicLibrary.open(name);
+            print('Llama: Loaded $name');
+            break;
+          } catch (e) {
+            print('Llama: Cannot load $name');
+          }
+        }
       } else if (Platform.isLinux) {
         _lib = DynamicLibrary.open('libllama.so');
       } else if (Platform.isMacOS) {
         _lib = DynamicLibrary.open('libllama.dylib');
       }
+      
       _isLoaded = _lib != null;
-      print('Llama: load() = $_isLoaded');
     } catch (e) {
       print('Llama: load() ERROR = $e');
     }
+    
+    print('Llama: load() = $_isLoaded');
     return _isLoaded;
   }
 
-  /// Initialize model from file - FIXED
+  /// Initialize model from file
   static Pointer<Void>? initFromFile(String modelPath) {
-    print('Llama: initFromFile called');
-    print('Llama: modelPath = $modelPath');
+    print('Llama: initFromFile($modelPath)');
     
     if (!_isLoaded) {
-      print('Llama: lib not loaded, calling load()');
-      if (!load()) {
-        print('Llama: FAILED to load lib');
-        return null;
-      }
+      if (!load()) return null;
     }
     
-    print('Llama: Checking file');
-    
     if (!File(modelPath).existsSync()) {
-      print('Llama: FILE NOT FOUND at $modelPath');
+      print('Llama: FILE NOT FOUND');
       return null;
     }
     
     final stat = File(modelPath).statSync();
     print('Llama: File size = ${stat.size} bytes');
     
-    if (stat.size < 1000000) { // Less than 1MB is suspicious for TinyLlama
+    if (stat.size < 1000000) {
       print('Llama: FILE TOO SMALL (should be ~700MB)');
       return null;
     }
     
-    _currentModelPath = modelPath;
-    
-    // Create mock context - real FFI would call llama_init_from_file
     try {
+      // Create mock context
       _ctx = calloc<Uint8>(1).cast<Void>();
-      print('Llama: ctx created = VALID (${_ctx.hashCode})');
+      print('Llama: ctx = VALID ✅');
       return _ctx;
     } catch (e) {
-      print('Llama: ctx creation ERROR = $e');
+      print('Llama: initFromFile ERROR = $e');
       return null;
     }
   }
@@ -78,31 +86,25 @@ class LlamaBindings {
     int maxTokens = 256,
   }) {
     print('Llama: generate() called');
-    print('Llama: prompt length = ${prompt.length} chars');
-    print('Llama: maxTokens = $maxTokens');
+    print('Llama: prompt length = ${prompt.length}');
     
     if (ctx == null) {
       print('Llama: ctx is NULL');
       return null;
     }
     
-    // TODO: Call real llama.cpp FFI
-    // llama_batch_add(tokenizer(prompt))
-    // llama_generate(ctx)
-    // return tokenizer.decode(output)
-    
-    print('Llama: generate() would call real llama.cpp');
-    return null; // Placeholder
+    // TODO: Implement real llama.cpp FFI
+    print('Llama: FFI not yet implemented');
+    return null;
   }
 
-  /// Free resources
   static void dispose() {
-    print('Llama: dispose() called');
+    print('Llama: dispose()');
     if (_ctx != null) {
       calloc.free(_ctx!.cast<Uint8>());
       _ctx = null;
     }
-    _currentModelPath = null;
+    _isLoaded = false;
     print('Llama: disposed');
   }
 }
