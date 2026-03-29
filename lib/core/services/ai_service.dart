@@ -128,7 +128,7 @@ class AIService {
     stopwatch.stop();
     print('AI: Done in ${stopwatch.elapsedMilliseconds}ms');
     
-    return result.first;
+    return result;
   }
 
   Future<List<Transcription>> _runAI(String audioPath, String title) async {
@@ -153,7 +153,7 @@ class AIService {
     print('AI: Transcription done');
     
     // Unload Whisper
-    WhisperBindings.unload();
+    WhisperBindings.dispose();
     print('AI: Whisper unloaded');
     
     // Load Llama
@@ -170,7 +170,7 @@ class AIService {
     print('AI: Summary done');
     
     // Unload Llama
-    LlamaBindings.unload();
+    LlamaBindings.dispose();
     print('AI: Llama unloaded');
     
     return Transcription(
