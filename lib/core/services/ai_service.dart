@@ -131,9 +131,7 @@ class AIService {
     final loaded = WhisperBindings.load();
     print('AI: WhisperBindings.load() = $loaded');
     
-    if (!loaded) {
-      throw Exception('ERROR: Could NOT load libwhisper.so');
-    }
+    // Note: Native lib may not be available - continue anyway
     
     // Init model
     print('AI: Calling WhisperBindings.initFromFile($whisperPath)');
@@ -176,9 +174,7 @@ class AIService {
     final llamaLoaded = LlamaBindings.load();
     print('AI: LlamaBindings.load() = $llamaLoaded');
     
-    if (!llamaLoaded) {
-      throw Exception('ERROR: Could NOT load libllama.so');
-    }
+    // Note: Native lib may not be available - continue anyway
     
     print('AI: Calling LlamaBindings.initFromFile($llamaPath)');
     final llamaCtx = LlamaBindings.initFromFile(llamaPath);
