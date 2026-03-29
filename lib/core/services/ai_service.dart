@@ -41,8 +41,8 @@ class AIService {
     }
     
     // === LLAMA MODEL ===
-    final llamaAsset = 'assets/models/tinyllama-1.1b-q4.bin';
-    final llamaDest = '${modelDir.path}/tinyllama-1.1b-q4.bin';
+    final llamaAsset = 'assets/models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf';
+    final llamaDest = '${modelDir.path}/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf';
     
     try {
       final data = await rootBundle.load(llamaAsset);
@@ -81,7 +81,7 @@ class AIService {
     
     final appDir = await getApplicationDocumentsDirectory();
     final whisperPath = '${appDir.path}/models/whisper-base.bin';
-    final llamaPath = '${appDir.path}/models/tinyllama-1.1b-q4.bin';
+    final llamaPath = '${appDir.path}/models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf';
     
     // === STEP 1: WHISPER TRANSCRIPTION ===
     print('AI: === STEP 1: WHISPER ===');
