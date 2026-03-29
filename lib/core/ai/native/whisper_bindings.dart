@@ -11,15 +11,9 @@ typedef WhisperFreeNative = Void Function(Pointer<Void> ctx);
 typedef WhisperFreeDart = void Function(Pointer<Void> ctx);
 
 typedef WhisperFullNative = Int32 Function(
-    Pointer<Void> ctx,
-    Int32 flags,
-    Pointer<Float> samples,
-    Int32 n_samples);
+    Pointer<Void> ctx, Int32 flags, Pointer<Float> samples, Int32 n_samples);
 typedef WhisperFullDart = int Function(
-    Pointer<Void> ctx,
-    int flags,
-    Pointer<Float> samples,
-    int n_samples);
+    Pointer<Void> ctx, int flags, Pointer<Float> samples, int n_samples);
 
 typedef WhisperFullNSegmentsNative = Int32 Function(Pointer<Void> ctx);
 typedef WhisperFullNSegmentsDart = int Function(Pointer<Void> ctx);
@@ -50,43 +44,14 @@ class WhisperBindings {
 
   static bool get isAvailable => _isLoaded;
 
-  /// Load native library with architecture-specific name
+  /// Load libwhisper.so
   static bool load() {
     if (_isLoaded) return true;
-    
-    String libName = 'libwhisper.so';
-    
+
     try {
-      if (Platform.isAndroid) {
-        // Try to detect architecture
-        final abi = Platform.operatingSystemArchitecture;
-        print('Whisper: Android ABI = $abi');
-        
-        // Try arm64 first, then x86_64
-        final possibleNames = [
-          'libwhisper-arm64-v8a.so',
-          'libwhisper-arm64.so',
-          'libwhisper.so',
-        ];
-        
-        for (final name in possibleNames) {
-          try {
-            _lib = DynamicLibrary.open(name);
-            libName = name;
-            print('Whisper: Loaded $name');
-            break;
-          } catch (e) {
-            print('Whisper: Cannot load $name');
-          }
-        }
-      } else if (Platform.isLinux) {
-        _lib = DynamicLibrary.open('libwhisper.so');
-      } else if (Platform.isMacOS) {
-        _lib = DynamicLibrary.open('libwhisper.dylib');
-      }
-      
+      _lib = DynamicLibrary.open('libwhisper.so');
+
       if (_lib != null) {
-        // Bind FFI functions
         _initFromFile = _lib!
             .lookup<NativeFunction<WhisperInitFromFileNative>>('whisper_init_from_file')
             .asFunction<WhisperInitFromFileDart>();
@@ -117,37 +82,37 @@ class WhisperBindings {
     } catch (e) {
       print('Whisper: FFI binding error = $e');
     }
-    
-    print('Whisper: load() = $_isLoaded (lib: $libName)');
+
+    print('Whisper: load() = $_isLoaded');
     return _isLoaded;
   }
 
   /// Initialize model from file
   static Pointer<Void>? initFromFile(String modelPath) {
     print('Whisper: initFromFile($modelPath)');
-    
+
     if (!_isLoaded) {
       if (!load()) return null;
     }
-    
+
     if (!File(modelPath).existsSync()) {
       print('Whisper: FILE NOT FOUND');
       return null;
     }
-    
+
     final stat = File(modelPath).statSync();
     print('Whisper: File size = ${stat.size} bytes');
-    
+
     if (stat.size < 1000) {
       print('Whisper: FILE TOO SMALL');
       return null;
     }
-    
+
     try {
       final pathPtr = modelPath.toNativeUtf8();
       _ctx = _initFromFile!(pathPtr);
       calloc.free(pathPtr);
-      
+
       if (_ctx != null && _ctx != Pointer<Void>.fromAddress(0)) {
         print('Whisper: ctx = VALID ✅');
         return _ctx;
@@ -161,8 +126,8 @@ class WhisperBindings {
     }
   }
 
-  /// Load WAV audio file and convert to float32 PCM samples
-  static Pointer<Float>? _loadWavAudio(String audioPath, {int sampleRate = 16000}) {
+  /// Load WAV audio and convert to float32 PCM
+  static Pointer<Float>? _loadWavAudio(String audioPath) {
     try {
       final file = File(audioPath);
       if (!file.existsSync()) {
@@ -171,19 +136,16 @@ class WhisperBindings {
       }
       
       final bytes = file.readAsBytesSync();
-      print('Whisper: Audio raw bytes = ${bytes.length}');
+      print('Whisper: Audio bytes = ${bytes.length}');
       
-      // Parse WAV header (44 bytes typical)
+      // Skip 44-byte WAV header, convert 16-bit PCM to float32
       int dataOffset = 44;
       int dataSize = bytes.length - dataOffset;
-
-      // Convert to float32 samples
       final numSamples = dataSize ~/ 2;
       final samplesPtr = calloc<Float>(numSamples);
       
       for (int i = 0; i < numSamples; i++) {
-        int sample = bytes[dataOffset + i * 2] | 
-                     (bytes[dataOffset + i * 2 + 1] << 8);
+        int sample = bytes[dataOffset + i * 2] | (bytes[dataOffset + i * 2 + 1] << 8);
         if (sample >= 32768) sample -= 65536;
         samplesPtr[i] = sample / 32768.0;
       }
@@ -196,64 +158,51 @@ class WhisperBindings {
     }
   }
 
-  /// Run full transcription - REAL FFI IMPLEMENTATION
+  /// Run full transcription - REAL FFI
   static String? full({
     required Pointer<Void> ctx,
     required String audioPath,
     bool withTimestamps = true,
   }) {
-    print('Whisper: full() - loading audio');
+    print('Whisper: full()');
 
-    if (ctx == null) {
-      print('Whisper: ctx is NULL');
-      return null;
-    }
-    
+    if (ctx == null) return null;
+
     final samples = _loadWavAudio(audioPath);
-    if (samples == null) {
-      print('Whisper: Failed to load audio');
-      return null;
-    }
-    
+    if (samples == null) return null;
+
     final file = File(audioPath);
     final bytes = file.readAsBytesSync();
     final numSamples = (bytes.length - 44) ~/ 2;
 
-    print('Whisper: Processing $numSamples samples with Whisper...');
+    print('Whisper: Processing $numSamples samples...');
 
     try {
       final result = _full!(ctx, 0, samples, numSamples);
       print('Whisper: whisper_full result = $result');
-
       calloc.free(samples);
 
       if (result != 0) {
-        print('Whisper: whisper_full FAILED with code $result');
+        print('Whisper: whisper_full FAILED');
         return null;
       }
-      
+
       final nSegments = _nSegments!(ctx);
       print('Whisper: n_segments = $nSegments');
-      
-      if (nSegments == 0) {
-        print('Whisper: No segments returned');
-        return null;
-      }
-      
+
+      if (nSegments == 0) return null;
+
       final buffer = StringBuffer();
       for (int i = 0; i < nSegments; i++) {
         final textPtr = _getSegmentText!(ctx, i);
         if (textPtr != Pointer<Utf8>.fromAddress(0)) {
-          final text = textPtr.toDartString();
           if (buffer.isNotEmpty) buffer.write(' ');
-          buffer.write(text);
+          buffer.write(textPtr.toDartString());
         }
       }
-      
-      final transcription = buffer.toString();
-      print('Whisper: Transcription = "${transcription.substring(0, transcription.length > 100 ? 100 : transcription.length)}..."');
-      
-      return transcription;
+
+      print('Whisper: Transcription = "${buffer.toString().substring(0, 50)}..."');
+      return buffer.toString();
     } catch (e) {
       print('Whisper: full() ERROR = $e');
       calloc.free(samples);
@@ -276,6 +225,5 @@ class WhisperBindings {
       _ctx = null;
     }
     _isLoaded = false;
-    print('Whisper: disposed');
   }
 }
