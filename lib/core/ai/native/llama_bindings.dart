@@ -149,3 +149,9 @@ class LlamaBindings {
     _isLoaded = false;
   }
 }
+
+  static void unload() {
+    _isLoaded = false;
+    _lib = null;
+  }
+

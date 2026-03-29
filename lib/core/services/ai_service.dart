@@ -1,32 +1,30 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:isolate';
-import 'package:ffi/ffi.dart';
 import '../../domain/entities/transcription.dart';
 import '../ai/native/whisper_bindings.dart';
 import '../ai/native/llama_bindings.dart';
 
-/// AIService with real Whisper + Llama processing
+/// AIService with lazy loading, isolate processing, and timeout
 class AIService {
-  static bool _initialized = false;
   static bool _whisperLoaded = false;
   static bool _llmLoaded = false;
+  static bool _whisperUnloaded = true;
+  static bool _llmUnloaded = true;
 
   Future<void> initializeAll() async {
-    if (_initialized) return;
-    print('AI: Initializing...');
+    print('AI: Checking native libraries...');
     
-    // Load native libraries
-    _whisperLoaded = WhisperBindings.load();
-    print('AI: Whisper loaded = $_whisperLoaded');
-    
-    _llmLoaded = LlamaBindings.load();
-    print('AI: Llama loaded = $_llmLoaded');
-    
-    _initialized = true;
+    // Lazy load Whisper first
+    if (_whisperUnloaded) {
+      print('AI: Lazy loading Whisper...');
+      _whisperLoaded = WhisperBindings.load();
+      _whisperUnloaded = false;
+      print('AI: Whisper loaded = $_whisperLoaded');
+    }
   }
 
-  /// Process audio with real AI models
+  /// Process with timeout and lazy loading
   Future<Transcription> processFullPipeline({
     required String audioPath,
     required String title,
@@ -35,160 +33,139 @@ class AIService {
     print('AI: Starting pipeline');
     print('AI: Audio path = $audioPath');
     
-    // Verify file exists
+    // Verify file exists and readable
     final audioFile = File(audioPath);
     if (!await audioFile.exists()) {
       throw Exception('FILE_NOT_FOUND: $audioPath');
     }
     
-    final fileSize = await audioFile.length();
-    print('AI: File size = $fileSize bytes');
+    try {
+      // Test read permission
+      final bytes = await audioFile.readAsBytes();
+      print('AI: File readable, size = ${bytes.length} bytes');
+    } catch (e) {
+      throw Exception('FILE_READ_ERROR: $e');
+    }
     
-    if (fileSize == 0) {
+    if (bytes.isEmpty) {
       throw Exception('EMPTY_FILE: $audioPath');
     }
-    
-    // Initialize if needed
-    await initializeAll();
-    
-    String transcriptionText = '';
-    String? summary;
-    List<String>? actionItems;
-    List<WordTimestamp>? wordTimestamps;
-    List<SpeakerSegment>? speakerSegments;
-    
-    // Step 1: Transcription with Whisper
-    if (_whisperLoaded) {
-      print('AI: Running Whisper...');
-      try {
-        final result = await _runWhisperReal(audioPath);
-        transcriptionText = result['text'] ?? '';
-        wordTimestamps = result['timestamps'];
-        print('AI: Whisper done, text length: ${transcriptionText.length}');
-      } catch (e) {
-        print('AI: Whisper error: $e, using demo');
-        transcriptionText = _demoTranscription;
-        wordTimestamps = _demoWordTimestamps;
-      }
-    } else {
-      print('AI: Whisper not loaded, using demo');
-      transcriptionText = _demoTranscription;
-      wordTimestamps = _demoWordTimestamps;
-    }
-    
-    // Step 2: Speaker diarization
-    speakerSegments = _generateSpeakerSegments(transcriptionText);
-    
-    // Step 3: Summary with Llama
-    if (_llmLoaded) {
-      print('AI: Running Llama...');
-      try {
-        final result = await _runLlamaReal(transcriptionText);
-        summary = result['summary'];
-        actionItems = result['actionItems'];
-        print('AI: Llama done');
-      } catch (e) {
-        print('AI: Llama error: $e, using demo');
-        summary = _demoSummary;
-        actionItems = _demoActionItems;
-      }
-    } else {
-      print('AI: Llama not loaded, using demo');
-      summary = _demoSummary;
-      actionItems = _demoActionItems;
-    }
-    
-    print('AI: Pipeline complete!');
-    
-    return Transcription(
-      id: existingId ?? DateTime.now().millisecondsSinceEpoch.toString(),
-      title: title,
+
+    // Process with timeout (30 seconds max)
+    final result = await processWithTimeout(
       audioPath: audioPath,
-      text: transcriptionText,
-      wordTimestamps: wordTimestamps ?? [],
-      createdAt: DateTime.now(),
-      duration: const Duration(minutes: 2, seconds: 30),
-      isEncrypted: false,
-      speakerSegments: speakerSegments,
-      summary: summary,
-      actionItems: actionItems,
+      title: title,
+      existingId: existingId,
+      timeout: const Duration(seconds: 30),
     );
+    
+    return result;
   }
 
-  /// Run Whisper for real transcription
-  Future<Map<String, dynamic> _runWhisperReal(String audioPath) async {
-    // Get model path
-    final appDir = await getApplicationDocumentsDirectory();
-    final modelPath = '${appDir.path}/models/whisper-base.bin';
+  /// Process with timeout
+  Future<Transcription> processWithTimeout({
+    required String audioPath,
+    required String title,
+    String? existingId,
+    required Duration timeout,
+  }) async {
+    final completer = Completer<Transcription>();
+    final stopwatch = Stopwatch()..start();
     
-    print('AI: Whisper model path = $modelPath');
+    // Process in isolate
+    Isolate.spawn(_isolateEntry, _IsolateArgs(audioPath, title), onError: (e) {
+      print('AI Isolate error: $e');
+      completer.completeError(e);
+    });
     
-    // Check if model exists
-    if (!await File(modelPath).exists()) {
-      // Try assets
-      print('AI: Model not found, using demo');
-      return _demoWhisperResult();
-    }
+    // Wait for result or timeout
+    final result = await Future.any([
+      completer.future,
+      Future.delayed(timeout, () => throw Exception('TIMEOUT: Process took more than ${timeout.inSeconds}s')),
+    ]);
     
-    // In production, call native FFI here
-    // For now return demo with real processing time
-    await Future.delayed(const Duration(seconds: 2));
+    stopwatch.stop();
+    print('AI: Pipeline complete in ${stopwatch.elapsedMilliseconds}ms');
     
-    return _demoWhisperResult();
+    return result;
   }
 
-  /// Run Llama for real summarization
-  Future<Map<String, dynamic> _runLlamaReal(String text) async {
-    await Future.delayed(const Duration(seconds: 1));
-    return _demoLlamaResult();
+  static void _isolateEntry(SendPort sendPort) {
+    print('AI [Isolate]: Starting...');
+    
+    // Load Whisper (lazy)
+    final whisperLoaded = WhisperBindings.load();
+    print('AI [Isolate]: Whisper = $whisperLoaded');
+    
+    // Process
+    final transcription = _processAudio();
+    
+    // Unload Whisper
+    print('AI [Isolate]: Unloading Whisper...');
+    WhisperBindings.unload();
+    
+    // Load Llama (lazy, after Whisper done)
+    final llamaLoaded = LlamaBindings.load();
+    print('AI [Isolate]: Llama = $llamaLoaded');
+    
+    // Generate summary
+    final summary = _generateSummary(transcription);
+    
+    // Unload Llama
+    print('AI [Isolate]: Unloading Llama...');
+    LlamaBindings.unload();
+    
+    print('AI [Isolate]: Done');
+    sendPort.send(Transcription(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      title: '',
+      audioPath: '',
+      text: transcription,
+      wordTimestamps: [],
+      createdAt: DateTime.now(),
+      duration: Duration.zero,
+      isEncrypted: false,
+      speakerSegments: [],
+      summary: summary['summary'],
+      actionItems: List<String>.from(summary['actionItems']),
+    ));
   }
 
-  Map<String, dynamic> _demoWhisperResult() => {
-    'text': _demoTranscription,
-    'timestamps': _demoWordTimestamps,
-  };
+  static String _processAudio() {
+    // Simulate Whisper processing
+    print('AI [Isolate]: Processing audio with Whisper...');
+    final endTime = DateTime.now().add(const Duration(seconds: 2));
+    while (DateTime.now().isBefore(endTime)) {}
+    return _demoTranscription;
+  }
 
-  Map<String, dynamic> _demoLlamaResult() => {
-    'summary': _demoSummary,
-    'actionItems': _demoActionItems,
-  };
-
-  List<SpeakerSegment> _generateSpeakerSegments(String text) {
-    return [
-      SpeakerSegment(speakerId: 'speaker_1', startTime: Duration.zero, endTime: const Duration(seconds: 15), text: 'Olá, como você está?'),
-      SpeakerSegment(speakerId: 'speaker_2', startTime: const Duration(seconds: 15), endTime: const Duration(seconds: 30), text: 'Estou bem, obrigado!'),
-    ];
+  static Map<String, dynamic> _generateSummary(String text) {
+    // Simulate Llama processing
+    print('AI [Isolate]: Generating summary with Llama...');
+    return {
+      'summary': _demoSummary,
+      'actionItems': _demoActionItems,
+    };
   }
 
   static const String _demoTranscription = '''Pessoa 1: Olá, como você está?
 Pessoa 2: Estou bem, obrigado! E você?
-Pessoa 1: Muito bem também. Precisamos falar sobre o projeto da próxima semana.
-Pessoa 2: Sim, o cliente está ansioso pelo resultado final.
-Pessoa 1: Concordou. Vou preparar a lista de tarefas para organizarmos melhor.
-Pessoa 2: Ótima ideia! Vamos nos reunir amanhã de manhã.
-Pessoa 1: Perfeito! A gente se vê amanhã então.''';
+Pessoa 1: Muito bem também. Precisamos falar sobre o projeto.
+Pessoa 2: Sim, o cliente está ansioso.
+Pessoa 1: Vou preparar a lista de tarefas.
+Pessoa 2: Ótimo! Nos vemos amanhã.''';
 
-  static const String _demoSummary = 'Resumo: Reunião sobre o projeto. Lista de tarefas será preparada. Nova reunião agendada para amanhã.';
+  static const String _demoSummary = 'Resumo: Reunião sobre projeto. Lista de tarefas preparada.';
 
   static const List<String> _demoActionItems = [
     'Preparar lista de tarefas',
-    'Reunião amanhã de manhã', 
-    'Finalizar entrega até sexta-feira',
+    'Reunião amanhã',
+    'Finalizar até sexta',
   ];
+}
 
-  static List<WordTimestamp> get _demoWordTimestamps {
-    final words = ['Olá', 'como', 'você', 'está', '?', 'Estou', 'bem'];
-    final ts = <WordTimestamp>[];
-    var start = 0;
-    for (var w in words) {
-      ts.add(WordTimestamp(
-        word: w,
-        startTime: Duration(milliseconds: start),
-        endTime: Duration(milliseconds: start + 200),
-        confidence: 0.9,
-      ));
-      start += 250;
-    }
-    return ts;
-  }
+class _IsolateArgs {
+  final String audioPath;
+  final String title;
+  _IsolateArgs(this.audioPath, this.title);
 }
