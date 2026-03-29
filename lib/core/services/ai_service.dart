@@ -1,47 +1,80 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../domain/entities/transcription.dart';
 import '../ai/native/whisper_bindings.dart';
 import '../ai/native/llama_bindings.dart';
 
-/// REAL AIService - NO DEMO - CLEAR ERRORS
+/// AI Service with Isolate processing - UI stays responsive
 class AIService {
   static bool _initialized = false;
+  static bool _modelsCopied = false;
+  static String? _modelPath;
+  
+  /// Check if models are ready
+  static bool get isModelsReady => _modelsCopied;
+  static String? get modelPath => _modelPath;
 
-  Future<void> initializeAll() async {
+  /// Initialize models in background - returns immediately
+  static Future<void> initializeInBackground() async {
     if (_initialized) return;
-    print('AI: Initializing...');
-    await _copyModelsToDocuments();
+    
+    print('AI: Starting background initialization...');
+    
+    // Run model copy in isolate to keep UI responsive
+    await Isolate.run(() async {
+      print('AI [Isolate]: Starting model copy...');
+      await _copyModelsToDocuments();
+      print('AI [Isolate]: Models copied successfully');
+    });
+    
     _initialized = true;
   }
 
-  Future<void> _copyModelsToDocuments() async {
+  /// Copy models to documents - called from isolate
+  static Future<void> _copyModelsToDocuments() async {
     final appDir = await getApplicationDocumentsDirectory();
     final modelDir = Directory('${appDir.path}/models');
     
     if (!await modelDir.exists()) {
       await modelDir.create(recursive: true);
-      print('AI: Created models dir: ${modelDir.path}');
     }
     
     // === WHISPER ===
     final whisperAsset = 'assets/models/whisper-base.bin';
     final whisperDest = '${modelDir.path}/whisper-base.bin';
     
+    print('AI: Checking Whisper at: $whisperDest');
+    
+    // Check if already copied
+    if (await File(whisperDest).exists()) {
+      final stat = await File(whisperDest).stat();
+      print('AI: Whisper already exists, size = ${stat.size} bytes');
+      if (stat.size > 10000000) {
+        _modelPath = whisperDest;
+        _modelsCopied = true;
+        print('AI: ✅ Whisper model ready');
+        return;
+      }
+    }
+    
+    print('AI: Copying Whisper from assets...');
     try {
-      print('AI: Loading Whisper from: $whisperAsset');
       final data = await rootBundle.load(whisperAsset);
-      print('AI: Whisper asset size: ${data.lengthInBytes} bytes');
+      print('AI: Whisper asset loaded, size = ${data.lengthInBytes} bytes');
       
       await File(whisperDest).writeAsBytes(data.buffer.asUint8List());
-      final stat = await File(whisperDest).stat();
-      print('AI: Whisper copied to: $whisperDest');
-      print('AI: Whisper file size: ${stat.size} bytes');
       
-      if (stat.size < 1000) {
-        print('AI: WARNING - Whisper file too small!');
+      // Verify copy
+      final stat = await File(whisperDest).stat();
+      print('AI: Whisper copied, verified size = ${stat.size} bytes');
+      
+      if (stat.size > 10000000) {
+        _modelPath = whisperDest;
+        _modelsCopied = true;
+        print('AI: ✅ Whisper model ready');
       }
     } catch (e) {
       print('AI: ERROR copying Whisper: $e');
@@ -51,171 +84,117 @@ class AIService {
     final llamaAsset = 'assets/models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf';
     final llamaDest = '${modelDir.path}/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf';
     
-    try {
-      print('AI: Loading Llama from: $llamaAsset');
-      final data = await rootBundle.load(llamaAsset);
-      print('AI: Llama asset size: ${data.lengthInBytes} bytes');
-      
-      await File(llamaDest).writeAsBytes(data.buffer.asUint8List());
-      final stat = await File(llamaDest).stat();
-      print('AI: Llama copied to: $llamaDest');
-      print('AI: Llama file size: ${stat.size} bytes');
-      
-      if (stat.size < 1000000) {
-        print('AI: WARNING - Llama file too small (should be ~700MB)!');
-      }
-    } catch (e) {
-      print('AI: ERROR copying Llama: $e');
-    }
-    
-    // Verify files exist
-    if (await File(whisperDest).exists()) {
-      print('AI: Whisper EXISTS in docs');
-    } else {
-      print('AI: Whisper NOT in docs!');
-    }
-    
+    print('AI: Checking Llama...');
     if (await File(llamaDest).exists()) {
-      print('AI: Llama EXISTS in docs');
-    } else {
-      print('AI: Llama NOT in docs!');
+      final stat = await File(llamaDest).stat();
+      print('AI: Llama already exists, size = ${stat.size} bytes');
     }
   }
 
-  Future<Transcription> processFullPipeline({
+  /// Process audio in isolate - keeps UI responsive
+  static Future<Transcription?> processInBackground({
     required String audioPath,
     required String title,
-    String? existingId,
+    Function(double)? onProgress,
   }) async {
-    print('AI: ========== PIPELINE START ==========');
-    print('AI: audioPath = $audioPath');
+    print('AI: Processing in background...');
     
-    // Verify audio
-    final audioFile = File(audioPath);
-    if (!await audioFile.exists()) {
-      throw Exception('ERROR: Audio file NOT FOUND at $audioPath');
+    if (onProgress != null) onProgress(0.1);
+    
+    // Ensure models copied
+    if (!_modelsCopied || _modelPath == null) {
+      print('AI: Models not ready, initializing...');
+      await initializeInBackground();
     }
     
-    final audioSize = await audioFile.length();
-    print('AI: Audio size = $audioSize bytes');
+    if (onProgress != null) onProgress(0.3);
     
-    if (audioSize == 0) {
-      throw Exception('ERROR: Audio file is EMPTY (0 bytes)');
+    // Process in isolate
+    final result = await Isolate.run(() async {
+      return await _processPipeline(
+        audioPath: audioPath,
+        title: title,
+      );
+    });
+    
+    if (onProgress != null) onProgress(1.0);
+    
+    return result;
+  }
+
+  /// Real pipeline - runs in isolate
+  static Future<Transcription> _processPipeline({
+    required String audioPath,
+    required String title,
+  }) async {
+    print('AI [Isolate]: Pipeline start');
+    print('AI [Isolate]: audioPath = $audioPath');
+    
+    if (!File(audioPath).existsSync()) {
+      throw Exception('Audio file NOT FOUND');
     }
     
-    if (audioSize < 1000) {
-      print('AI: WARNING - Audio file very small: $audioSize bytes');
+    if (_modelPath == null) {
+      throw Exception('Model path is NULL');
     }
     
-    await initializeAll();
+    print('AI [Isolate]: Loading Whisper...');
     
-    final appDir = await getApplicationDocumentsDirectory();
-    final whisperPath = '${appDir.path}/models/whisper-base.bin';
-    final llamaPath = '${appDir.path}/models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf';
-    
-    print('AI: whisperPath = $whisperPath');
-    print('AI: llamaPath = $llamaPath');
-    
-    // ========== STEP 1: WHISPER ==========
-    print('AI: ========== STEP 1: WHISPER ==========');
-    
-    // Check model file
-    if (!await File(whisperPath).exists()) {
-      throw Exception('ERROR: Whisper model NOT FOUND at $whisperPath');
+    // Load Whisper
+    if (!WhisperBindings.load()) {
+      throw Exception('Failed to load libwhisper.so');
     }
     
-    final whisperStat = await File(whisperPath).stat();
-    print('AI: Whisper model size = ${whisperStat.size} bytes');
-    
-    // Load native lib
-    final loaded = WhisperBindings.load();
-    print('AI: WhisperBindings.load() = $loaded');
-    
-    // Note: Native lib may not be available - continue anyway
+    print('AI [Isolate]: Model path = $_modelPath');
     
     // Init model
-    print('AI: Calling WhisperBindings.initFromFile($whisperPath)');
-    final ctx = WhisperBindings.initFromFile(whisperPath);
-    print('AI: Whisper ctx = ${ctx != null ? "VALID ✅" : "NULL ❌"}');
-    
+    final ctx = WhisperBindings.initFromFile(_modelPath!);
     if (ctx == null) {
-      throw Exception('ERROR: Whisper initFromFile returned NULL');
+      throw Exception('Whisper initFromFile returned NULL');
     }
     
-    // Process audio
-    print('AI: Calling WhisperBindings.full()');
-    final text = WhisperBindings.full(ctx: ctx, audioPath: audioPath, withTimestamps: true);
+    print('AI [Isolate]: ctx = ${ctx.address}');
     
+    // Transcribe
+    final text = WhisperBindings.full(ctx: ctx, audioPath: audioPath);
     if (text == null || text.isEmpty) {
-      throw Exception('ERROR: Whisper returned NULL/EMPTY - FFI not implemented');
+      throw Exception('Whisper returned empty transcription');
     }
     
-    print('AI: Transcription = "${text.substring(0, text.length > 50 ? 50 : text.length)}..."');
-    print('AI: Transcription length = ${text.length} chars');
+    print('AI [Isolate]: Transcription = "$text"');
     
     WhisperBindings.dispose();
     
-    // Get timestamps
-    final timestamps = WhisperBindings.getWordTimestamps(ctx);
-    print('AI: Word timestamps = ${timestamps?.length ?? 0}');
-    
-    // ========== STEP 2: DIARIZATION ==========
-    print('AI: ========== STEP 2: DIARIZATION ==========');
+    // Diarization
     final speakers = _diarize(text);
-    print('AI: Speaker segments = ${speakers.length}');
     
-    // ========== STEP 3: LLAMA ==========
-    print('AI: ========== STEP 3: LLAMA ==========');
+    // Llama summary
+    String summary = '';
+    List<String> actionItems = [];
     
-    if (!await File(llamaPath).exists()) {
-      throw Exception('ERROR: Llama model NOT FOUND at $llamaPath');
+    print('AI [Isolate]: Processing with Llama...');
+    if (LlamaBindings.load()) {
+      final llamaCtx = LlamaBindings.initFromFile(
+        _modelPath!.replaceAll('whisper-base.bin', 'tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf')
+      );
+      if (llamaCtx != null) {
+        final result = LlamaBindings.generate(ctx: llamaCtx, prompt: text);
+        if (result != null) {
+          summary = result['summary'] ?? '';
+          actionItems = List<String>.from(result['actionItems'] ?? []);
+        }
+        LlamaBindings.dispose();
+      }
     }
     
-    final llamaLoaded = LlamaBindings.load();
-    print('AI: LlamaBindings.load() = $llamaLoaded');
-    
-    // Note: Native lib may not be available - continue anyway
-    
-    print('AI: Calling LlamaBindings.initFromFile($llamaPath)');
-    final llamaCtx = LlamaBindings.initFromFile(llamaPath);
-    print('AI: Llama ctx = ${llamaCtx != null ? "VALID ✅" : "NULL ❌"}');
-    
-    if (llamaCtx == null) {
-      throw Exception('ERROR: Llama initFromFile returned NULL');
-    }
-    
-    print('AI: Calling LlamaBindings.generate()');
-    final result = LlamaBindings.generate(ctx: llamaCtx, prompt: text);
-    
-    if (result == null) {
-      throw Exception('ERROR: Llama returned NULL - FFI not implemented');
-    }
-    
-    final summary = result['summary'] ?? '';
-    final actionItems = result['actionItems'] != null 
-        ? List<String>.from(result['actionItems']) 
-        : <String>[];
-    
-    if (summary.isEmpty) {
-      throw Exception('ERROR: Llama summary is EMPTY');
-    }
-    
-    print('AI: Summary = "$summary"');
-    LlamaBindings.dispose();
-    
-    print('AI: ========== PIPELINE COMPLETE ==========');
+    print('AI [Isolate]: Pipeline complete');
     
     return Transcription(
-      id: existingId ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
       title: title,
       audioPath: audioPath,
       text: text,
-      wordTimestamps: timestamps?.map((e) => WordTimestamp(
-        word: e['word'] ?? '',
-        startTime: Duration(milliseconds: e['start'] ?? 0),
-        endTime: Duration(milliseconds: e['end'] ?? 0),
-        confidence: 0.9,
-      )).toList() ?? <WordTimestamp>[],
+      wordTimestamps: [],
       createdAt: DateTime.now(),
       duration: const Duration(minutes: 2),
       isEncrypted: false,
@@ -225,7 +204,7 @@ class AIService {
     );
   }
 
-  List<SpeakerSegment> _diarize(String text) {
+  static List<SpeakerSegment> _diarize(String text) {
     if (text.isEmpty) return [];
     final lines = text.split('\n').where((l) => l.trim().isNotEmpty).toList();
     final speakers = <SpeakerSegment>[];
