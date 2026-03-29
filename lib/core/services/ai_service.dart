@@ -33,7 +33,7 @@ class AIService {
     try {
       print('AI: Loading Whisper from: $whisperAsset');
       final data = await rootBundle.load(whisperAsset);
-      print('AI: Whisper asset size: ${data.length} bytes');
+      print('AI: Whisper asset size: ${data.lengthInBytes} bytes');
       
       await File(whisperDest).writeAsBytes(data.buffer.asUint8List());
       final stat = await File(whisperDest).stat();
@@ -54,7 +54,7 @@ class AIService {
     try {
       print('AI: Loading Llama from: $llamaAsset');
       final data = await rootBundle.load(llamaAsset);
-      print('AI: Llama asset size: ${data.length} bytes');
+      print('AI: Llama asset size: ${data.lengthInBytes} bytes');
       
       await File(llamaDest).writeAsBytes(data.buffer.asUint8List());
       final stat = await File(llamaDest).stat();

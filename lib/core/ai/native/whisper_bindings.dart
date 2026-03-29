@@ -115,7 +115,7 @@ class WhisperBindings {
   static void dispose() {
     print('Whisper: dispose() called');
     if (_ctx != null) {
-      calloc.free(_ctx.cast<Uint8>());
+      calloc.free(_ctx!.cast<Uint8>());
       _ctx = null;
     }
     _currentModelPath = null;

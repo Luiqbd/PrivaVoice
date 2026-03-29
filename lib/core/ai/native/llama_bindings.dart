@@ -99,7 +99,7 @@ class LlamaBindings {
   static void dispose() {
     print('Llama: dispose() called');
     if (_ctx != null) {
-      calloc.free(_ctx.cast<Uint8>());
+      calloc.free(_ctx!.cast<Uint8>());
       _ctx = null;
     }
     _currentModelPath = null;
