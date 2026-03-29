@@ -8,7 +8,6 @@ import '../../domain/repositories/transcription_repository.dart';
 
 class TranscriptionDetailPage extends StatefulWidget {
   final String transcriptionId;
-  
   const TranscriptionDetailPage({super.key, required this.transcriptionId});
 
   @override
@@ -29,24 +28,16 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
 
   Future<void> _loadTranscription() async {
     try {
-      debugPrint('Loading transcription: ${widget.transcriptionId}');
       final repo = GetIt.instance<TranscriptionRepository>();
       final t = await repo.getTranscriptionById(widget.transcriptionId);
-      
-      debugPrint('Loaded: ${t?.title}, text: ${t?.text.length}');
       
       if (mounted) {
         setState(() {
           _transcription = t;
           _isLoading = false;
         });
-        
-        if (t != null && t.text.isEmpty) {
-          _processWithAI();
-        }
       }
     } catch (e) {
-      debugPrint('Load error: $e');
       if (mounted) setState(() { _error = e.toString(); _isLoading = false; });
     }
   }
@@ -54,41 +45,30 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
   Future<void> _processWithAI() async {
     if (_transcription == null || _isProcessing) return;
     
-    debugPrint('Starting AI processing for: ${_transcription!.audioPath}');
-    
+    debugPrint('AI: Starting for ${_transcription!.audioPath}');
     setState(() { _isProcessing = true; });
     
     try {
-      // Check if file exists
-      final audioFile = File(_transcription!.audioPath);
-      debugPrint('File exists: ${await audioFile.exists()}');
-      
       final aiService = AIService();
-      await aiService.initializeAll();
       
       final result = await aiService.processFullPipeline(
         audioPath: _transcription!.audioPath,
         title: _transcription!.title,
       );
       
-      debugPrint('AI result: ${result.text.length} chars');
+      debugPrint('AI: Got result, text length: ${result.text.length}');
       
-      // Save result
+      // Save
       final repo = GetIt.instance<TranscriptionRepository>();
       await repo.saveTranscription(result);
-      
-      debugPrint('Saved to DB');
-      
-      // Reload
-      final updated = await repo.getTranscriptionById(widget.transcriptionId);
-      
-      debugPrint('Reloaded: ${updated?.text.length}');
+      debugPrint('AI: Saved');
       
       if (mounted) {
         setState(() {
-          _transcription = updated;
+          _transcription = result;
           _isProcessing = false;
         });
+        debugPrint('AI: Updated UI');
       }
     } catch (e, st) {
       debugPrint('AI Error: $e\n$st');
