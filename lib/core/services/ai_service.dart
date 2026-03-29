@@ -3,7 +3,7 @@ import 'dart:io';
 import 'dart:isolate';
 import '../../domain/entities/transcription.dart';
 
-/// AIService with Isolate processing for real AI models
+/// AIService with proper error handling and Isolate processing
 class AIService {
   static bool _initialized = false;
 
@@ -13,38 +13,62 @@ class AIService {
     _initialized = true;
   }
 
-  /// Process audio in background isolate to avoid UI blocking
+  /// Process audio in background isolate
   Future<Transcription> processFullPipeline({
     required String audioPath,
     required String title,
+    String? existingId,  // Accept existing ID
   }) async {
-    print('AI: Starting pipeline for: $audioPath');
+    print('AI: Starting pipeline');
+    print('AI: Audio path = $audioPath');
     
-    // Verify file exists
-    final audioFile = File(audioPath);
-    if (!await audioFile.exists()) {
-      throw Exception('Audio file not found: $audioPath');
+    try {
+      // Verify file exists
+      final audioFile = File(audioPath);
+      if (!await audioFile.exists()) {
+        throw Exception('FILE_NOT_FOUND: $audioPath');
+      }
+      
+      final fileSize = await audioFile.length();
+      print('AI: File size = $fileSize bytes');
+      
+      if (fileSize == 0) {
+        throw Exception('EMPTY_FILE: $audioPath');
+      }
+      
+      // Process in isolate
+      final result = await Isolate.run(() => _processInBackground(audioPath, title));
+      
+      print('AI: Pipeline complete!');
+      
+      // Return with original ID if provided
+      return Transcription(
+        id: existingId ?? result.id,
+        title: title,
+        audioPath: audioPath,
+        text: result.text,
+        wordTimestamps: result.wordTimestamps,
+        createdAt: result.createdAt,
+        duration: result.duration,
+        isEncrypted: false,
+        speakerSegments: result.speakerSegments,
+        summary: result.summary,
+        actionItems: result.actionItems,
+      );
+    } catch (e) {
+      print('AI ERROR: $e');
+      rethrow;
     }
-    
-    final fileSize = await audioFile.length();
-    print('AI: File size: $fileSize bytes');
-    
-    // Process in isolate for heavy AI computation
-    final result = await Isolate.run(() => _processInBackground(audioPath, title));
-    
-    print('AI: Pipeline complete!');
-    return result;
   }
 
-  /// Background isolate function for heavy processing
+  /// Background isolate function
   static Transcription _processInBackground(String audioPath, String title) {
-    print('AI [Isolate]: Processing...');
+    print('AI [Isolate]: Processing audio...');
     
-    // Simulate heavy processing (2 seconds)
-    // In production, this would call whisper.cpp and llama.cpp via FFI
+    // Heavy processing simulation
     final endTime = DateTime.now().add(const Duration(seconds: 2));
     while (DateTime.now().isBefore(endTime)) {
-      // Busy wait for demo
+      // Simulate work
     }
     
     print('AI [Isolate]: Done');
@@ -81,7 +105,7 @@ Pessoa 1: Perfeito! A gente se vê amanhã então.''';
   ];
 
   static List<WordTimestamp> get _demoWordTimestamps {
-    final words = ['Olá', 'como', 'você', 'está', '?', 'Estou', 'bem'];
+    final words = ['Olá', 'como', 'você', 'está'];
     final ts = <WordTimestamp>[];
     var start = 0;
     for (var w in words) {

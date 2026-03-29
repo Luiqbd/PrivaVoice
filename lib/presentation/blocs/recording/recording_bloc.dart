@@ -58,15 +58,15 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
         debugPrint('RecordingBloc: Created directory: ${recordingsDir.path}');
       }
       
-      final filename = '${const Uuid().v4()}.m4a';
+      final filename = '${const Uuid().v4()}.wav';
       _currentFilePath = '${recordingsDir.path}/$filename';
       debugPrint('RecordingBloc: Saving to $_currentFilePath');
 
       await _recorder.start(
         const RecordConfig(
-          encoder: AudioEncoder.aacLc,
+          encoder: AudioEncoder.wav,
           bitRate: 128000,
-          sampleRate: 44100,
+          sampleRate: 16000,
         ),
         path: _currentFilePath!,
       );

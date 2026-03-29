@@ -54,6 +54,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
       
       final result = await aiService.processFullPipeline(
         audioPath: _transcription!.audioPath,
+        existingId: _transcription!.id,
         title: _transcription!.title,
       );
       
@@ -62,6 +63,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
         id: _transcription!.id,  // Keep original ID!
         title: _transcription!.title,
         audioPath: _transcription!.audioPath,
+        existingId: _transcription!.id,
         text: result.text,
         wordTimestamps: result.wordTimestamps,
         createdAt: _transcription!.createdAt,
