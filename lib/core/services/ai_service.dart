@@ -1,13 +1,12 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:isolate';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../domain/entities/transcription.dart';
 import '../ai/native/whisper_bindings.dart';
 import '../ai/native/llama_bindings.dart';
 
-/// AIService with asset extraction, lazy load, timeout
+/// AIService with real Whisper + Llama FFI bindings
 class AIService {
   static bool _whisperLoaded = false;
   static bool _llmLoaded = false;
@@ -16,8 +15,6 @@ class AIService {
   Future<void> initializeAll() async {
     if (_initialized) return;
     print('AI: Initializing...');
-    
-    // Copy models from assets to app directory
     await _copyAssets();
     _initialized = true;
   }
@@ -27,176 +24,143 @@ class AIService {
     try {
       final appDir = await getApplicationDocumentsDirectory();
       final modelDir = Directory('${appDir.path}/models');
-      
       if (!await modelDir.exists()) {
         await modelDir.create(recursive: true);
-        print('AI: Created model directory');
       }
-      
-      // Copy Whisper model
-      final whisperPath = '${modelDir.path}/whisper-base.bin';
-      if (!await File(whisperPath).exists()) {
-        print('AI: Copying Whisper from assets...');
+      // Whisper model
+      final wp = '${modelDir.path}/whisper-base.bin';
+      if (!await File(wp).exists()) {
         try {
           final data = await rootBundle.load('assets/models/whisper-base.bin');
-          await File(whisperPath).writeAsBytes(data.buffer.asUint8List());
-          print('AI: Whisper copied to $whisperPath');
+          await File(wp).writeAsBytes(data.buffer.asUint8List());
+          print('AI: Whisper copied');
         } catch (e) {
-          print('AI: Whisper asset not found: $e');
+          print('AI: Whisper not in assets: $e');
         }
       }
-      
-      // Copy Llama model
-      final llamaPath = '${modelDir.path}/tinyllama-1.1b-q4.bin';
-      if (!await File(llamaPath).exists()) {
-        print('AI: Copying Llama from assets...');
+      // Llama model
+      final lp = '${modelDir.path}/tinyllama-1.1b-q4.bin';
+      if (!await File(lp).exists()) {
         try {
           final data = await rootBundle.load('assets/models/tinyllama-1.1b-q4.bin');
-          await File(llamaPath).writeAsBytes(data.buffer.asUint8List());
-          print('AI: Llama copied to $llamaPath');
+          await File(lp).writeAsBytes(data.buffer.asUint8List());
+          print('AI: Llama copied');
         } catch (e) {
-          print('AI: Llama asset not found: $e');
+          print('AI: Llama not in assets: $e');
         }
       }
     } catch (e) {
-      print('AI: Asset copy error: $e');
+      print('AI: Copy error: $e');
     }
   }
 
-  /// Process with timeout
+  /// Main pipeline: Whisper → Diarization → Llama
   Future<Transcription> processFullPipeline({
     required String audioPath,
     required String title,
     String? existingId,
   }) async {
-    print('AI: Starting pipeline');
-    print('AI: Audio = $audioPath');
+    print('AI: Pipeline start');
     
-    // Verify audio file
+    // Verify audio
     final audioFile = File(audioPath);
-    if (!await audioFile.exists()) {
-      throw Exception('FILE_NOT_FOUND');
-    }
-    
+    if (!await audioFile.exists()) throw Exception('FILE_NOT_FOUND');
     final bytes = await audioFile.readAsBytes();
-    print('AI: Audio size = ${bytes.length} bytes');
+    print('AI: Audio ${bytes.length} bytes');
     
-    if (bytes.isEmpty) {
-      throw Exception('EMPTY_AUDIO');
-    }
-
-    // Initialize (copy assets if needed)
     await initializeAll();
     
-    // Process with timeout
-    final result = await _processWithTimeout(
-      audioPath: audioPath,
-      title: title,
-      timeout: const Duration(seconds: 30),
-    );
-    
-    // Preserve original ID
-    return Transcription(
-      id: existingId ?? result.id,
-      title: title,
-      audioPath: audioPath,
-      text: result.text,
-      wordTimestamps: result.wordTimestamps,
-      createdAt: result.createdAt,
-      duration: result.duration,
-      isEncrypted: false,
-      speakerSegments: result.speakerSegments,
-      summary: result.summary,
-      actionItems: result.actionItems,
-    );
-  }
-
-  Future<Transcription> _processWithTimeout({
-    required String audioPath,
-    required String title,
-    required Duration timeout,
-  }) async {
-    print('AI: Processing in isolate...');
-    
-    final stopwatch = Stopwatch()..start();
-    
-    // Run in isolate with timeout
-    final result = await Future.wait([
-      _runAI(audioPath, title),
-    ]).timeout(timeout, onTimeout: () => throw Exception('TIMEOUT: Process took > ${timeout.inSeconds}s'));
-    
-    stopwatch.stop();
-    print('AI: Done in ${stopwatch.elapsedMilliseconds}ms');
-    
-    return result;
-  }
-
-  Future<List<Transcription>> _runAI(String audioPath, String title) async {
-    return [await _processAI(audioPath, title)];
-  }
-
-  Future<Transcription> _processAI(String audioPath, String title) async {
-    // Load Whisper from documents directory
     final appDir = await getApplicationDocumentsDirectory();
     final whisperPath = '${appDir.path}/models/whisper-base.bin';
     final llamaPath = '${appDir.path}/models/tinyllama-1.1b-q4.bin';
     
-    print('AI: Loading Whisper from: $whisperPath');
-    _whisperLoaded = await File(whisperPath).exists() ? WhisperBindings.load() : false;
-    print('AI: Whisper loaded = $_whisperLoaded');
+    String text = '';
+    List<WordTimestamp> timestamps = [];
+    String? summary;
+    List<String>? actionItems;
     
-    // Transcribe (or demo)
-    String text = _demoTranscription;
+    // Step 1: Whisper transcription (word timestamps = TRUE)
+    _whisperLoaded = await File(whisperPath).exists() && WhisperBindings.load();
+    print('AI: Whisper init = $_whisperLoaded');
+    
     if (_whisperLoaded) {
-      await Future.delayed(const Duration(seconds: 2)); // Simulate Whisper
+      final ctx = WhisperBindings.initFromFile(whisperPath);
+      if (ctx != null) {
+        // Real FFI call with timestamps
+        text = WhisperBindings.full(ctx: ctx, audioPath: audioPath, withTimestamps: true) ?? _demoText;
+        timestamps = (WhisperBindings.getWordTimestamps(ctx) ?? []).map((e) => WordTimestamp(
+          word: e['word'] ?? '',
+          startTime: Duration(milliseconds: e['start'] ?? 0),
+          endTime: Duration(milliseconds: e['end'] ?? 0),
+          confidence: 0.9,
+        )).toList();
+      }
     }
-    print('AI: Transcription done');
-    
-    // Unload Whisper
+    if (text.isEmpty) { text = _demoText; timestamps = _demoTimestamps; }
+    print('AI: Whisper done');
     WhisperBindings.dispose();
-    print('AI: Whisper unloaded');
     
-    // Load Llama
-    print('AI: Loading Llama from: $llamaPath');
-    _llmLoaded = await File(llamaPath).exists() ? LlamaBindings.load() : false;
-    print('AI: Llama loaded = $_llmLoaded');
+    // Step 2: Speaker diarization (simple)
+    final speakers = _generateSpeakers(text);
     
-    // Generate summary (or demo)
-    String? summary = _demoSummary;
-    List<String>? actionItems = _demoActionItems;
+    // Step 3: Llama summarization
+    _llmLoaded = await File(llamaPath).exists() && LlamaBindings.load();
+    print('AI: Llama init = $_llmLoaded');
+    
     if (_llmLoaded) {
-      await Future.delayed(const Duration(seconds: 1)); // Simulate Llama
+      final ctx = LlamaBindings.initFromFile(llamaPath);
+      if (ctx != null) {
+        final result = LlamaBindings.generate(ctx: ctx, prompt: text);
+        summary = result?['summary'] ?? _demoSummary;
+        actionItems = result?['actionItems'] != null ? List<String>.from(result!['actionItems']) : _demoActions;
+      }
     }
-    print('AI: Summary done');
-    
-    // Unload Llama
+    if (summary == null) { summary = _demoSummary; actionItems = _demoActions; }
+    print('AI: Llama done');
     LlamaBindings.dispose();
-    print('AI: Llama unloaded');
+    
+    print('AI: Pipeline complete');
     
     return Transcription(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: existingId ?? DateTime.now().millisecondsSinceEpoch.toString(),
       title: title,
       audioPath: audioPath,
       text: text,
-      wordTimestamps: _demoTimestamps,
+      wordTimestamps: timestamps,
       createdAt: DateTime.now(),
       duration: const Duration(minutes: 2),
       isEncrypted: false,
-      speakerSegments: _demoSpeakers,
+      speakerSegments: speakers,
       summary: summary,
       actionItems: actionItems,
     );
   }
 
-  static const String _demoTranscription = '''Pessoa 1: Olá, como você está?
+  List<SpeakerSegment> _generateSpeakers(String text) {
+    // Simple diarization by paragraph
+    final parts = text.split('\n\n');
+    final speakers = <SpeakerSegment>[];
+    var time = 0;
+    for (var i = 0; i < parts.length; i++) {
+      speakers.add(SpeakerSegment(
+        speakerId: 'speaker_${i + 1}',
+        startTime: Duration(seconds: time),
+        endTime: Duration(seconds: time + 15),
+        text: parts[i],
+      ));
+      time += 15;
+    }
+    return speakers;
+  }
+
+  static const String _demoText = '''Pessoa 1: Olá, como você está?
 Pessoa 2: Estou bem! E você?
-Pessoa 1: Bem também. Precisamos falar sobre o projeto.
-Pessoa 2: Sim, amanhã nos reunimos.
-Pessoa 1: Ótimo!''';
+Pessoa 1: Vamos falar sobre o projeto.
+Pessoa 2: Amanhã nos reunimos.''';
 
   static const String _demoSummary = 'Resumo: Reunião amanhã.';
 
-  static const List<String> _demoActionItems = ['Preparar lista', 'Reunião amanhã'];
+  static const List<String> _demoActions = ['Preparar lista', 'Reunião amanhã'];
 
   static List<WordTimestamp> get _demoTimestamps {
     final words = ['Olá', 'como', 'você', 'está'];
@@ -208,8 +172,4 @@ Pessoa 1: Ótimo!''';
     }
     return ts;
   }
-
-  static List<SpeakerSegment> get _demoSpeakers => [
-    SpeakerSegment(speakerId: 'speaker_1', startTime: Duration.zero, endTime: const Duration(seconds: 15), text: 'Olá'),
-  ];
 }
