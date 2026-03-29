@@ -45,7 +45,8 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
   Future<void> _processWithAI() async {
     if (_transcription == null || _isProcessing) return;
     
-    debugPrint('AI: Starting for ${_transcription!.audioPath}');
+    print('AI: Starting for: ${_transcription!.audioPath}');
+    print('AI: Using original ID: ${_transcription!.id}');
     setState(() { _isProcessing = true; });
     
     try {
@@ -56,22 +57,41 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
         title: _transcription!.title,
       );
       
-      debugPrint('AI: Got result, text length: ${result.text.length}');
+      // Preserve original ID
+      final finalResult = Transcription(
+        id: _transcription!.id,  // Keep original ID!
+        title: _transcription!.title,
+        audioPath: _transcription!.audioPath,
+        text: result.text,
+        wordTimestamps: result.wordTimestamps,
+        createdAt: _transcription!.createdAt,
+        duration: _transcription!.duration,
+        isEncrypted: result.isEncrypted,
+        speakerSegments: result.speakerSegments,
+        summary: result.summary,
+        actionItems: result.actionItems,
+      );
       
-      // Save
+      print('AI: Result text length: ${finalResult.text.length}');
+      
+      // Save with original ID (replace)
       final repo = GetIt.instance<TranscriptionRepository>();
-      await repo.saveTranscription(result);
-      debugPrint('AI: Saved');
+      await repo.saveTranscription(finalResult);
+      print('AI: Saved');
+      
+      // Reload to verify
+      final updated = await repo.getTranscriptionById(widget.transcriptionId);
+      print('AI: Reloaded: ${updated?.text.length} chars');
       
       if (mounted) {
         setState(() {
-          _transcription = result;
+          _transcription = updated;
           _isProcessing = false;
         });
-        debugPrint('AI: Updated UI');
+        print('AI: UI updated');
       }
     } catch (e, st) {
-      debugPrint('AI Error: $e\n$st');
+      print('AI Error: $e\n$st');
       if (mounted) setState(() { _error = e.toString(); _isProcessing = false; });
     }
   }
@@ -107,6 +127,8 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
           Text(_transcription!.title, style: const TextStyle(color: AppColors.textPrimary, fontSize: 24, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Text('Duração: ${_transcription!.duration.inMinutes}:${(_transcription!.duration.inSeconds % 60).toString().padLeft(2, '0')}', style: const TextStyle(color: AppColors.textTertiary)),
+          const SizedBox(height: 8),
+          Text('Arquivo: ${_transcription!.audioPath.split('/').last}', style: const TextStyle(color: AppColors.textTertiary, fontSize: 12)),
           const SizedBox(height: 24),
           
           if (_transcription!.text.isEmpty)

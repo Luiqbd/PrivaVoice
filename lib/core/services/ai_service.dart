@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
 import '../../domain/entities/transcription.dart';
 
+/// AIService with Isolate processing for real AI models
 class AIService {
   static bool _initialized = false;
 
@@ -10,23 +13,42 @@ class AIService {
     _initialized = true;
   }
 
+  /// Process audio in background isolate to avoid UI blocking
   Future<Transcription> processFullPipeline({
     required String audioPath,
     required String title,
   }) async {
-    print('AI: Starting pipeline for $audioPath');
-
+    print('AI: Starting pipeline for: $audioPath');
+    
     // Verify file exists
     final audioFile = File(audioPath);
     if (!await audioFile.exists()) {
-      print('WARNING: Audio file not found, using demo');
+      throw Exception('Audio file not found: $audioPath');
     }
-
-    // Simulate processing time (2 seconds)
-    await Future.delayed(const Duration(seconds: 2));
-
+    
+    final fileSize = await audioFile.length();
+    print('AI: File size: $fileSize bytes');
+    
+    // Process in isolate for heavy AI computation
+    final result = await Isolate.run(() => _processInBackground(audioPath, title));
+    
     print('AI: Pipeline complete!');
+    return result;
+  }
 
+  /// Background isolate function for heavy processing
+  static Transcription _processInBackground(String audioPath, String title) {
+    print('AI [Isolate]: Processing...');
+    
+    // Simulate heavy processing (2 seconds)
+    // In production, this would call whisper.cpp and llama.cpp via FFI
+    final endTime = DateTime.now().add(const Duration(seconds: 2));
+    while (DateTime.now().isBefore(endTime)) {
+      // Busy wait for demo
+    }
+    
+    print('AI [Isolate]: Done');
+    
     return Transcription(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       title: title,
@@ -54,7 +76,7 @@ Pessoa 1: Perfeito! A gente se vê amanhã então.''';
 
   static const List<String> _demoActionItems = [
     'Preparar lista de tarefas',
-    'Reunião amanhã de manhã',
+    'Reunião amanhã de manhã', 
     'Finalizar entrega até sexta-feira',
   ];
 
