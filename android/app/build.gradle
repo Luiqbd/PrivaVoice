@@ -48,6 +48,12 @@ android {
     buildFeatures {
         prefab true
     }
+    
+    sourceSets {
+        main {
+            jniLibs.srcDirs = ['src/main/jniLibs']
+        }
+    }
 }
 
 flutter {
