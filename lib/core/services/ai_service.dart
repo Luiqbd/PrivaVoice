@@ -1,13 +1,9 @@
 import 'dart:io';
-import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
 import '../../domain/entities/transcription.dart';
 
-/// AIService - Production mode with real Whisper + TinyLlama
 class AIService {
   static bool _initialized = false;
-  
+
   Future<void> initializeAll() async {
     if (_initialized) return;
     print('AI: Initializing...');
@@ -19,48 +15,51 @@ class AIService {
     required String title,
   }) async {
     print('AI: Starting pipeline for $audioPath');
-    
+
+    // Verify file exists
     final audioFile = File(audioPath);
     if (!await audioFile.exists()) {
-      throw Exception('Audio file not found');
+      print('WARNING: Audio file not found, using demo');
     }
-    
+
+    // Simulate processing time (2 seconds)
     await Future.delayed(const Duration(seconds: 2));
-    
+
     print('AI: Pipeline complete!');
-    
+
     return Transcription(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       title: title,
       audioPath: audioPath,
-      text: _generateTranscription(),
-      wordTimestamps: _generateWordTimestamps(),
+      text: _demoTranscription,
+      wordTimestamps: _demoWordTimestamps,
       createdAt: DateTime.now(),
       duration: const Duration(minutes: 2, seconds: 30),
       isEncrypted: false,
-      speakerSegments: _generateSpeakerSegments(),
-      summary: _generateSummary(),
-      actionItems: _generateActionItems(),
+      speakerSegments: _demoSpeakerSegments,
+      summary: _demoSummary,
+      actionItems: _demoActionItems,
     );
   }
 
-  String _generateTranscription() => '''Pessoa 1: Olá, como você está?
+  static const String _demoTranscription = '''Pessoa 1: Olá, como você está?
 Pessoa 2: Estou bem, obrigado! E você?
-Pessoa 1: Muito bem também. sobre o projeto da próxima semana.
-Pessoa 2: Sim, precisamos entregar até sexta.
-Pessoa 1: Vou preparar a lista de tarefas.
-Pessoa 2: Ótimo, nos vemos amanhã então!''';
+Pessoa 1: Muito bem também. Precisamos falar sobre o projeto da próxima semana.
+Pessoa 2: Sim, o cliente está ansioso pelo resultado final.
+Pessoa 1: Concordou. Vou preparar a lista de tarefas para organizarmos melhor.
+Pessoa 2: Ótima ideia! Vamos nos reunir amanhã de manhã.
+Pessoa 1: Perfeito! A gente se vê amanhã então.''';
 
-  String _generateSummary() => 'Resumo: Reunião sobre o projeto. Lista de tarefas será preparada. Entrega até sexta-feira.';
+  static const String _demoSummary = 'Resumo: Reunião sobre o projeto. Lista de tarefas será preparada. Nova reunião agendada para amanhã.';
 
-  List<String> _generateActionItems() => [
+  static const List<String> _demoActionItems = [
     'Preparar lista de tarefas',
-    'Reunião amanhã',
-    'Finalizar até sexta',
+    'Reunião amanhã de manhã',
+    'Finalizar entrega até sexta-feira',
   ];
 
-  List<WordTimestamp> _generateWordTimestamps() {
-    final words = 'Olá tudo bem'.split(' ');
+  static List<WordTimestamp> get _demoWordTimestamps {
+    final words = ['Olá', 'como', 'você', 'está', '?', 'Estou', 'bem'];
     final ts = <WordTimestamp>[];
     var start = 0;
     for (var w in words) {
@@ -75,8 +74,8 @@ Pessoa 2: Ótimo, nos vemos amanhã então!''';
     return ts;
   }
 
-  List<SpeakerSegment> _generateSpeakerSegments() => [
-    SpeakerSegment(speakerId: 'speaker_1', startTime: Duration.zero, endTime: const Duration(seconds: 10), text: 'Olá'),
-    SpeakerSegment(speakerId: 'speaker_2', startTime: const Duration(seconds: 10), endTime: const Duration(seconds: 20), text: 'Estou bem'),
+  static List<SpeakerSegment> get _demoSpeakerSegments => [
+    SpeakerSegment(speakerId: 'speaker_1', startTime: Duration.zero, endTime: const Duration(seconds: 15), text: 'Olá, como você está?'),
+    SpeakerSegment(speakerId: 'speaker_2', startTime: const Duration(seconds: 15), endTime: const Duration(seconds: 30), text: 'Estou bem, obrigado!'),
   ];
 }

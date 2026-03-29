@@ -1,10 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../../core/services/ai_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../domain/entities/transcription.dart';
 import '../../domain/repositories/transcription_repository.dart';
-import '../../injection_container.dart';
 
 class TranscriptionDetailPage extends StatefulWidget {
   final String transcriptionId;
@@ -29,8 +29,11 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
 
   Future<void> _loadTranscription() async {
     try {
+      debugPrint('Loading transcription: ${widget.transcriptionId}');
       final repo = GetIt.instance<TranscriptionRepository>();
       final t = await repo.getTranscriptionById(widget.transcriptionId);
+      
+      debugPrint('Loaded: ${t?.title}, text: ${t?.text.length}');
       
       if (mounted) {
         setState(() {
@@ -43,6 +46,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
         }
       }
     } catch (e) {
+      debugPrint('Load error: $e');
       if (mounted) setState(() { _error = e.toString(); _isLoading = false; });
     }
   }
@@ -50,23 +54,35 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
   Future<void> _processWithAI() async {
     if (_transcription == null || _isProcessing) return;
     
+    debugPrint('Starting AI processing for: ${_transcription!.audioPath}');
+    
     setState(() { _isProcessing = true; });
     
     try {
-      debugPrint('Processing with AI directly...');
+      // Check if file exists
+      final audioFile = File(_transcription!.audioPath);
+      debugPrint('File exists: ${await audioFile.exists()}');
+      
       final aiService = AIService();
+      await aiService.initializeAll();
       
       final result = await aiService.processFullPipeline(
         audioPath: _transcription!.audioPath,
         title: _transcription!.title,
       );
       
-      // Save the result
+      debugPrint('AI result: ${result.text.length} chars');
+      
+      // Save result
       final repo = GetIt.instance<TranscriptionRepository>();
       await repo.saveTranscription(result);
       
+      debugPrint('Saved to DB');
+      
       // Reload
       final updated = await repo.getTranscriptionById(widget.transcriptionId);
+      
+      debugPrint('Reloaded: ${updated?.text.length}');
       
       if (mounted) {
         setState(() {
@@ -74,8 +90,8 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
           _isProcessing = false;
         });
       }
-    } catch (e) {
-      debugPrint('Error: $e');
+    } catch (e, st) {
+      debugPrint('AI Error: $e\n$st');
       if (mounted) setState(() { _error = e.toString(); _isProcessing = false; });
     }
   }
@@ -100,7 +116,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
       const SizedBox(height: 24),
       const Text('Processando IA...', style: TextStyle(color: AppColors.textPrimary, fontSize: 18)),
     ]));
-    if (_error != null) return Center(child: Text('Erro: $_error', style: const TextStyle(color: AppColors.error)));
+    if (_error != null) return Center(child: Padding(padding: const EdgeInsets.all(24), child: Text('Erro: $_error', style: const TextStyle(color: AppColors.error))));
     if (_transcription == null) return const Center(child: Text('Não encontrado'));
     
     return SingleChildScrollView(
