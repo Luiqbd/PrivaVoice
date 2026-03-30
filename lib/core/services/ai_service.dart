@@ -8,24 +8,23 @@ import '../ai/native/whisper_bindings.dart';
 import '../ai/native/llama_bindings.dart';
 import '../ai/ai_state.dart';
 
-/// ROBUST AI Service - Military-grade security and stability
+/// ROBUST AI Service - Military-grade stability
 class AIService {
   static bool _initialized = false;
   static bool _modelsCopied = false;
   static String? _modelPath;
   static String _diagnosticLog = '';
 
-  // Expected sizes (bytes)
-  static const int EXPECTED_WHISPER_SIZE = 144000000; // ~144MB
-  static const int EXPECTED_LLAMA_SIZE = 653000000;   // ~653MB
-  static const int WHISPER_MIN_SIZE = 130000000;      // Allow some variance
-  static const int LLAMA_MIN_SIZE = 580000000;       
+  // Expected sizes
+  static const int EXPECTED_WHISPER_SIZE = 144000000;
+  static const int EXPECTED_LLAMA_SIZE = 653000000;
+  static const int WHISPER_MIN_SIZE = 130000000;
+  static const int LLAMA_MIN_SIZE = 580000000;
 
   static bool get isModelsReady => _modelsCopied;
   static String? get modelPath => _modelPath;
   static String get diagnosticLog => _diagnosticLog;
 
-  /// Add diagnostic entry
   static void _log(String message) {
     final timestamp = DateTime.now().toIso8601String();
     final entry = '[$timestamp] $message';
@@ -33,7 +32,27 @@ class AIService {
     print('AI: $message');
   }
 
-  /// Verify model file integrity before init
+  /// Validate model path exists - critical for persistence
+  static String? _validateModelPath() {
+    if (_modelPath == null) {
+      _log('❌ _modelPath is NULL');
+      return null;
+    }
+    
+    final file = File(_modelPath!);
+    if (!file.existsSync()) {
+      _log('❌ Model file NOT FOUND at: $_modelPath');
+      _modelPath = null;
+      _modelsCopied = false;
+      return null;
+    }
+    
+    final stat = file.statSync();
+    _log('✅ Model path validated: $_modelPath (${stat.size} bytes)');
+    return _modelPath;
+  }
+
+  /// Verify model integrity before init
   static bool _verifyModelIntegrity(String path, int expectedSize, int minSize) {
     try {
       final file = File(path);
@@ -50,12 +69,7 @@ class AIService {
         return false;
       }
       
-      if (stat.size >= expectedSize * 0.9) {
-        _log('✅ Model INTEGRITY OK');
-        return true;
-      }
-      
-      _log('⚠️ Model size differs but acceptable: ${stat.size}');
+      _log('✅ Model INTEGRITY OK');
       return true;
     } catch (e) {
       _log('❌ Model integrity check FAILED: $e');
@@ -63,7 +77,7 @@ class AIService {
     }
   }
 
-  /// Pre-flight check - validate asset integrity
+  /// Pre-flight check
   static Future<bool> checkAssetsIntegrity() async {
     _log('=== PRE-FLIGHT CHECK ===');
 
@@ -75,10 +89,10 @@ class AIService {
         await modelDir.create(recursive: true);
       }
       
-      // Check Whisper
       final whisperPath = '${modelDir.path}/whisper-base.bin';
+      
+      // Check if already exists and is valid
       if (await File(whisperPath).exists()) {
-        // Verify integrity
         if (!_verifyModelIntegrity(whisperPath, EXPECTED_WHISPER_SIZE, WHISPER_MIN_SIZE)) {
           _log('Recreating corrupted Whisper model...');
           await _deleteAndRecreateModel(whisperPath, 'whisper-base.bin');
@@ -93,6 +107,8 @@ class AIService {
         await _copyModel('whisper-base.bin', whisperPath);
       }
 
+      // Final validation
+      _validateModelPath();
       AIManager.setState(AIState.ready, message: 'Pronto para gravar');
       return true;
     } catch (e) {
@@ -102,7 +118,6 @@ class AIService {
     }
   }
 
-  /// Delete and recreate model
   static Future<void> _deleteAndRecreateModel(String path, String assetName) async {
     try {
       _log('Deleting corrupted model: $path');
@@ -116,7 +131,6 @@ class AIService {
     await _copyModel(assetName, path);
   }
 
-  /// Copy model from assets with verification
   static Future<void> _copyModel(String assetName, String destPath) async {
     _log('Copying $assetName...');
     AIManager.setState(AIState.loading, message: 'Baixando $assetName...');
@@ -127,7 +141,7 @@ class AIService {
 
       await File(destPath).writeAsBytes(data.buffer.asUint8List());
       
-      // Verify copy completed successfully
+      // Verify copy
       if (!_verifyModelIntegrity(destPath, data.lengthInBytes, data.lengthInBytes ~/ 2)) {
         throw Exception('Model copy verification failed');
       }
@@ -136,7 +150,7 @@ class AIService {
       _log('Model copied: ${stat.size} bytes');
 
       _modelsCopied = true;
-      _modelPath = destPath;
+      _modelPath = destPath;  // CRITICAL: Set path after successful copy
       _log('✅ Model ready: $destPath');
     } catch (e) {
       _log('❌ Copy FAILED: $e');
@@ -145,7 +159,6 @@ class AIService {
     }
   }
 
-  /// Initialize in background
   static Future<void> initializeInBackground() async {
     if (_initialized) return;
 
@@ -153,27 +166,25 @@ class AIService {
     AIManager.setState(AIState.loading, message: 'Preparando IA...');
 
     try {
-      // Copy models in isolate
       await Isolate.run(() async {
         await _copyModelsToDocuments();
       });
 
-      // Pre-flight check in main isolate
       final ready = await checkAssetsIntegrity();
       if (!ready) {
         _log('Post-initialization check failed');
       }
 
       _initialized = true;
+      _validateModelPath();  // Final validation
       _log('=== INITIALIZATION COMPLETE ===');
-      _log('Model path: $_modelPath');
+      _log('Final model path: $_modelPath');
     } catch (e) {
       _log('❌ INITIALIZATION FAILED: $e');
       AIManager.setError('Inicialização falhou: $e');
     }
   }
 
-  /// Copy models to documents
   static Future<void> _copyModelsToDocuments() async {
     final appDir = await getApplicationDocumentsDirectory();
     final modelDir = Directory('${appDir.path}/models');
@@ -184,7 +195,7 @@ class AIService {
     print('AI: Models directory prepared');
   }
 
-  /// Process audio - runs in isolate
+  /// Process audio
   static Future<Transcription?> processAudio({
     required String audioPath,
     required String title,
@@ -192,24 +203,49 @@ class AIService {
   }) async {
     _log('=== PROCESS AUDIO ===');
 
-    if (_modelPath == null || !_modelsCopied) {
+    // CRITICAL: Validate path before processing
+    final validatedPath = _validateModelPath();
+    if (validatedPath == null) {
       _log('Models not ready, running pre-flight...');
       AIManager.setState(AIState.loading, message: 'Carregando modelo...');
       final ready = await checkAssetsIntegrity();
       if (!ready) {
         throw Exception('Pre-flight check failed');
       }
+      _validateModelPath();  // Re-validate after pre-flight
+    }
+
+    // Verify audio file
+    _log('Checking audio file: $audioPath');
+    final audioFile = File(audioPath);
+    if (!audioFile.existsSync()) {
+      throw Exception('Audio file NOT FOUND: $audioPath');
+    }
+    
+    final audioStat = audioFile.statSync();
+    _log('Audio file size: ${audioStat.size} bytes');
+    
+    if (audioStat.size < 10000) {  // < 10KB
+      _log('⚠️ WARNING: Audio file too small (${audioStat.size} bytes). May be empty!');
+      AIManager.setError('Áudio vazio ou corrompido');
+      throw Exception('Audio file too small (${audioStat.size} bytes). Need at least 10KB.');
     }
 
     AIManager.setState(AIState.processing, message: 'Transcrevendo...');
     onProgress?.call(0.1, 'Processando áudio...');
 
     try {
+      // Validate path one more time before isolate
+      final safePath = _validateModelPath();
+      if (safePath == null) {
+        throw Exception('Model path lost between validation and isolate');
+      }
+
       final result = await Isolate.run(() async {
         return await _processPipeline(
           audioPath: audioPath,
           title: title,
-          modelPath: _modelPath,
+          modelPath: safePath,  // Pass validated path
         );
       });
 
@@ -225,117 +261,130 @@ class AIService {
     }
   }
 
-  /// Pipeline - runs in isolate
+  /// Pipeline with finally block for memory cleanup
   static Future<Transcription> _processPipeline({
     required String audioPath,
     required String title,
-    String? modelPath,
+    required String modelPath,
   }) async {
     _log('[Isolate] Pipeline start');
+    _log('[Isolate] Using model path: $modelPath');
 
-    final effectiveModelPath = modelPath ?? _modelPath;
+    Pointer<Void>? whisperCtx;
+    Pointer<Void>? llamaCtx;
 
-    // Check audio
-    if (!File(audioPath).existsSync()) {
-      throw Exception('Audio file NOT FOUND: $audioPath');
-    }
+    try {
+      // Check audio
+      if (!File(audioPath).existsSync()) {
+        throw Exception('Audio file NOT FOUND: $audioPath');
+      }
 
-    if (effectiveModelPath == null) {
-      throw Exception('Model path is NULL - run pre-flight check');
-    }
+      final audioStat = File(audioPath).statSync();
+      _log('[Isolate] Audio size: ${audioStat.size} bytes');
 
-    // Verify model integrity before init
-    if (!_verifyModelIntegrity(effectiveModelPath, EXPECTED_WHISPER_SIZE, WHISPER_MIN_SIZE)) {
-      throw Exception('Model integrity check FAILED');
-    }
+      // Verify model integrity
+      if (!_verifyModelIntegrity(modelPath, EXPECTED_WHISPER_SIZE, WHISPER_MIN_SIZE)) {
+        throw Exception('Model integrity check FAILED');
+      }
 
-    _log('[Isolate] Model: $effectiveModelPath');
+      _log('[Isolate] Model: $modelPath');
 
-    // Load Whisper
-    if (!WhisperBindings.load()) {
-      throw Exception('FFI Error: libwhisper.so not loaded');
-    }
+      // Load Whisper
+      if (!WhisperBindings.load()) {
+        throw Exception('FFI Error: libwhisper.so not loaded');
+      }
 
-    // Init model
-    _log('[Isolate] Init Whisper...');
-    final ctx = WhisperBindings.initFromFile(effectiveModelPath);
-    
-    if (ctx == null) {
-      throw Exception('FFI Error: whisper_init_from_file returned NULL');
-    }
+      // Init model
+      _log('[Isolate] Init Whisper...');
+      whisperCtx = WhisperBindings.initFromFile(modelPath);
+      
+      if (whisperCtx == null) {
+        throw Exception('FFI Error: whisper_init_from_file returned NULL');
+      }
 
-    _log('[Isolate] ctx = ${ctx.address}');
+      _log('[Isolate] ctx = ${whisperCtx.address}');
 
-    // Transcribe
-    _log('[Isolate] Transcribing...');
-    final text = WhisperBindings.full(ctx: ctx, audioPath: audioPath);
-    
-    if (text == null || text.isEmpty) {
-      WhisperBindings.dispose();
-      throw Exception('FFI Error: whisper returned empty');
-    }
+      // Transcribe
+      _log('[Isolate] Transcribing...');
+      final text = WhisperBindings.full(ctx: whisperCtx, audioPath: audioPath);
+      
+      if (text == null || text.isEmpty) {
+        throw Exception('FFI Error: whisper returned empty');
+      }
 
-    _log('[Isolate] Text: $text');
+      _log('[Isolate] Text: $text');
 
-    // ============================================
-    // MEMORY HANDOVER - Critical for OOM prevention
-    // ============================================
-    _log('[Isolate] Cleaning Whisper from memory...');
-    WhisperBindings.dispose();
-    
-    // Small delay to allow RAM cleanup before Llama loads
-    await Future.delayed(const Duration(milliseconds: 500));
-    _log('[Isolate] ✅ Memory handover complete');
-    // ============================================
+      // Diarization
+      final speakers = _diarize(text);
 
-    // Diarization
-    final speakers = _diarize(text);
+      // Llama summary
+      String summary = '';
+      List<String> actionItems = [];
 
-    // Llama summary
-    String summary = '';
-    List<String> actionItems = [];
-
-    final llamaPath = effectiveModelPath.replaceAll('whisper-base.bin', 'tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf');
-    
-    // Verify Llama integrity
-    if (File(llamaPath).existsSync()) {
-      if (!_verifyModelIntegrity(llamaPath, EXPECTED_LLAMA_SIZE, LLAMA_MIN_SIZE)) {
-        _log('[Isolate] ⚠️ Llama integrity check failed, skipping summary');
-      } else {
-        _log('[Isolate] Loading Llama...');
-        if (LlamaBindings.load()) {
-          final llamaCtx = LlamaBindings.initFromFile(llamaPath);
-          if (llamaCtx != null) {
-            _log('[Isolate] Llama ctx ready, generating summary...');
-            final result = LlamaBindings.generate(ctx: llamaCtx, prompt: text);
-            if (result != null) {
-              summary = result['summary'] ?? '';
-              actionItems = List<String>.from(result['actionItems'] ?? []);
+      final llamaPath = modelPath.replaceAll('whisper-base.bin', 'tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf');
+      
+      if (File(llamaPath).existsSync()) {
+        if (_verifyModelIntegrity(llamaPath, EXPECTED_LLAMA_SIZE, LLAMA_MIN_SIZE)) {
+          _log('[Isolate] Loading Llama...');
+          if (LlamaBindings.load()) {
+            llamaCtx = LlamaBindings.initFromFile(llamaPath);
+            if (llamaCtx != null) {
+              _log('[Isolate] Llama ctx ready, generating summary...');
+              final result = LlamaBindings.generate(ctx: llamaCtx, prompt: text);
+              if (result != null) {
+                summary = result['summary'] ?? '';
+                actionItems = List<String>.from(result['actionItems'] ?? []);
+              }
             }
           }
-          LlamaBindings.dispose();
-          _log('[Isolate] Llama disposed');
         }
       }
-    } else {
-      _log('[Isolate] Llama model not found, skipping summary');
+
+      _log('[Isolate] Pipeline complete');
+
+      return Transcription(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        title: title,
+        audioPath: audioPath,
+        text: text,
+        wordTimestamps: [],
+        createdAt: DateTime.now(),
+        duration: const Duration(minutes: 2),
+        isEncrypted: false,
+        speakerSegments: speakers,
+        summary: summary,
+        actionItems: actionItems,
+      );
+      
+    } finally {
+      // ============================================
+      // MEMORY CLEANUP - Always runs, even on error
+      // ============================================
+      _log('[Isolate] Finally block: Cleaning up memory...');
+      
+      if (whisperCtx != null) {
+        try {
+          WhisperBindings.dispose();
+          _log('[Isolate] Whisper disposed');
+        } catch (e) {
+          _log('[Isolate] Whisper dispose error: $e');
+        }
+      }
+      
+      if (llamaCtx != null) {
+        try {
+          LlamaBindings.dispose();
+          _log('[Isolate] Llama disposed');
+        } catch (e) {
+          _log('[Isolate] Llama dispose error: $e');
+        }
+      }
+      
+      // Small delay for RAM cleanup
+      await Future.delayed(const Duration(milliseconds: 500));
+      _log('[Isolate] ✅ Memory cleanup complete');
+      // ============================================
     }
-
-    _log('[Isolate] Pipeline complete');
-
-    return Transcription(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      title: title,
-      audioPath: audioPath,
-      text: text,
-      wordTimestamps: [],
-      createdAt: DateTime.now(),
-      duration: const Duration(minutes: 2),
-      isEncrypted: false,
-      speakerSegments: speakers,
-      summary: summary,
-      actionItems: actionItems,
-    );
   }
 
   static List<SpeakerSegment> _diarize(String text) {
@@ -355,7 +404,6 @@ class AIService {
     return speakers;
   }
 
-  /// Get diagnostic log for support
   static String getDiagnostics() {
     return '''
 === PrivaVoice AI Diagnostics ===
@@ -365,7 +413,6 @@ Model Path: $_modelPath
 Models Copied: $_modelsCopied
 Initialized: $_initialized
 Error: ${AIManager.lastError}
-
 --- Diagnostic Log ---
 $_diagnosticLog
 ''';
