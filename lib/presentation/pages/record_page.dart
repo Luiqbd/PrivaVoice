@@ -8,6 +8,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/haptic_utils.dart';
+import '../../core/services/ai_service.dart';
 import '../../injection_container.dart';
 import '../blocs/recording/recording_bloc.dart';
 import '../blocs/recording/recording_event.dart';
@@ -327,24 +328,35 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
   }
 
   Widget _buildControls(bool isRecording, bool isPaused, RecordingState state) {
+    // Check if AI is ready before showing record button
+    final aiReady = AIService.isModelsReady;
+    
     if (!isRecording) {
       return GestureDetector(
-        onTap: _startRecording,
-        child: Container(
-          width: 80,
-          height: 80,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: AppColors.primaryGradient,
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primaryAccent.withOpacity(0.4),
-                blurRadius: 20,
-                spreadRadius: 2,
-              ),
-            ],
+        onTap: aiReady ? _startRecording : null,  // Disable if AI not ready
+        child: Opacity(
+          opacity: aiReady ? 1.0 : 0.5,  // Visual feedback when disabled
+          child: Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: aiReady ? AppColors.primaryGradient : null,
+              color: aiReady ? null : AppColors.textTertiary,
+              boxShadow: aiReady ? [
+                BoxShadow(
+                  color: AppColors.primaryAccent.withOpacity(0.4),
+                  blurRadius: 20,
+                  spreadRadius: 2,
+                ),
+              ] : null,
+            ),
+            child: Icon(
+              aiReady ? Icons.mic : Icons.hourglass_empty,
+              color: AppColors.backgroundPrimary,
+              size: 36,
+            ),
           ),
-          child: const Icon(Icons.mic, color: AppColors.backgroundPrimary, size: 36),
         ),
       );
     }
