@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../../core/services/ai_service.dart';
+import '../../core/ai/ai_state.dart';
 import '../../core/theme/app_colors.dart';
 import '../../domain/entities/transcription.dart';
 import '../../domain/repositories/transcription_repository.dart';
@@ -145,11 +146,41 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                 const SizedBox(height: 12),
                 const Text('Toque para processar com IA', style: TextStyle(color: AppColors.textPrimary)),
                 const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: _processWithAI,
-                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryAccent),
-                  child: const Text('Iniciar'),
-                ),
+                // AI-ready check and processing state
+                if (_isProcessing || !AIManager.isReady)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.warning.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_isProcessing)
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.warning),
+                          )
+                        else
+                          const Icon(Icons.hourglass_empty, color: AppColors.warning, size: 16),
+                        const SizedBox(width: 8),
+                        Text(
+                          _isProcessing ? 'Processando...' : 'Aguarde, carregando IA...',
+                          style: const TextStyle(color: AppColors.warning, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  ElevatedButton(
+                    onPressed: AIManager.isReady ? _processWithAI : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AIManager.isReady ? AppColors.primaryAccent : AppColors.textTertiary,
+                    ),
+                    child: Text(AIManager.isReady ? 'Iniciar' : 'Indisponível'),
+                  ),
               ]),
             )
           else ...[
