@@ -50,9 +50,9 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
     setState(() { _isProcessing = true; });
     
     try {
-      final aiService = AIService();
       
-      final result = await aiService.processFullPipeline(
+      
+      final result = await AIService.processAudio(
         audioPath: _transcription!.audioPath,
         title: _transcription!.title,
       );
