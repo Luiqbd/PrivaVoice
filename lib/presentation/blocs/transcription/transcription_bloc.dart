@@ -7,7 +7,7 @@ import 'transcription_event.dart';
 import 'transcription_state.dart';
 
 class TranscriptionBloc extends Bloc<TranscriptionEvent, TranscriptionState> {
-  final AIService _aiService = AIService();
+  
   final TranscriptionRepository _repository = getIt<TranscriptionRepository>();
 
   TranscriptionBloc() : super(const TranscriptionState()) {
@@ -71,7 +71,7 @@ class TranscriptionBloc extends Bloc<TranscriptionEvent, TranscriptionState> {
     try {
       emit(state.copyWith(processingProgress: 0.2));
 
-      final transcription = await _aiService.processFullPipeline(
+      final transcription = await AIService.processAudio(
         audioPath: event.audioPath,
         title: event.title,
       );

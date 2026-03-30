@@ -27,7 +27,7 @@ class _PrivaVoiceAppState extends State<PrivaVoiceApp> {
   void initState() {
     super.initState();
     // Initialize AI services in background
-    _aiService.initializeAll();
+    AIService.initializeInBackground();
     // Request permissions on first launch
     _requestPermissionsOnFirstLaunch();
   }
