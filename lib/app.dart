@@ -26,9 +26,7 @@ class _PrivaVoiceAppState extends State<PrivaVoiceApp> {
   @override
   void initState() {
     super.initState();
-    // Initialize AI services in background
-    AIService.initializeInBackground();
-    // Request permissions on first launch
+    // Request permissions on first launch BEFORE AI init
     _requestPermissionsOnFirstLaunch();
   }
 
@@ -36,12 +34,15 @@ class _PrivaVoiceAppState extends State<PrivaVoiceApp> {
     if (_permissionsRequested) return;
     _permissionsRequested = true;
 
-    // Small delay to let the app initialize
-    await Future.delayed(const Duration(milliseconds: 500));
-    
-    // Request all permissions
+    // Request all permissions FIRST
     final granted = await _permissionService.requestAllPermissions();
     debugPrint('Permissions granted: $granted');
+    
+    // AFTER permissions, initialize AI
+    if (granted) {
+      debugPrint('AI: Permissions granted, initializing AI...');
+      AIService.initializeInBackground();
+    }
     
     // Set system UI style
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
