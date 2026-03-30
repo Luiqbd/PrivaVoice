@@ -125,7 +125,11 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
       _durationTimer?.cancel();
 
       final path = await _recorder.stop();
-      debugPrint('RecordingBloc: Stopped, path = $path');
+      
+      // CRITICAL: Wait for filesystem to flush the .wav file
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      debugPrint('RecordingBloc: Stopped and flushed, path = $path');
 
       if (path == null || path.isEmpty) {
         debugPrint('ERROR: No file recorded!');
@@ -255,6 +259,10 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
     _amplitudeTimer?.cancel();
     _durationTimer?.cancel();
     await _recorder.stop();
+    
+    // Wait for filesystem to flush
+    await Future.delayed(const Duration(milliseconds: 500));
+    
     _currentFilePath = null;
     emit(RecordingState.initial());
   }
