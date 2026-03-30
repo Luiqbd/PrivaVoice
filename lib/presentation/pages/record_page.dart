@@ -328,34 +328,31 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
   }
 
   Widget _buildControls(bool isRecording, bool isPaused, RecordingState state) {
-    // Check if AI is ready before showing record button
-    final aiReady = AIService.isModelsReady;
+    // Recording should ALWAYS work - AI processes after recording
+    // Only disable if we have a specific error
+    final bool canRecord = true;  // Always allow recording
     
     if (!isRecording) {
       return GestureDetector(
-        onTap: aiReady ? _startRecording : null,  // Disable if AI not ready
-        child: Opacity(
-          opacity: aiReady ? 1.0 : 0.5,  // Visual feedback when disabled
-          child: Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: aiReady ? AppColors.primaryGradient : null,
-              color: aiReady ? null : AppColors.textTertiary,
-              boxShadow: aiReady ? [
-                BoxShadow(
-                  color: AppColors.primaryAccent.withOpacity(0.4),
-                  blurRadius: 20,
-                  spreadRadius: 2,
-                ),
-              ] : null,
-            ),
-            child: Icon(
-              aiReady ? Icons.mic : Icons.hourglass_empty,
-              color: AppColors.backgroundPrimary,
-              size: 36,
-            ),
+        onTap: _startRecording,  // Always enable recording
+        child: Container(
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: AppColors.primaryGradient,
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primaryAccent.withOpacity(0.4),
+                blurRadius: 20,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.mic,
+            color: AppColors.backgroundPrimary,
+            size: 36,
           ),
         ),
       );
