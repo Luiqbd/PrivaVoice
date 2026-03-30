@@ -39,6 +39,10 @@ class AIService {
       final appDir = await getApplicationDocumentsDirectory();
       final modelDir = Directory('${appDir.path}/models');
       
+      if (!await modelDir.exists()) {
+        await modelDir.create(recursive: true);
+      }
+      
       // Check Whisper
       final whisperPath = '${modelDir.path}/whisper-base.bin';
       if (await File(whisperPath).exists()) {
@@ -57,7 +61,7 @@ class AIService {
           await _deleteAndRecreateModel(whisperPath, 'whisper-base.bin');
         }
       } else {
-        _log('Whisper: NOT FOUND');
+        _log('Whisper: NOT FOUND - copying...');
         await _copyModel('whisper-base.bin', whisperPath);
       }
 
@@ -74,7 +78,10 @@ class AIService {
   static Future<void> _deleteAndRecreateModel(String path, String assetName) async {
     try {
       _log('Deleting corrupted model: $path');
-      await File(path).delete();
+      final file = File(path);
+      if (await file.exists()) {
+        await file.delete();
+      }
     } catch (e) {
       _log('Delete error: $e');
     }
@@ -110,6 +117,7 @@ class AIService {
   }
 
   /// Initialize in background - UI stays responsive
+  /// IMPORTANT: Runs in main isolate to share _modelPath variable
   static Future<void> initializeInBackground() async {
     if (_initialized) return;
 
@@ -117,12 +125,12 @@ class AIService {
     AIManager.setState(AIState.loading, message: 'Preparando IA...');
 
     try {
-      // Run in isolate
+      // Run in isolate for copy (heavy operation)
       await Isolate.run(() async {
         await _copyModelsToDocuments();
       });
 
-      // Pre-flight check
+      // Pre-flight check in MAIN isolate (to share _modelPath)
       final ready = await checkAssetsIntegrity();
       if (!ready) {
         _log('Post-initialization check failed');
@@ -130,13 +138,14 @@ class AIService {
 
       _initialized = true;
       _log('=== INITIALIZATION COMPLETE ===');
+      _log('Model path: $_modelPath');
     } catch (e) {
       _log('❌ INITIALIZATION FAILED: $e');
       AIManager.setError('Inicialização falhou: $e');
     }
   }
 
-  /// Copy models to documents
+  /// Copy models to documents (runs in isolate)
   static Future<void> _copyModelsToDocuments() async {
     final appDir = await getApplicationDocumentsDirectory();
     final modelDir = Directory('${appDir.path}/models');
@@ -149,18 +158,21 @@ class AIService {
     final whisperAsset = 'assets/models/whisper-base.bin';
     final whisperDest = '${modelDir.path}/whisper-base.bin';
 
-    if (!await File(whisperDest).exists()) {
-      await _copyModel('whisper-base.bin', whisperDest);
+    print('AI: Checking if Whisper needs copy...');
+    
+    final whisperFile = File(whisperDest);
+    if (!await whisperFile.exists()) {
+      print('AI: Whisper not found, will copy in pre-flight');
     }
 
     // Llama
     final llamaDest = '${modelDir.path}/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf';
-    if (!await File(llamaDest).exists()) {
-      await _copyModel('tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf', llamaDest);
+    final llamaFile = File(llamaDest);
+    if (!await llamaFile.exists()) {
+      print('AI: Llama not found, will copy in pre-flight');
     }
 
-    _modelsCopied = true;
-    _log('All models copied');
+    print('AI: Models directory prepared');
   }
 
   /// Process audio - runs in isolate
@@ -171,17 +183,27 @@ class AIService {
   }) async {
     _log('=== PROCESS AUDIO ===');
 
-    if (!AIManager.isReady && !_modelsCopied) {
+    // Ensure model path is set - run pre-flight if needed
+    if (_modelPath == null || !_modelsCopied) {
       _log('Models not ready, running pre-flight...');
-      await checkAssetsIntegrity();
+      AIManager.setState(AIState.loading, message: 'Carregando modelo...');
+      final ready = await checkAssetsIntegrity();
+      if (!ready) {
+        throw Exception('Pre-flight check failed');
+      }
     }
 
     AIManager.setState(AIState.processing, message: 'Transcrevendo...');
     onProgress?.call(0.1, 'Processando áudio...');
 
     try {
+      // Process in isolate
       final result = await Isolate.run(() async {
-        return await _processPipeline(audioPath: audioPath, title: title);
+        return await _processPipeline(
+          audioPath: audioPath,
+          title: title,
+          modelPath: _modelPath,
+        );
       });
 
       AIManager.setState(AIState.ready, message: 'Pronto');
@@ -200,19 +222,23 @@ class AIService {
   static Future<Transcription> _processPipeline({
     required String audioPath,
     required String title,
+    String? modelPath,
   }) async {
     _log('[Isolate] Pipeline start');
+
+    // Use provided modelPath or fallback to static
+    final effectiveModelPath = modelPath ?? _modelPath;
 
     // Check audio
     if (!File(audioPath).existsSync()) {
       throw Exception('Audio file NOT FOUND: $audioPath');
     }
 
-    if (_modelPath == null) {
+    if (effectiveModelPath == null) {
       throw Exception('Model path is NULL - run pre-flight check');
     }
 
-    _log('[Isolate] Model: $_modelPath');
+    _log('[Isolate] Model: $effectiveModelPath');
 
     // Load Whisper
     if (!WhisperBindings.load()) {
@@ -221,7 +247,7 @@ class AIService {
 
     // Init model
     _log('[Isolate] Init Whisper...');
-    final ctx = WhisperBindings.initFromFile(_modelPath!);
+    final ctx = WhisperBindings.initFromFile(effectiveModelPath);
     
     if (ctx == null) {
       throw Exception('FFI Error: whisper_init_from_file returned NULL');
@@ -251,7 +277,7 @@ class AIService {
     String summary = '';
     List<String> actionItems = [];
 
-    final llamaPath = _modelPath!.replaceAll('whisper-base.bin', 'tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf');
+    final llamaPath = effectiveModelPath.replaceAll('whisper-base.bin', 'tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf');
     
     if (File(llamaPath).existsSync()) {
       _log('[Isolate] Llama processing...');
