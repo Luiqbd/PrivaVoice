@@ -3,6 +3,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'dart:io';
+import '../../core/utils/encryption_utils.dart';
 
 class TranscriptionData {
   final String id;
@@ -63,6 +64,7 @@ class TranscriptionData {
 class AppDatabase {
   static Database? _database;
   static const String _dbName = 'privavoice.db';
+  static bool _encryptedInitialized = false;
 
   static Future<Database> get database async {
     if (_database != null) return _database!;
@@ -73,11 +75,15 @@ class AppDatabase {
   static Future<Database> _initDatabase() async {
     debugPrint('AppDatabase: Initializing database...');
     
+    // Initialize encryption
+    await EncryptionUtils.initialize();
+    _encryptedInitialized = true;
+    
     // Initialize FFI
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
     
-    // Get proper documents directory (persistent storage)
+    // Get proper documents directory
     final directory = await getApplicationDocumentsDirectory();
     final dbPath = p.join(directory.path, 'databases', _dbName);
     
@@ -111,13 +117,28 @@ class AppDatabase {
         ''');
         debugPrint('AppDatabase: Table created successfully!');
       },
-      onOpen: (db) async {
-        debugPrint('AppDatabase: Database opened!');
-        // Verify table exists
-        final result = await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='transcriptions'");
-        debugPrint('AppDatabase: Tables = $result');
-      },
     );
+  }
+
+  /// Encrypt data before storing (AES-256 GCM)
+  static Future<String> _encryptField(String plainText) async {
+    if (!_encryptedInitialized) {
+      await EncryptionUtils.initialize();
+    }
+    return await EncryptionUtils.encrypt(plainText);
+  }
+
+  /// Decrypt data when reading
+  static Future<String> _decryptField(String encryptedText) async {
+    if (!_encryptedInitialized) {
+      await EncryptionUtils.initialize();
+    }
+    try {
+      return await EncryptionUtils.decrypt(encryptedText);
+    } catch (e) {
+      debugPrint('AppDatabase: Decryption failed, returning raw: $e');
+      return encryptedText; // Return raw if decryption fails
+    }
   }
 
   static Future<List<TranscriptionData>> getAllTranscriptions() async {
@@ -130,11 +151,21 @@ class AppDatabase {
     );
     
     debugPrint('AppDatabase: Found ${maps.length} records');
-    if (maps.isNotEmpty) {
-      debugPrint('AppDatabase: First record = ${maps.first}');
+    
+    // Decrypt sensitive fields when reading
+    final decryptedMaps = <Map<String, dynamic>>[];
+    for (final map in maps) {
+      final decrypted = Map<String, dynamic>.from(map);
+      if (map['text'] != null && map['text'].toString().isNotEmpty) {
+        decrypted['text'] = await _decryptField(map['text'] as String);
+      }
+      if (map['summary'] != null && map['summary'].toString().isNotEmpty) {
+        decrypted['summary'] = await _decryptField(map['summary'] as String);
+      }
+      decryptedMaps.add(decrypted);
     }
     
-    return maps.map((map) => TranscriptionData.fromMap(map)).toList();
+    return decryptedMaps.map((map) => TranscriptionData.fromMap(map)).toList();
   }
 
   static Future<TranscriptionData?> getTranscriptionById(String id) async {
@@ -145,44 +176,88 @@ class AppDatabase {
       whereArgs: [id],
     );
     if (maps.isEmpty) return null;
-    return TranscriptionData.fromMap(maps.first);
+    
+    // Decrypt before returning
+    final map = maps.first;
+    if (map['text'] != null && map['text'].toString().isNotEmpty) {
+      map['text'] = await _decryptField(map['text'] as String);
+    }
+    if (map['summary'] != null && map['summary'].toString().isNotEmpty) {
+      map['summary'] = await _decryptField(map['summary'] as String);
+    }
+    
+    return TranscriptionData.fromMap(map);
   }
 
   static Future<void> insertTranscription(TranscriptionData data) async {
     final db = await database;
-    debugPrint('AppDatabase: Inserting: id=${data.id}, title=${data.title}');
-    debugPrint('AppDatabase: audioPath=${data.audioPath}');
+    debugPrint('AppDatabase: Inserting encrypted data: id=${data.id}');
     
     try {
+      // Encrypt sensitive fields before storing
+      final encryptedData = TranscriptionData(
+        id: data.id,
+        title: await _encryptField(data.title),
+        audioPath: data.audioPath, // Path is not sensitive
+        text: await _encryptField(data.text),
+        wordTimestampsJson: await _encryptField(data.wordTimestampsJson),
+        createdAt: data.createdAt,
+        durationMs: data.durationMs,
+        isEncrypted: true,
+        speakerSegmentsJson: data.speakerSegmentsJson != null 
+            ? await _encryptField(data.speakerSegmentsJson!) 
+            : null,
+        summary: data.summary != null 
+            ? await _encryptField(data.summary!) 
+            : null,
+        actionItemsJson: data.actionItemsJson != null 
+            ? await _encryptField(data.actionItemsJson!) 
+            : null,
+      );
+      
       await db.insert(
         'transcriptions',
-        data.toMap(),
+        encryptedData.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
-      debugPrint('AppDatabase: Insert successful!');
-      
-      // Verify insert
-      final result = await db.query(
-        'transcriptions',
-        where: 'id = ?',
-        whereArgs: [data.id],
-      );
-      debugPrint('AppDatabase: Verify insert = ${result.length} records');
+      debugPrint('AppDatabase: ✅ Encrypted insert successful!');
     } catch (e) {
-      debugPrint('AppDatabase: Insert error = $e');
+      debugPrint('AppDatabase: ❌ Encrypted insert error = $e');
       rethrow;
     }
   }
 
   static Future<void> updateTranscription(TranscriptionData data) async {
     final db = await database;
+    
+    // Encrypt before updating
+    final encryptedData = TranscriptionData(
+      id: data.id,
+      title: await _encryptField(data.title),
+      audioPath: data.audioPath,
+      text: await _encryptField(data.text),
+      wordTimestampsJson: await _encryptField(data.wordTimestampsJson),
+      createdAt: data.createdAt,
+      durationMs: data.durationMs,
+      isEncrypted: true,
+      speakerSegmentsJson: data.speakerSegmentsJson != null 
+          ? await _encryptField(data.speakerSegmentsJson!) 
+          : null,
+      summary: data.summary != null 
+          ? await _encryptField(data.summary!) 
+          : null,
+      actionItemsJson: data.actionItemsJson != null 
+          ? await _encryptField(data.actionItemsJson!) 
+          : null,
+    );
+    
     await db.update(
       'transcriptions',
-      data.toMap(),
+      encryptedData.toMap(),
       where: 'id = ?',
       whereArgs: [data.id],
     );
-    debugPrint('AppDatabase: Update successful!');
+    debugPrint('AppDatabase: ✅ Encrypted update successful!');
   }
 
   static Future<int> deleteTranscription(String id) async {
