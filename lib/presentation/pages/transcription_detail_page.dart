@@ -57,9 +57,13 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
         title: _transcription!.title,
       );
       
+      if (result == null) {
+        throw Exception('AI processing returned null');
+      }
+      
       // Preserve original ID
       final finalResult = Transcription(
-        id: _transcription!.id,  // Keep original ID!
+        id: _transcription!.id,
         title: _transcription!.title,
         audioPath: _transcription!.audioPath,
         text: result.text,
