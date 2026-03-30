@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:just_audio/just_audio.dart';
 import '../../core/services/ai_service.dart';
 import '../../core/ai/ai_state.dart';
 import '../../core/theme/app_colors.dart';
@@ -36,21 +36,21 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
   }
 
   void _setupAudioPlayer() {
-    _audioPlayer.onPlayerStateChanged.listen((state) {
+    _audioPlayer.playerStateStream.listen((state) {
       if (mounted) {
-        setState(() => _isPlaying = state == PlayerState.playing);
+        setState(() => _isPlaying = state.playing);
       }
     });
 
-    _audioPlayer.onPositionChanged.listen((position) {
+    _audioPlayer.positionStream.listen((position) {
       if (mounted) {
         setState(() => _currentPosition = position);
         _updateActiveSpeaker(position);
       }
     });
 
-    _audioPlayer.onDurationChanged.listen((duration) {
-      if (mounted) {
+    _audioPlayer.durationStream.listen((duration) {
+      if (mounted && duration != null) {
         setState(() => _totalDuration = duration);
       }
     });
@@ -73,7 +73,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
   Future<void> _seekToSegment(SpeakerSegment segment) async {
     await _audioPlayer.seek(segment.startTime);
     if (!_isPlaying) {
-      await _audioPlayer.play(DeviceFileSource(_transcription!.audioPath));
+      await _audioPlayer.play();
     }
   }
 
@@ -89,7 +89,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
         });
 
         if (t != null && File(t.audioPath).existsSync()) {
-          await _audioPlayer.setSource(DeviceFileSource(t.audioPath));
+          await _audioPlayer.setFilePath(t.audioPath);
         }
       }
     } catch (e) {
@@ -496,7 +496,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
               if (_isPlaying) {
                 await _audioPlayer.pause();
               } else {
-                await _audioPlayer.play(DeviceFileSource(_transcription!.audioPath));
+                await _audioPlayer.play();
               }
             },
           ),
