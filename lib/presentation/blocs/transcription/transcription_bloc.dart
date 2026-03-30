@@ -33,29 +33,8 @@ class TranscriptionBloc extends Bloc<TranscriptionEvent, TranscriptionState> {
         transcriptions: transcriptions,
       ));
     } catch (e) {
-      debugPrint('TranscriptionBloc: Error loading - $e');
-      emit(state.copyWith(
-        status: TranscriptionStatus.error,
-        errorMessage: e.toString(),
-      ));
-    }
-  }
-
-  Future<void> _onSelectTranscription(
-    SelectTranscription event,
-    Emitter<TranscriptionState> emit,
-  ) async {
-    debugPrint('TranscriptionBloc: Selecting transcription ${event.id}');
-    try {
-      final transcription = await _repository.getTranscriptionById(event.id);
-      debugPrint('TranscriptionBloc: Found transcription: ${transcription?.title}');
-      emit(state.copyWith(
-        selectedTranscription: transcription,
-        currentWordIndex: 0,
-        currentPosition: Duration.zero,
-      ));
-    } catch (e) {
-      debugPrint('TranscriptionBloc: Error selecting - $e');
+      debugPrint('TranscriptionBloc error: $e');
+      emit(state.copyWith(status: TranscriptionStatus.error));
     }
   }
 
@@ -76,6 +55,10 @@ class TranscriptionBloc extends Bloc<TranscriptionEvent, TranscriptionState> {
         title: event.title,
       );
 
+      if (transcription == null) {
+        throw Exception('AI processing returned null');
+      }
+
       emit(state.copyWith(processingProgress: 0.8));
       await _repository.saveTranscription(transcription);
       emit(state.copyWith(processingProgress: 1.0));
@@ -87,6 +70,7 @@ class TranscriptionBloc extends Bloc<TranscriptionEvent, TranscriptionState> {
         selectedTranscription: transcription,
       ));
     } catch (e) {
+      debugPrint('TranscriptionBloc process error: $e');
       emit(state.copyWith(
         status: TranscriptionStatus.error,
         errorMessage: e.toString(),
@@ -106,21 +90,21 @@ class TranscriptionBloc extends Bloc<TranscriptionEvent, TranscriptionState> {
         selectedTranscription: null,
       ));
     } catch (e) {
-      emit(state.copyWith(
-        status: TranscriptionStatus.error,
-        errorMessage: e.toString(),
-      ));
+      debugPrint('TranscriptionBloc delete error: $e');
     }
   }
 
-  void _onSeekToWord(SeekToWord event, Emitter<TranscriptionState> emit) {
-    if (state.selectedTranscription == null) return;
-    final timestamps = state.selectedTranscription!.wordTimestamps;
-    if (event.wordIndex >= timestamps.length) return;
-    final word = timestamps[event.wordIndex];
-    emit(state.copyWith(
-      currentWordIndex: event.wordIndex,
-      currentPosition: word.startTime,
-    ));
+  void _onSelectTranscription(
+    SelectTranscription event,
+    Emitter<TranscriptionState> emit,
+  ) {
+    emit(state.copyWith(selectedTranscription: event.transcription));
+  }
+
+  void _onSeekToWord(
+    SeekToWord event,
+    Emitter<TranscriptionState> emit,
+  ) {
+    // Implement seek functionality
   }
 }
