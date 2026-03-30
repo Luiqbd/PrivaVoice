@@ -315,18 +315,28 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
         children: [
           Column(
             children: [
+              // Avatar com Glow Neon pulsante
               GestureDetector(
                 onTap: () => _seekToSegment(segment),
                 child: Container(
-                  width: 48,
-                  height: 48,
+                  width: 52,
+                  height: 52,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: color.withOpacity(0.2),
-                    border: Border.all(color: color, width: isActive ? 3 : 2),
+                    color: color.withOpacity(0.15),
+                    border: Border.all(
+                      color: color,
+                      width: isActive ? 3 : 2,
+                    ),
                     boxShadow: isActive
-                        ? [BoxShadow(color: color.withOpacity(0.5), blurRadius: 12, spreadRadius: 2)]
-                        : null,
+                        ? [
+                            BoxShadow(color: color.withOpacity(0.8), blurRadius: 20, spreadRadius: 3),
+                            BoxShadow(color: color.withOpacity(0.5), blurRadius: 40, spreadRadius: 8),
+                            BoxShadow(color: color.withOpacity(0.3), blurRadius: 60, spreadRadius: 12),
+                          ]
+                        : [
+                            BoxShadow(color: color.withOpacity(0.3), blurRadius: 8, spreadRadius: 1),
+                          ],
                   ),
                   child: Center(
                     child: Text(
@@ -334,7 +344,10 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                       style: TextStyle(
                         color: color,
                         fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                        fontSize: 16,
+                        shadows: isActive
+                            ? [Shadow(color: color, blurRadius: 8)]
+                            : null,
                       ),
                     ),
                   ),
@@ -344,8 +357,9 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
               Text(
                 timeStr,
                 style: TextStyle(
-                  color: color.withOpacity(0.7),
-                  fontSize: 10,
+                  color: color.withOpacity(0.8),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
@@ -358,33 +372,53 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
-                  color: AppColors.surface.withOpacity(0.6),
+                  // Glassmorphism com contraste alto
+                  color: Colors.black.withOpacity(0.7),
                   border: Border.all(
-                    color: isActive ? color.withOpacity(0.8) : color.withOpacity(0.3),
-                    width: isActive ? 2 : 1,
+                    color: isActive ? color.withOpacity(0.9) : color.withOpacity(0.4),
+                    width: isActive ? 2.5 : 1,
                   ),
                   boxShadow: isActive
-                      ? [BoxShadow(color: color.withOpacity(0.3), blurRadius: 8, spreadRadius: 1)]
+                      ? [
+                          BoxShadow(color: color.withOpacity(0.4), blurRadius: 16, spreadRadius: 2),
+                          BoxShadow(color: color.withOpacity(0.2), blurRadius: 32, spreadRadius: 4),
+                        ]
                       : null,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: color.withOpacity(0.2),
+                        color: color.withOpacity(0.25),
                         borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: color.withOpacity(0.5)),
                       ),
                       child: Text(
                         initials,
-                        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
+                    // Texto com alto contraste
                     Text(
                       segment.text,
-                      style: const TextStyle(color: AppColors.textSecondary, height: 1.4),
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.95),
+                        fontSize: 15,
+                        height: 1.5,
+                        fontWeight: FontWeight.w400,
+                        letterSpacing: 0.2,
+                        shadows: [
+                          Shadow(color: Colors.black.withOpacity(0.3), blurRadius: 2),
+                        ],
+                      ),
                     ),
                   ],
                 ),
