@@ -15,11 +15,15 @@ class AIService {
   static String? _modelPath;
   static String _diagnosticLog = '';
 
-  // Expected sizes
+  // Expected sizes - exact model filenames
   static const int EXPECTED_WHISPER_SIZE = 144000000;
   static const int EXPECTED_LLAMA_SIZE = 653000000;
   static const int WHISPER_MIN_SIZE = 130000000;
   static const int LLAMA_MIN_SIZE = 580000000;
+
+  // Exact filenames - no typos!
+  static const String WHISPER_FILENAME = 'whisper-base.bin';
+  static const String LLAMA_FILENAME = 'tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf';
 
   static bool get isModelsReady => _modelsCopied;
   static String? get modelPath => _modelPath;
@@ -89,13 +93,15 @@ class AIService {
         await modelDir.create(recursive: true);
       }
       
-      final whisperPath = '${modelDir.path}/whisper-base.bin';
+      // Use exact filename
+      final whisperPath = '${modelDir.path}/$WHISPER_FILENAME';
+      _log('Looking for Whisper at: $whisperPath');
       
       // Check if already exists and is valid
       if (await File(whisperPath).exists()) {
         if (!_verifyModelIntegrity(whisperPath, EXPECTED_WHISPER_SIZE, WHISPER_MIN_SIZE)) {
           _log('Recreating corrupted Whisper model...');
-          await _deleteAndRecreateModel(whisperPath, 'whisper-base.bin');
+          await _deleteAndRecreateModel(whisperPath, WHISPER_FILENAME);
         } else {
           _modelPath = whisperPath;
           _modelsCopied = true;
@@ -104,7 +110,7 @@ class AIService {
         }
       } else {
         _log('Whisper: NOT FOUND - copying...');
-        await _copyModel('whisper-base.bin', whisperPath);
+        await _copyModel(WHISPER_FILENAME, whisperPath);
       }
 
       // Final validation
@@ -131,26 +137,44 @@ class AIService {
     await _copyModel(assetName, path);
   }
 
+  /// Copy model with proper flush and delay
   static Future<void> _copyModel(String assetName, String destPath) async {
     _log('Copying $assetName...');
     AIManager.setState(AIState.loading, message: 'Baixando $assetName...');
 
     try {
+      // Load from assets
       final data = await rootBundle.load('assets/models/$assetName');
       _log('Asset loaded: ${data.lengthInBytes} bytes');
 
-      await File(destPath).writeAsBytes(data.buffer.asUint8List());
+      // Write to file
+      final file = File(destPath);
+      final sink = file.openWrite();
+      sink.add(data.buffer.asUint8List());
       
-      // Verify copy
-      if (!_verifyModelIntegrity(destPath, data.lengthInBytes, data.lengthInBytes ~/ 2)) {
-        throw Exception('Model copy verification failed');
+      // CRITICAL: Flush and close sink before proceeding
+      await sink.flush();
+      await sink.close();
+      
+      _log('Sink closed, waiting for filesystem...');
+      
+      // CRITICAL: Give Android filesystem time to process 144MB
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      // Verify copy completed successfully
+      if (!file.existsSync()) {
+        throw Exception('File not found after write');
+      }
+      
+      final stat = file.statSync();
+      _log('Model copied: ${stat.size} bytes');
+      
+      if (stat.size < data.lengthInBytes ~/ 2) {
+        throw Exception('Model copy incomplete: ${stat.size} < ${data.lengthInBytes ~/ 2}');
       }
 
-      final stat = await File(destPath).stat();
-      _log('Model copied: ${stat.size} bytes');
-
       _modelsCopied = true;
-      _modelPath = destPath;  // CRITICAL: Set path after successful copy
+      _modelPath = destPath;
       _log('✅ Model ready: $destPath');
     } catch (e) {
       _log('❌ Copy FAILED: $e');
@@ -159,6 +183,7 @@ class AIService {
     }
   }
 
+  /// Initialize in background - call AFTER permissions granted
   static Future<void> initializeInBackground() async {
     if (_initialized) return;
 
@@ -166,10 +191,12 @@ class AIService {
     AIManager.setState(AIState.loading, message: 'Preparando IA...');
 
     try {
+      // Copy models in isolate
       await Isolate.run(() async {
         await _copyModelsToDocuments();
       });
 
+      // Pre-flight check in main isolate
       final ready = await checkAssetsIntegrity();
       if (!ready) {
         _log('Post-initialization check failed');
@@ -245,7 +272,7 @@ class AIService {
         return await _processPipeline(
           audioPath: audioPath,
           title: title,
-          modelPath: safePath,  // Pass validated path
+          modelPath: safePath,
         );
       });
 
@@ -317,11 +344,12 @@ class AIService {
       // Diarization
       final speakers = _diarize(text);
 
-      // Llama summary
+      // Llama summary - use EXACT filename
       String summary = '';
       List<String> actionItems = [];
 
-      final llamaPath = modelPath.replaceAll('whisper-base.bin', 'tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf');
+      final llamaPath = modelPath.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
+      _log('[Isolate] Llama path: $llamaPath');
       
       if (File(llamaPath).existsSync()) {
         if (_verifyModelIntegrity(llamaPath, EXPECTED_LLAMA_SIZE, LLAMA_MIN_SIZE)) {
@@ -338,6 +366,8 @@ class AIService {
             }
           }
         }
+      } else {
+        _log('[Isolate] Llama model NOT FOUND at: $llamaPath');
       }
 
       _log('[Isolate] Pipeline complete');
@@ -413,6 +443,7 @@ Model Path: $_modelPath
 Models Copied: $_modelsCopied
 Initialized: $_initialized
 Error: ${AIManager.lastError}
+
 --- Diagnostic Log ---
 $_diagnosticLog
 ''';
