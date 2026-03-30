@@ -98,7 +98,12 @@ class TranscriptionBloc extends Bloc<TranscriptionEvent, TranscriptionState> {
     SelectTranscription event,
     Emitter<TranscriptionState> emit,
   ) {
-    emit(state.copyWith(selectedTranscription: event.transcription));
+    // Find transcription by id from current state
+    final transcription = state.transcriptions.firstWhere(
+      (t) => t.id == event.id,
+      orElse: () => state.transcriptions.first,
+    );
+    emit(state.copyWith(selectedTranscription: transcription));
   }
 
   void _onSeekToWord(
