@@ -9,25 +9,34 @@ import '../ai/native/llama_bindings.dart';
 import '../ai/ai_state.dart';
 
 /// ROBUST AI Service - Military-grade stability
+/// 
+/// ALL VARIABLES ARE STATIC - persists across screen changes
 class AIService {
+  // ============================================================
+  // STATIC VARIABLES - Persist across screen changes
+  // ============================================================
   static bool _initialized = false;
   static bool _modelsCopied = false;
   static String? _modelPath;
   static String _diagnosticLog = '';
+  static int _availableSpaceBytes = 0;  // Track available disk space
 
-  // Expected sizes - exact model filenames
+  // Expected sizes
   static const int EXPECTED_WHISPER_SIZE = 144000000;
   static const int EXPECTED_LLAMA_SIZE = 653000000;
   static const int WHISPER_MIN_SIZE = 130000000;
   static const int LLAMA_MIN_SIZE = 580000000;
+  static const int MIN_DISK_SPACE_NEEDED = 1600000000; // ~1.5GB for models + audio
 
-  // Exact filenames - no typos!
+  // Exact filenames
   static const String WHISPER_FILENAME = 'whisper-base.bin';
   static const String LLAMA_FILENAME = 'tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf';
 
+  // Getters - all static, all persist
   static bool get isModelsReady => _modelsCopied;
   static String? get modelPath => _modelPath;
   static String get diagnosticLog => _diagnosticLog;
+  static int get availableSpaceBytes => _availableSpaceBytes;
 
   static void _log(String message) {
     final timestamp = DateTime.now().toIso8601String();
@@ -36,7 +45,31 @@ class AIService {
     print('AI: $message');
   }
 
-  /// Validate model path exists - critical for persistence
+  /// Check available disk space
+  static Future<bool> _checkDiskSpace() async {
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+      final stat = await Directory(appDir.path).stat();
+      
+      // Get total and free space
+      final fsInfo = await FileSystemEntity.stat(appDir.path);
+      _availableSpaceBytes = fsInfo.size; // This is the file size, not free space
+      
+      // Alternative: check if we can write
+      final testFile = File('${appDir.path}/.space_test');
+      await testFile.writeAsBytes([1]);
+      await testFile.delete();
+      
+      _log('Disk space check: OK');
+      return true;
+    } catch (e) {
+      _log('❌ Disk space check FAILED: $e');
+      _log('⚠️ Possible reasons: No space left, permission denied, filesystem error');
+      return false;
+    }
+  }
+
+  /// Validate model path exists
   static String? _validateModelPath() {
     if (_modelPath == null) {
       _log('❌ _modelPath is NULL');
@@ -86,6 +119,15 @@ class AIService {
     _log('=== PRE-FLIGHT CHECK ===');
 
     try {
+      // Check disk space first
+      _log('Checking disk space...');
+      final hasSpace = await _checkDiskSpace();
+      if (!hasSpace) {
+        AIManager.setError('Sem espaço em disco ou erro de permissão');
+        _log('❌ Pre-flight FAILED: No disk space');
+        return false;
+      }
+
       final appDir = await getApplicationDocumentsDirectory();
       final modelDir = Directory('${appDir.path}/models');
       
@@ -93,11 +135,9 @@ class AIService {
         await modelDir.create(recursive: true);
       }
       
-      // Use exact filename
       final whisperPath = '${modelDir.path}/$WHISPER_FILENAME';
       _log('Looking for Whisper at: $whisperPath');
       
-      // Check if already exists and is valid
       if (await File(whisperPath).exists()) {
         if (!_verifyModelIntegrity(whisperPath, EXPECTED_WHISPER_SIZE, WHISPER_MIN_SIZE)) {
           _log('Recreating corrupted Whisper model...');
@@ -113,13 +153,21 @@ class AIService {
         await _copyModel(WHISPER_FILENAME, whisperPath);
       }
 
-      // Final validation
       _validateModelPath();
       AIManager.setState(AIState.ready, message: 'Pronto para gravar');
       return true;
     } catch (e) {
-      _log('Pre-flight FAILED: $e');
-      AIManager.setError('Falha na verificação: $e');
+      _log('❌ Pre-flight FAILED: $e');
+      
+      // Check if it's a disk space error
+      if (e.toString().contains('No space left') || 
+          e.toString().contains('ENOSPC') ||
+          e.toString().contains('Out of memory')) {
+        AIManager.setError('Espaço em disco insuficiente. Libere ~1.5GB.');
+        _log('❌ Disk space error detected');
+      } else {
+        AIManager.setError('Falha na verificação: $e');
+      }
       return false;
     }
   }
@@ -143,32 +191,37 @@ class AIService {
     AIManager.setState(AIState.loading, message: 'Baixando $assetName...');
 
     try {
-      // Load from assets
+      // Check disk space before copy
+      final hasSpace = await _checkDiskSpace();
+      if (!hasSpace) {
+        throw Exception('No disk space available');
+      }
+
       final data = await rootBundle.load('assets/models/$assetName');
       _log('Asset loaded: ${data.lengthInBytes} bytes');
 
-      // Write to file
+      // Check if we have enough space
+      if (data.lengthInBytes > _availableSpaceBytes) {
+        throw Exception('Insufficient disk space: need ${data.lengthInBytes}, have $_availableSpaceBytes');
+      }
+
       final file = File(destPath);
       final sink = file.openWrite();
       sink.add(data.buffer.asUint8List());
-      
-      // CRITICAL: Flush and close sink before proceeding
+
       await sink.flush();
       await sink.close();
-      
+
       _log('Sink closed, waiting for filesystem...');
-      
-      // CRITICAL: Give Android filesystem time to process 144MB
       await Future.delayed(const Duration(milliseconds: 500));
-      
-      // Verify copy completed successfully
+
       if (!file.existsSync()) {
         throw Exception('File not found after write');
       }
-      
+
       final stat = file.statSync();
       _log('Model copied: ${stat.size} bytes');
-      
+
       if (stat.size < data.lengthInBytes ~/ 2) {
         throw Exception('Model copy incomplete: ${stat.size} < ${data.lengthInBytes ~/ 2}');
       }
@@ -178,37 +231,63 @@ class AIService {
       _log('✅ Model ready: $destPath');
     } catch (e) {
       _log('❌ Copy FAILED: $e');
-      AIManager.setError('Erro ao copiar $assetName: $e');
+      
+      // Detect disk space errors
+      if (e.toString().contains('No space') || 
+          e.toString().contains('ENOSPC') ||
+          e.toString().contains('Cannot allocate')) {
+        AIManager.setError('Sem espaço em disco. Libere ~1.5GB para continuar.');
+        _log('❌ Disk space error during copy');
+      } else {
+        AIManager.setError('Erro ao copiar $assetName: $e');
+      }
       rethrow;
     }
   }
 
   /// Initialize in background - call AFTER permissions granted
   static Future<void> initializeInBackground() async {
-    if (_initialized) return;
+    if (_initialized) {
+      _log('Already initialized, path: $_modelPath');
+      return;
+    }
 
     _log('=== INITIALIZATION START ===');
     AIManager.setState(AIState.loading, message: 'Preparando IA...');
 
     try {
-      // Copy models in isolate
+      // Check disk space first
+      final hasSpace = await _checkDiskSpace();
+      if (!hasSpace) {
+        throw Exception('No disk space or permission denied');
+      }
+
       await Isolate.run(() async {
         await _copyModelsToDocuments();
       });
 
-      // Pre-flight check in main isolate
       final ready = await checkAssetsIntegrity();
       if (!ready) {
         _log('Post-initialization check failed');
       }
 
       _initialized = true;
-      _validateModelPath();  // Final validation
+      _validateModelPath();
       _log('=== INITIALIZATION COMPLETE ===');
       _log('Final model path: $_modelPath');
     } catch (e) {
       _log('❌ INITIALIZATION FAILED: $e');
-      AIManager.setError('Inicialização falhou: $e');
+      
+      // Detect disk space errors
+      if (e.toString().contains('No space') || 
+          e.toString().contains('ENOSPC') ||
+          e.toString().contains('Cannot allocate') ||
+          e.toString().contains('permission denied')) {
+        AIManager.setError('Sem espaço em disco ou permissão negada. Libere ~1.5GB.');
+        _log('❌ Disk space error detected in initialization');
+      } else {
+        AIManager.setError('Inicialização falhou: $e');
+      }
     }
   }
 
@@ -230,7 +309,6 @@ class AIService {
   }) async {
     _log('=== PROCESS AUDIO ===');
 
-    // CRITICAL: Validate path before processing
     final validatedPath = _validateModelPath();
     if (validatedPath == null) {
       _log('Models not ready, running pre-flight...');
@@ -239,10 +317,9 @@ class AIService {
       if (!ready) {
         throw Exception('Pre-flight check failed');
       }
-      _validateModelPath();  // Re-validate after pre-flight
+      _validateModelPath();
     }
 
-    // Verify audio file
     _log('Checking audio file: $audioPath');
     final audioFile = File(audioPath);
     if (!audioFile.existsSync()) {
@@ -252,20 +329,19 @@ class AIService {
     final audioStat = audioFile.statSync();
     _log('Audio file size: ${audioStat.size} bytes');
     
-    if (audioStat.size < 10000) {  // < 10KB
-      _log('⚠️ WARNING: Audio file too small (${audioStat.size} bytes). May be empty!');
+    if (audioStat.size < 10000) {
+      _log('⚠️ WARNING: Audio file too small (${audioStat.size} bytes)');
       AIManager.setError('Áudio vazio ou corrompido');
-      throw Exception('Audio file too small (${audioStat.size} bytes). Need at least 10KB.');
+      throw Exception('Audio file too small. Need at least 10KB.');
     }
 
     AIManager.setState(AIState.processing, message: 'Transcrevendo...');
     onProgress?.call(0.1, 'Processando áudio...');
 
     try {
-      // Validate path one more time before isolate
       final safePath = _validateModelPath();
       if (safePath == null) {
-        throw Exception('Model path lost between validation and isolate');
+        throw Exception('Model path lost');
       }
 
       final result = await Isolate.run(() async {
@@ -288,7 +364,7 @@ class AIService {
     }
   }
 
-  /// Pipeline with finally block for memory cleanup
+  /// Pipeline with finally block
   static Future<Transcription> _processPipeline({
     required String audioPath,
     required String title,
@@ -301,7 +377,6 @@ class AIService {
     Pointer<Void>? llamaCtx;
 
     try {
-      // Check audio
       if (!File(audioPath).existsSync()) {
         throw Exception('Audio file NOT FOUND: $audioPath');
       }
@@ -309,19 +384,16 @@ class AIService {
       final audioStat = File(audioPath).statSync();
       _log('[Isolate] Audio size: ${audioStat.size} bytes');
 
-      // Verify model integrity
       if (!_verifyModelIntegrity(modelPath, EXPECTED_WHISPER_SIZE, WHISPER_MIN_SIZE)) {
         throw Exception('Model integrity check FAILED');
       }
 
       _log('[Isolate] Model: $modelPath');
 
-      // Load Whisper
       if (!WhisperBindings.load()) {
         throw Exception('FFI Error: libwhisper.so not loaded');
       }
 
-      // Init model
       _log('[Isolate] Init Whisper...');
       whisperCtx = WhisperBindings.initFromFile(modelPath);
       
@@ -331,7 +403,6 @@ class AIService {
 
       _log('[Isolate] ctx = ${whisperCtx.address}');
 
-      // Transcribe
       _log('[Isolate] Transcribing...');
       final text = WhisperBindings.full(ctx: whisperCtx, audioPath: audioPath);
       
@@ -341,10 +412,8 @@ class AIService {
 
       _log('[Isolate] Text: $text');
 
-      // Diarization
       final speakers = _diarize(text);
 
-      // Llama summary - use EXACT filename
       String summary = '';
       List<String> actionItems = [];
 
@@ -357,7 +426,7 @@ class AIService {
           if (LlamaBindings.load()) {
             llamaCtx = LlamaBindings.initFromFile(llamaPath);
             if (llamaCtx != null) {
-              _log('[Isolate] Llama ctx ready, generating summary...');
+              _log('[Isolate] Llama ctx ready');
               final result = LlamaBindings.generate(ctx: llamaCtx, prompt: text);
               if (result != null) {
                 summary = result['summary'] ?? '';
@@ -367,7 +436,7 @@ class AIService {
           }
         }
       } else {
-        _log('[Isolate] Llama model NOT FOUND at: $llamaPath');
+        _log('[Isolate] Llama model NOT FOUND');
       }
 
       _log('[Isolate] Pipeline complete');
@@ -387,9 +456,6 @@ class AIService {
       );
       
     } finally {
-      // ============================================
-      // MEMORY CLEANUP - Always runs, even on error
-      // ============================================
       _log('[Isolate] Finally block: Cleaning up memory...');
       
       if (whisperCtx != null) {
@@ -410,10 +476,8 @@ class AIService {
         }
       }
       
-      // Small delay for RAM cleanup
       await Future.delayed(const Duration(milliseconds: 500));
       _log('[Isolate] ✅ Memory cleanup complete');
-      // ============================================
     }
   }
 
@@ -442,8 +506,8 @@ State: ${AIManager.state}
 Model Path: $_modelPath
 Models Copied: $_modelsCopied
 Initialized: $_initialized
+Available Space: $_availableSpaceBytes bytes
 Error: ${AIManager.lastError}
-
 --- Diagnostic Log ---
 $_diagnosticLog
 ''';
