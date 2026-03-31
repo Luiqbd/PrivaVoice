@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:just_audio/just_audio.dart';
@@ -31,12 +32,43 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
   // Playback speed control
   double _playbackSpeed = 1.0;
   final List<double> _speedOptions = [1.0, 1.25, 1.5, 2.0];
+  
+  // Timer for auto-refreshing transcription while AI processes
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _loadTranscription();
     _setupAudioPlayer();
+    _startRefreshTimer();
+  }
+
+  void _startRefreshTimer() {
+    // Refresh transcription every 2 seconds while AI is processing
+    _refreshTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+      if (_isProcessing && _transcription != null) {
+        debugPrint('TranscriptionDetailPage: Auto-refresh...');
+        final repo = GetIt.instance<TranscriptionRepository>();
+        final updated = await repo.getTranscriptionById(_transcription!.id);
+        if (updated != null && updated.text != 'Processando...' && mounted) {
+          debugPrint('TranscriptionDetailPage: AI finished! Text: ${updated.text.substring(0, updated.text.length > 50 ? 50 : updated.text.length)}...');
+          setState(() {
+            _transcription = updated;
+            _isProcessing = false;
+          });
+          timer.cancel();
+        }
+      } else {
+        timer.cancel();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   void _setupAudioPlayer() {
@@ -583,6 +615,13 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
+                // Replay from start
+                IconButton(
+                  icon: const Icon(Icons.replay, color: AppColors.textSecondary, size: 28),
+                  onPressed: () async {
+                    await _audioPlayer.seek(Duration.zero);
+                  },
+                ),
                 // Rewind 10s
                 IconButton(
                   icon: const Icon(Icons.replay_10, color: AppColors.textSecondary, size: 28),
@@ -632,6 +671,13 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                     if (newPos < _totalDuration) {
                       await _audioPlayer.seek(newPos);
                     }
+                  },
+                ),
+                // Go to end
+                IconButton(
+                  icon: const Icon(Icons.last_page, color: AppColors.textSecondary, size: 28),
+                  onPressed: () async {
+                    await _audioPlayer.seek(_totalDuration);
                   },
                 ),
                 // Speed button
