@@ -209,13 +209,28 @@ class AppDatabase {
     );
     if (maps.isEmpty) return null;
     
-    // Decrypt before returning
+    // Decrypt before returning (only if isEncrypted = true)
     final map = maps.first;
-    if (map['text'] != null && map['text'].toString().isNotEmpty) {
-      map['text'] = await _decryptField(map['text'] as String);
-    }
-    if (map['summary'] != null && map['summary'].toString().isNotEmpty) {
-      map['summary'] = await _decryptField(map['summary'] as String);
+    final isEncrypted = map['isEncrypted'] == 1;
+    
+    if (isEncrypted) {
+      debugPrint('AppDatabase: Decrypting transcription $id');
+      if (map['text'] != null && map['text'].toString().isNotEmpty) {
+        try {
+          map['text'] = await _decryptField(map['text'] as String);
+        } catch (e) {
+          debugPrint('AppDatabase: Decrypt error (text may not be encrypted): $e');
+        }
+      }
+      if (map['summary'] != null && map['summary'].toString().isNotEmpty) {
+        try {
+          map['summary'] = await _decryptField(map['summary'] as String);
+        } catch (e) {
+          debugPrint('AppDatabase: Decrypt error (summary may not be encrypted): $e');
+        }
+      }
+    } else {
+      debugPrint('AppDatabase: Transcription $id not encrypted, skipping decrypt');
     }
     
     return TranscriptionData.fromMap(map);
