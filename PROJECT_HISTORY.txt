@@ -1,0 +1,104 @@
+# PrivaVoice - Histórico do Projeto
+
+## Resumo do Projeto
+App Android de transcrição de áudio com IA on-device para uso jurídico, médico e corporativo.
+
+## Tecnologias Principais
+- Flutter/Dart
+- Whisper.cpp (FFI) - Transcrição de áudio
+- TinyLlama 1.1B (4-bit) - Resumos e Action Items
+- SQLite com criptografia AES-256 GCM
+- just_audio - Player de áudio
+
+## Estrutura de Pastas
+```
+lib/
+├── core/
+│   ├── services/ai_service.dart
+│   ├── ai/
+│   │   ├── native/whisper_bindings.dart
+│   │   ├── native/llama_bindings.dart
+│   │   └── ai_state.dart
+│   └── utils/encryption_utils.dart
+├── data/
+│   ├── datasources/app_database.dart
+│   └── repositories/transcription_repository_impl.dart
+├── domain/
+│   ├── entities/transcription.dart
+│   └── repositories/transcription_repository.dart
+└── presentation/
+    ├── blocs/recording/recording_bloc.dart
+    └── pages/
+        ├── record_page.dart
+        └── transcription_detail_page.dart
+```
+
+## Histórico de Commits Recentes
+
+### Build Fixes (Mais Importantes)
+- **fix: Syntax errors in database and bloc** (9d2ee14)
+  - Corrigido try sem catch em getAllTranscriptions
+  - Removido `$id` indefinido na debugPrint
+
+- **fix: Database insert fallback, debug logging** (0e822ad)
+  - Fallback sem criptografia se insert falhar
+  - Logging para debug
+
+- **fix: Use just_audio, upgrade Kotlin 2.1, NDK 26.1** (87cab11)
+  - Substituído audioplayers por just_audio
+  - Kotlin 2.1.0, NDK 26.1.10909125
+
+### UI Timeline (9d4cba6)
+- Avatares neon (Ciano, Magenta, Violet, Lime, Coral)
+- Balões glassmorphism com alto contraste
+- Glow neon multi-camada quando ativo
+- Timestamps ao lado dos avatares
+
+- **feat: Enhanced neon glow, high contrast text** (9d4cba6)
+  - Texto branco 95% opacity para legibilidade
+  - BoxShadow triplo para efeito glow
+
+### Gravação (25cdb8d)
+- **fix: Recording button always enabled** (25cdb8d)
+  - Botão sempre habilitado - IA processa após gravação
+
+### AI Service (40a0ab5)
+- **fix: Remove FFI Pointer types, upgrade AGP 8.6.0** (40a0ab5)
+  - Removidos tipos Pointer<Void> desnecessários
+  - AGP 8.6.0, Kotlin 1.9.24
+
+## Estado Atual do App
+
+### Funcionando
+✅ Gravação de áudio WAV
+✅ Salvar no banco SQLite (com fallback)
+✅ Timeline UI com avatares neon
+✅ Glassmorphism com alto contraste
+✅ Glow quando pessoa fala
+✅ Player de áudio com seekTo
+
+### Problemas Conhecidos (Em Debug)
+⚠️ Criptografia pode falhar - Fallback ativo
+⚠️ Descriptografia pode falhar - Usa texto raw
+
+## Como Testar
+```powershell
+git pull origin main
+flutter clean
+flutter pub get
+flutter build apk --release --split-per-abi
+```
+
+## Loggable para Debug
+Ver Logcat do Android Studio para ver:
+- `AppDatabase: Inserting...`
+- `AppDatabase: Raw records: X`
+- `RecordingBloc: Saved successfully!`
+- `RecordingBloc: Database error: ...`
+
+## Contato
+- GitHub: https://github.com/Luiqbd/PrivaVoice
+- Telegram: Enviar mensagem para continuar
+
+---
+Última atualização: 2026-03-28
