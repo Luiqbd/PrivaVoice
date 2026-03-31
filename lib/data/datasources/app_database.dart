@@ -107,6 +107,7 @@ class AppDatabase {
     return await openDatabase(
       dbPath,
       version: 1,
+      singleInstance: true,  // Ensure single instance - fixes read-only issue
       onCreate: (db, version) async {
         debugPrint('AppDatabase: Creating table...');
         await db.execute('''
@@ -279,38 +280,69 @@ static Future<void> insertTranscription(TranscriptionData data) async {
   }
 
 
-  static Future<void> updateTranscription(TranscriptionData data) async {
+static Future<void> updateTranscription(TranscriptionData data) async {
     final db = await database;
-    
-    // Encrypt before updating
-    final encryptedData = TranscriptionData(
-      id: data.id,
-      title: await _encryptField(data.title),
-      audioPath: data.audioPath,
-      text: await _encryptField(data.text),
-      wordTimestampsJson: await _encryptField(data.wordTimestampsJson),
-      createdAt: data.createdAt,
-      durationMs: data.durationMs,
-      isEncrypted: true,
-      speakerSegmentsJson: data.speakerSegmentsJson != null 
-          ? await _encryptField(data.speakerSegmentsJson!) 
-          : null,
-      summary: data.summary != null 
-          ? await _encryptField(data.summary!) 
-          : null,
-      actionItemsJson: data.actionItemsJson != null 
-          ? await _encryptField(data.actionItemsJson!) 
-          : null,
-    );
-    
-    await db.update(
-      'transcriptions',
-      encryptedData.toMap(),
-      where: 'id = ?',
-      whereArgs: [data.id],
-    );
-    debugPrint('AppDatabase: ✅ Encrypted update successful!');
+    debugPrint('AppDatabase: Updating transcription: ${data.id}');
+
+    try {
+      // For updates with actual text, encrypt first
+      if (data.text != 'Processando...' && data.text.isNotEmpty) {
+        final encryptedData = TranscriptionData(
+          id: data.id,
+          title: await _encryptField(data.title),
+          audioPath: data.audioPath,
+          text: await _encryptField(data.text),
+          wordTimestampsJson: await _encryptField(data.wordTimestampsJson),
+          createdAt: data.createdAt,
+          durationMs: data.durationMs,
+          isEncrypted: true,
+          speakerSegmentsJson: data.speakerSegmentsJson != null
+              ? await _encryptField(data.speakerSegmentsJson!)
+              : null,
+          summary: data.summary != null
+              ? await _encryptField(data.summary!)
+              : null,
+          actionItemsJson: data.actionItemsJson != null
+              ? await _encryptField(data.actionItemsJson!)
+              : null,
+        );
+
+        await db.update(
+          'transcriptions',
+          encryptedData.toMap(),
+          where: 'id = ?',
+          whereArgs: [data.id],
+        );
+        debugPrint('AppDatabase: Update successful (encrypted)!');
+      } else {
+        // No encryption needed
+        await db.update(
+          'transcriptions',
+          data.toMap(),
+          where: 'id = ?',
+          whereArgs: [data.id],
+        );
+        debugPrint('AppDatabase: Update successful!');
+      }
+    } catch (e, st) {
+      debugPrint('AppDatabase: Update error: $e');
+      debugPrint('AppDatabase: Stack: $st');
+      // Fallback without encryption
+      try {
+        await db.update(
+          'transcriptions',
+          data.toMap(),
+          where: 'id = ?',
+          whereArgs: [data.id],
+        );
+        debugPrint('AppDatabase: Fallback update OK!');
+      } catch (e2) {
+        debugPrint('AppDatabase: Fallback update error: $e2');
+        rethrow;
+      }
+    }
   }
+
 
   static Future<int> deleteTranscription(String id) async {
     final db = await database;
