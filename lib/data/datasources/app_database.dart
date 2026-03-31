@@ -150,26 +150,31 @@ class AppDatabase {
     final db = await database;
     debugPrint('AppDatabase: Fetching all transcriptions...');
     
-    try {
-      final List<Map<String, dynamic>> maps = await db.query(
-        'transcriptions',
-        orderBy: 'createdAt DESC',
-      );
-      
-      debugPrint('AppDatabase: Raw records: ${maps.length}');
-      for (var i = 0; i < maps.length; i++) {
-        debugPrint('AppDatabase: Record[$i] id=${maps[i]['id']}, textLen=${maps[i]['text']?.toString().length ?? 0}');
-      }
+    final List<Map<String, dynamic>> maps = await db.query(
+      'transcriptions',
+      orderBy: 'createdAt DESC',
+    );
     
+    debugPrint('AppDatabase: Raw records: ${maps.length}');
+
     // Decrypt sensitive fields when reading
     final decryptedMaps = <Map<String, dynamic>>[];
     for (final map in maps) {
       final decrypted = Map<String, dynamic>.from(map);
       if (map['text'] != null && map['text'].toString().isNotEmpty) {
-        decrypted['text'] = await _decryptField(map['text'] as String);
+        try {
+          decrypted['text'] = await _decryptField(map['text'] as String);
+        } catch (e) {
+          debugPrint('AppDatabase: Decrypt error: $e');
+          decrypted['text'] = map['text'];
+        }
       }
       if (map['summary'] != null && map['summary'].toString().isNotEmpty) {
-        decrypted['summary'] = await _decryptField(map['summary'] as String);
+        try {
+          decrypted['summary'] = await _decryptField(map['summary'] as String);
+        } catch (e) {
+          decrypted['summary'] = map['summary'];
+        }
       }
       decryptedMaps.add(decrypted);
     }
