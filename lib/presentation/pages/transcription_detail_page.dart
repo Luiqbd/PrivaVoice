@@ -103,6 +103,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
   Future<void> _processWithAI() async {
     if (_transcription == null || _isProcessing) return;
 
+    debugPrint('TranscriptionDetailPage: Starting AI processing for ID: ${_transcription!.id}');
     setState(() => _isProcessing = true);
 
     try {
@@ -113,8 +114,10 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
 
       if (result == null) throw Exception('AI processing returned null');
 
+      debugPrint('TranscriptionDetailPage: AI returned text: ${result.text.substring(0, result.text.length > 50 ? 50 : result.text.length)}...');
+
       final finalResult = Transcription(
-        id: _transcription!.id,
+        id: _transcription!.id,  // Use EXACT same ID from the existing record
         title: _transcription!.title,
         audioPath: _transcription!.audioPath,
         text: result.text,
@@ -127,18 +130,25 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
         actionItems: result.actionItems,
       );
 
+      debugPrint('TranscriptionDetailPage: Saving with ID: ${finalResult.id}');
+      
       final repo = GetIt.instance<TranscriptionRepository>();
       await repo.saveTranscription(finalResult);
 
-      final updated = await repo.getTranscriptionById(widget.transcriptionId);
+      debugPrint('TranscriptionDetailPage: Saved, now reloading...');
+      final updated = await repo.getTranscriptionById(_transcription!.id);
+
+      debugPrint('TranscriptionDetailPage: Reloaded! Text: ${updated?.text.substring(0, 50) ?? "NULL"}...');
 
       if (mounted) {
         setState(() {
           _transcription = updated;
           _isProcessing = false;
         });
+        debugPrint('TranscriptionDetailPage: UI updated!');
       }
     } catch (e) {
+      debugPrint('TranscriptionDetailPage: Error: $e');
       if (mounted) setState(() {
         _error = e.toString();
         _isProcessing = false;
