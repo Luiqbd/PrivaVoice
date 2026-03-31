@@ -131,10 +131,10 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
       // CRITICAL: Wait for filesystem to flush the .wav file
       await Future.delayed(const Duration(milliseconds: 500));
       
-      debugPrint('RecordingBloc: Stopped and flushed, path = $path');
+      debugPrint('RecordingBloc: Stopped, path = $path');
 
       if (path == null || path.isEmpty) {
-        debugPrint('ERROR: No file recorded!');
+        debugPrint('ERROR: No path returned from recorder!');
         emit(RecordingError(
           errorMessage: 'Falha ao salvar gravação',
           recording: state.recording,
@@ -142,41 +142,61 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
         return;
       }
 
+      // Verify file was actually created
       final file = File(path);
-      if (await file.exists()) {
+      try {
+        if (!await file.exists()) {
+          debugPrint('ERROR: File does not exist at: $path');
+          emit(RecordingError(
+            errorMessage: 'Arquivo não encontrado: $path',
+            recording: state.recording,
+          ));
+          return;
+        }
+        
         final size = await file.length();
-        debugPrint('RecordingBloc: File saved! Size: $size bytes');
+        debugPrint('RecordingBloc: Arquivo gerado em: $path');
+        debugPrint('RecordingBloc: File size: $size bytes');
 
-        if (size > 0) {
-          final stoppedRecording = state.recording.copyWith(
-            status: RecordingStatus.idle,
-            filePath: path,
-          );
-          emit(RecordingState(recording: stoppedRecording));
-
-          // Save to database IMMEDIATELY (even before AI starts)
-          // The library will show "Processando..." and the audio will be there
-          final transcriptionId = await _saveToDatabase(path, state.recording.duration ?? Duration.zero);
-          
-          // After save, trigger AI processing (if you have AI button)
-          // The AI will later UPDATE this same record with the transcription
-          if (transcriptionId.isNotEmpty) {
-            _triggerAIProcessingIfNeeded(path, transcriptionId);
-          }
-          
-          await HapticUtils.mediumImpact();
-          debugPrint('RecordingBloc: All done!');
-        } else {
+        if (size == 0) {
+          debugPrint('ERROR: File has 0 bytes!');
           emit(RecordingError(
             errorMessage: 'Arquivo vazio',
             recording: state.recording,
           ));
+          return;
         }
-      } else {
-        emit(RecordingError(
-          errorMessage: 'Arquivo não encontrado',
-          recording: state.recording,
-        ));
+
+        // Update state
+        final stoppedRecording = state.recording.copyWith(
+          status: RecordingStatus.idle,
+          filePath: path,
+        );
+        emit(RecordingState(recording: stoppedRecording));
+
+        // Save to database IMMEDIATELY - no dependency on AI
+        final transcriptionId = await _saveToDatabase(path, state.recording.duration ?? Duration.zero);
+        
+        if (transcriptionId.isEmpty) {
+          debugPrint('ERROR: Failed to save to database!');
+          emit(RecordingError(
+            errorMessage: 'Falha ao salvar no banco de dados',
+            recording: state.recording,
+          ));
+          return;
+        }
+        
+        debugPrint('RecordingBloc: Saved with ID: $transcriptionId');
+        
+        // AI processes AFTER save (optional - user presses AI button)
+        _triggerAIProcessingIfNeeded(path, transcriptionId);
+        
+        await HapticUtils.mediumImpact();
+        debugPrint('RecordingBloc: All done!');
+      } catch (e, st) {
+        debugPrint('RecordingBloc: File error: $e');
+        debugPrint('RecordingBloc: Stack: $st');
+        emit(RecordingError(errorMessage: e.toString(), recording: state.recording));
       }
     } catch (e) {
       debugPrint('RecordingBloc: Stop error: $e');
