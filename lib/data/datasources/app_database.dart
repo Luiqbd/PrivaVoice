@@ -65,6 +65,10 @@ class AppDatabase {
   static Database? _database;
   static const String _dbName = 'privavoice.db';
   static bool _encryptedInitialized = false;
+  static bool _fallbackModeUsed = false;  // Track fallback for security transparency
+  
+  // Security transparency flag
+  static bool get isFallbackModeUsed => _fallbackModeUsed;
 
   static Future<Database> get database async {
     if (_database != null) return _database!;
@@ -121,6 +125,14 @@ class AppDatabase {
           )
         ''');
         debugPrint('AppDatabase: Table created successfully!');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        debugPrint('AppDatabase: Upgrading database v$oldVersion -> v$newVersion');
+        // Future migrations can be added here
+        // Example:
+        // if (oldVersion < 2) {
+        //   await db.execute('ALTER TABLE transcriptions ADD COLUMN newColumn TEXT');
+        // }
       },
     );
   }
@@ -245,7 +257,8 @@ class AppDatabase {
           data.toMap(),
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
-        debugPrint('AppDatabase: Fallback insert OK!');
+        debugPrint('AppDatabase: Fallback insert OK! (SECURITY NOTE: Fallback mode used)');
+        _fallbackModeUsed = true;  // Track for security transparency
       } catch (e2) {
         debugPrint('AppDatabase: Fallback error: $e2');
         rethrow;
