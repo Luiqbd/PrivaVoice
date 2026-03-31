@@ -19,7 +19,13 @@ class TranscriptionRepositoryImpl implements TranscriptionRepository {
   
   @override
   Future<void> saveTranscription(Transcription transcription) async {
-    await AppDatabase.insertTranscription(TranscriptionModel.toDbModel(transcription));
+    // Check if exists - if yes, update; if no, insert
+    final existing = await AppDatabase.getTranscriptionById(transcription.id);
+    if (existing != null) {
+      await AppDatabase.updateTranscription(TranscriptionModel.toDbModel(transcription));
+    } else {
+      await AppDatabase.insertTranscription(TranscriptionModel.toDbModel(transcription));
+    }
   }
   
   @override
