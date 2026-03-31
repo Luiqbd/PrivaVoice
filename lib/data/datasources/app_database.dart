@@ -75,8 +75,13 @@ class AppDatabase {
   static Future<Database> _initDatabase() async {
     debugPrint('AppDatabase: Initializing database...');
     
-    // Initialize encryption
-    await EncryptionUtils.initialize();
+    // Initialize encryption FIRST - critical for database to work
+    try {
+      await EncryptionUtils.initialize();
+      debugPrint('AppDatabase: Encryption initialized');
+    } catch (e) {
+      debugPrint('AppDatabase: Encryption init failed: $e');
+    }
     _encryptedInitialized = true;
     
     // Initialize FFI
@@ -145,12 +150,16 @@ class AppDatabase {
     final db = await database;
     debugPrint('AppDatabase: Fetching all transcriptions...');
     
-    final List<Map<String, dynamic>> maps = await db.query(
-      'transcriptions',
-      orderBy: 'createdAt DESC',
-    );
-    
-    debugPrint('AppDatabase: Found ${maps.length} records');
+    try {
+      final List<Map<String, dynamic>> maps = await db.query(
+        'transcriptions',
+        orderBy: 'createdAt DESC',
+      );
+      
+      debugPrint('AppDatabase: Raw records: ${maps.length}');
+      for (var i = 0; i < maps.length; i++) {
+        debugPrint('AppDatabase: Record[$i] id=${maps[i]['id']}, textLen=${maps[i]['text']?.toString().length ?? 0}');
+      }
     
     // Decrypt sensitive fields when reading
     final decryptedMaps = <Map<String, dynamic>>[];
@@ -220,10 +229,22 @@ class AppDatabase {
         encryptedData.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
-      debugPrint('AppDatabase: ✅ Encrypted insert successful!');
-    } catch (e) {
-      debugPrint('AppDatabase: ❌ Encrypted insert error = $e');
-      rethrow;
+      debugPrint('AppDatabase: Insert successful!');
+    } catch (e, st) {
+      debugPrint('AppDatabase: Insert error: $e');
+      debugPrint('AppDatabase: Stack: $st');
+      // Fallback - try without encryption
+      try {
+        await db.insert(
+          'transcriptions',
+          data.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+        debugPrint('AppDatabase: Fallback insert OK!');
+      } catch (e2) {
+        debugPrint('AppDatabase: Fallback error: $e2');
+        rethrow;
+      }
     }
   }
 

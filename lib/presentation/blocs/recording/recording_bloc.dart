@@ -195,9 +195,10 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
       );
 
       await AppDatabase.insertTranscription(transcriptionData);
-      debugPrint('RecordingBloc: Saved to database successfully!');
-    } catch (e) {
+      debugPrint('RecordingBloc: Saved successfully! ID: $id');
+    } catch (e, st) {
       debugPrint('RecordingBloc: Database error: $e');
+      debugPrint('RecordingBloc: Stack trace: $st');
     }
   }
 
