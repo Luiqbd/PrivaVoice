@@ -27,6 +27,10 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
   Duration _currentPosition = Duration.zero;
   Duration _totalDuration = Duration.zero;
   int _activeSpeakerIndex = -1;
+  
+  // Playback speed control
+  double _playbackSpeed = 1.0;
+  final List<double> _speedOptions = [1.0, 1.25, 1.5, 2.0];
 
   @override
   void initState() {
@@ -522,60 +526,145 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
   }
 
   Widget _buildAudioPlayerBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.textTertiary.withOpacity(0.2))),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: Icon(
-              _isPlaying ? Icons.pause : Icons.play_arrow,
-              color: AppColors.primaryAccent,
-              size: 32,
-            ),
-            onPressed: () async {
-              if (_isPlaying) {
-                await _audioPlayer.pause();
-              } else {
-                await _audioPlayer.play();
-              }
-            },
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        decoration: BoxDecoration(
+          // Glassmorphism effect
+          color: AppColors.surface.withOpacity(0.85),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: AppColors.primaryAccent.withOpacity(0.3),
+            width: 1.5,
           ),
-          Expanded(
-            child: Column(
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primaryAccent.withOpacity(0.2),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Progress slider - thicker and neon cyan
+            SliderTheme(
+              data: SliderThemeData(
+                trackHeight: 8,  // Thicker
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
+                activeTrackColor: const Color(0xFF00FFFF),  // Neon Ciano
+                inactiveTrackColor: AppColors.textTertiary.withOpacity(0.3),
+                thumbColor: const Color(0xFF00FFFF),
+                overlayColor: const Color(0xFF00FFFF).withOpacity(0.2),
+              ),
+              child: Slider(
+                value: _currentPosition.inMilliseconds.toDouble(),
+                max: _totalDuration.inMilliseconds.toDouble().clamp(1, double.infinity),
+                onChanged: (value) {
+                  _audioPlayer.seek(Duration(milliseconds: value.toInt()));
+                },
+              ),
+            ),
+            // Time labels
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                SliderTheme(
-                  data: SliderThemeData(
-                    trackHeight: 4,
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                    activeTrackColor: AppColors.primaryAccent,
-                    inactiveTrackColor: AppColors.textTertiary.withOpacity(0.3),
-                    thumbColor: AppColors.primaryAccent,
+                Text(_formatDuration(_currentPosition),
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w500)),
+                Text(_formatDuration(_totalDuration),
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w500)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Controls row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                // Rewind 10s
+                IconButton(
+                  icon: const Icon(Icons.replay_10, color: AppColors.textSecondary, size: 28),
+                  onPressed: () async {
+                    final newPos = _currentPosition - const Duration(seconds: 10);
+                    await _audioPlayer.seek(newPos.isNegative ? Duration.zero : newPos);
+                  },
+                ),
+                // Play/Pause
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xFF00FFFF),
+                        const Color(0xFF00FFFF).withOpacity(0.7),
+                      ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF00FFFF).withOpacity(0.5),
+                        blurRadius: 15,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                  child: Slider(
-                    value: _currentPosition.inMilliseconds.toDouble(),
-                    max: _totalDuration.inMilliseconds.toDouble().clamp(1, double.infinity),
-                    onChanged: (value) {
-                      _audioPlayer.seek(Duration(milliseconds: value.toInt()));
+                  child: IconButton(
+                    icon: Icon(
+                      _isPlaying ? Icons.pause : Icons.play_arrow,
+                      color: AppColors.backgroundPrimary,
+                      size: 36,
+                    ),
+                    onPressed: () async {
+                      if (_isPlaying) {
+                        await _audioPlayer.pause();
+                      } else {
+                        await _audioPlayer.play();
+                      }
                     },
                   ),
                 ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(_formatDuration(_currentPosition),
-                        style: const TextStyle(color: AppColors.textTertiary, fontSize: 12)),
-                    Text(_formatDuration(_totalDuration),
-                        style: const TextStyle(color: AppColors.textTertiary, fontSize: 12)),
-                  ],
+                // Forward 10s
+                IconButton(
+                  icon: const Icon(Icons.forward_10, color: AppColors.textSecondary, size: 28),
+                  onPressed: () async {
+                    final newPos = _currentPosition + const Duration(seconds: 10);
+                    if (newPos < _totalDuration) {
+                      await _audioPlayer.seek(newPos);
+                    }
+                  },
+                ),
+                // Speed button
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.primaryAccent.withOpacity(0.5)),
+                  ),
+                  child: GestureDetector(
+                    onTap: () async {
+                      final currentIndex = _speedOptions.indexOf(_playbackSpeed);
+                      final nextIndex = (currentIndex + 1) % _speedOptions.length;
+                      setState(() {
+                        _playbackSpeed = _speedOptions[nextIndex];
+                      });
+                      await _audioPlayer.setSpeed(_playbackSpeed);
+                      debugPrint('Playback speed: $_playbackSpeed');
+                    },
+                    child: Text(
+                      '${_playbackSpeed}x',
+                      style: TextStyle(
+                        color: AppColors.primaryAccent,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
