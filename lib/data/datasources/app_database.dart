@@ -215,38 +215,50 @@ class AppDatabase {
     return TranscriptionData.fromMap(map);
   }
 
-  static Future<void> insertTranscription(TranscriptionData data) async {
+static Future<void> insertTranscription(TranscriptionData data) async {
     final db = await database;
-    debugPrint('AppDatabase: Inserting encrypted data: id=${data.id}');
-    
+    debugPrint('AppDatabase: Inserting: id=${data.id}, textLen=${data.text.length}');
+
     try {
-      // Encrypt sensitive fields before storing
+      // For initial save with "Processando...", save without encryption first
+      if (data.text == 'Processando...' || data.text.isEmpty) {
+        debugPrint('AppDatabase: Saving without encryption (initial save)');
+        await db.insert(
+          'transcriptions',
+          data.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+        debugPrint('AppDatabase: Insert successful (no encryption)!');
+        return;
+      }
+
+      // Encrypt for full transcription
       final encryptedData = TranscriptionData(
         id: data.id,
         title: await _encryptField(data.title),
-        audioPath: data.audioPath, // Path is not sensitive
+        audioPath: data.audioPath,
         text: await _encryptField(data.text),
         wordTimestampsJson: await _encryptField(data.wordTimestampsJson),
         createdAt: data.createdAt,
         durationMs: data.durationMs,
         isEncrypted: true,
-        speakerSegmentsJson: data.speakerSegmentsJson != null 
-            ? await _encryptField(data.speakerSegmentsJson!) 
+        speakerSegmentsJson: data.speakerSegmentsJson != null
+            ? await _encryptField(data.speakerSegmentsJson!)
             : null,
-        summary: data.summary != null 
-            ? await _encryptField(data.summary!) 
+        summary: data.summary != null
+            ? await _encryptField(data.summary!)
             : null,
-        actionItemsJson: data.actionItemsJson != null 
-            ? await _encryptField(data.actionItemsJson!) 
+        actionItemsJson: data.actionItemsJson != null
+            ? await _encryptField(data.actionItemsJson!)
             : null,
       );
-      
+
       await db.insert(
         'transcriptions',
         encryptedData.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
-      debugPrint('AppDatabase: Insert successful!');
+      debugPrint('AppDatabase: Insert successful (encrypted)!');
     } catch (e, st) {
       debugPrint('AppDatabase: Insert error: $e');
       debugPrint('AppDatabase: Stack: $st');
@@ -258,13 +270,14 @@ class AppDatabase {
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
         debugPrint('AppDatabase: Fallback insert OK! (SECURITY NOTE: Fallback mode used)');
-        _fallbackModeUsed = true;  // Track for security transparency
+        _fallbackModeUsed = true;
       } catch (e2) {
         debugPrint('AppDatabase: Fallback error: $e2');
         rethrow;
       }
     }
   }
+
 
   static Future<void> updateTranscription(TranscriptionData data) async {
     final db = await database;
