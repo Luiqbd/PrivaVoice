@@ -383,7 +383,7 @@ class AIService {
       _log('[Isolate] Pipeline complete');
 
       return Transcription(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        id: title.hashCode.abs().toString(),  // Use title as ID base
         title: title,
         audioPath: audioPath,
         text: text,
