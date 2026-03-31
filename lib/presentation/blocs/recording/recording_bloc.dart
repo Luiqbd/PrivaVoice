@@ -53,14 +53,16 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
       final directory = await getApplicationDocumentsDirectory();
       final recordingsDir = Directory('${directory.path}/recordings');
       
+      // Force directory creation with sync (CRITICAL - without this file has nowhere to live)
       if (!await recordingsDir.exists()) {
-        await recordingsDir.create(recursive: true);
+        recordingsDir.createSync(recursive: true);
         debugPrint('RecordingBloc: Created directory: ${recordingsDir.path}');
       }
       
       final filename = '${const Uuid().v4()}.wav';
       _currentFilePath = '${recordingsDir.path}/$filename';
-      debugPrint('RecordingBloc: Saving to $_currentFilePath');
+      debugPrint('RecordingBloc: Recording will save to: $_currentFilePath');
+      debugPrint('RecordingBloc: Directory exists: ${await recordingsDir.exists()}');
 
       await _recorder.start(
         const RecordConfig(
@@ -152,8 +154,15 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
           );
           emit(RecordingState(recording: stoppedRecording));
 
-          // Save to database
-          await _saveToDatabase(path, state.recording.duration ?? Duration.zero);
+          // Save to database IMMEDIATELY (even before AI starts)
+          // The library will show "Processando..." and the audio will be there
+          final transcriptionId = await _saveToDatabase(path, state.recording.duration ?? Duration.zero);
+          
+          // After save, trigger AI processing (if you have AI button)
+          // The AI will later UPDATE this same record with the transcription
+          if (transcriptionId.isNotEmpty) {
+            _triggerAIProcessingIfNeeded(path, transcriptionId);
+          }
           
           await HapticUtils.mediumImpact();
           debugPrint('RecordingBloc: All done!');
@@ -175,16 +184,18 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
     }
   }
 
-  Future<void> _saveToDatabase(String audioPath, Duration duration) async {
+  Future<String> _saveToDatabase(String audioPath, Duration duration) async {
     try {
       debugPrint('RecordingBloc: Saving to database...');
+      debugPrint('RecordingBloc: Saving to: $audioPath');
       
       final now = DateTime.now();
+      final id = const Uuid().v4();
       final transcriptionData = TranscriptionData(
-        id: const Uuid().v4(),
+        id: id,
         title: 'Gravação ${now.day}/${now.month} ${now.hour}:${now.minute.toString().padLeft(2, '0')}',
         audioPath: audioPath,
-        text: '',
+        text: 'Processando...',
         wordTimestampsJson: '[]',
         createdAt: now,
         durationMs: duration.inMilliseconds,
@@ -195,11 +206,19 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
       );
 
       await AppDatabase.insertTranscription(transcriptionData);
-      debugPrint('RecordingBloc: Saved successfully!');
+      debugPrint('RecordingBloc: Saved successfully! ID: $id');
+      return id;
     } catch (e, st) {
       debugPrint('RecordingBloc: Database error: $e');
       debugPrint('RecordingBloc: Stack trace: $st');
+      return '';
     }
+  }
+  
+  void _triggerAIProcessingIfNeeded(String audioPath, String transcriptionId) {
+    // TODO: Trigger AI processing in background
+    // For now, this is a placeholder - the user can press AI button to process
+    debugPrint('RecordingBloc: AI processing ready for: $transcriptionId');
   }
 
   Future<void> _onPauseRecording(
