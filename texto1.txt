@@ -32,8 +32,6 @@ App Android de transcrição de áudio com IA on-device (Whisper + TinyLlama), f
 
 ### ❌ Pendente:
 - **Transcrição real da IA não aparece** - fica em "Processando..."
-- Modelo Whisper no repo está vazio (134 bytes vs 144MB real)
-- Modelo TinyLlama presente (653MB) mas precisa verificar se funciona
 
 ---
 
@@ -57,7 +55,7 @@ assets:
   - assets/icons/
 ```
 
-**ATENÇÃO**: Os arquivos no repo estão vazios! O usuário tem os arquivos reais (144MB e 653MB) no PC local mas precisam ser copiados para assets/models/.
+
 
 ---
 
@@ -91,17 +89,6 @@ TranscriptionDetailPage: AI finished!
 
 ---
 
-## 💻 Próximos Passos (para continuar a conversa)
-
-1. **Copiar modelos reais** para assets/models/
-   - whisper-base.bin (144MB)
-   - tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf (653MB)
-
-2. **Testar AI** - Ver se Whisper.cpp FFI carrega
-
-3. **Debugar** - Ver logs do Isolate para ver onde falha
-
-4. **Corrigir** - Se modelo não carregar, verificar bindings FFI
 
 ---
 
@@ -112,10 +99,3 @@ TranscriptionDetailPage: AI finished!
 
 ---
 
-## ⚠️ Aviso Importante
-
-O usuário tem os arquivos reais dos modelos. O projeto currently não funciona porque:
-1. O modelo whisker-base.bin no repo está vazio (134 bytes)
-2. Precisa substituir pelos arquivos reais de 144MB
-
-O código está pronto para processar - só precisa dos modelos reais!
