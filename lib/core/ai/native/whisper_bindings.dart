@@ -40,10 +40,12 @@ class WhisperBindings {
     if (_isLoaded) return true;
 
     try {
-      // Try multiple paths for Android
+      // Try multiple paths for Android - force libwhisper.so loading
       List<String> paths = [
         'libwhisper.so',
         '/data/data/com.privavoice.privavoice/lib/libwhisper.so',
+        '/data/data/com.privavoice.privavoice/app_lib/libwhisper.so',
+        '/system/lib/libwhisper.so',
       ];
       
       _lib = null;
@@ -53,12 +55,19 @@ class WhisperBindings {
           print('Whisper: ✅ Loaded from: $path');
           break;
         } catch (e) {
-          print('Whisper: ❌ Failed: $path');
+          print('Whisper: ❌ Failed: $path - $e');
         }
       }
       
       if (_lib == null) {
-        throw Exception('Could not load libwhisper.so from any path');
+        // Force load - try once more with explicit loading
+        try {
+          _lib = DynamicLibrary.open('libwhisper.so');
+          print('Whisper: ✅ Force loaded libwhisper.so');
+        } catch (e) {
+          print('Whisper: ❌ Force load also failed: $e');
+          throw Exception('Could not load libwhisper.so from any path');
+        }
       }
       
       _initFromFile = _lib!.lookup<NativeFunction<WhisperInitFromFileNative>>('whisper_init_from_file').asFunction<WhisperInitFromFileDart>();
@@ -71,6 +80,7 @@ class WhisperBindings {
       print('Whisper: ✅ All FFI functions bound');
     } catch (e) {
       print('Whisper: ❌ FFI binding error = $e');
+      _isLoaded = false;
     }
 
     return _isLoaded;
