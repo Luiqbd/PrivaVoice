@@ -15,8 +15,26 @@ class LlamaBindings {
     if (_isLoaded) return true;
 
     try {
-      _lib = DynamicLibrary.open('libllama.so');
-      print('Llama: ✅ Loaded libllama.so');
+      // Try multiple paths for Android
+      List<String> paths = [
+        'libllama.so',
+        '/data/data/com.privavoice.privavoice/lib/libllama.so',
+      ];
+      
+      _lib = null;
+      for (String path in paths) {
+        try {
+          _lib = DynamicLibrary.open(path);
+          print('Llama: ✅ Loaded from: $path');
+          break;
+        } catch (e) {
+          print('Llama: ❌ Failed: $path');
+        }
+      }
+      
+      if (_lib == null) {
+        throw Exception('Could not load libllama.so');
+      }
       _isLoaded = true;
     } catch (e) {
       print('Llama: ❌ Cannot load libllama.so: $e');

@@ -40,8 +40,26 @@ class WhisperBindings {
     if (_isLoaded) return true;
 
     try {
-      _lib = DynamicLibrary.open('libwhisper.so');
-      print('Whisper: ✅ libwhisper.so loaded');
+      // Try multiple paths for Android
+      List<String> paths = [
+        'libwhisper.so',
+        '/data/data/com.privavoice.privavoice/lib/libwhisper.so',
+      ];
+      
+      _lib = null;
+      for (String path in paths) {
+        try {
+          _lib = DynamicLibrary.open(path);
+          print('Whisper: ✅ Loaded from: $path');
+          break;
+        } catch (e) {
+          print('Whisper: ❌ Failed: $path');
+        }
+      }
+      
+      if (_lib == null) {
+        throw Exception('Could not load libwhisper.so from any path');
+      }
       
       _initFromFile = _lib!.lookup<NativeFunction<WhisperInitFromFileNative>>('whisper_init_from_file').asFunction<WhisperInitFromFileDart>();
       _free = _lib!.lookup<NativeFunction<WhisperFreeNative>>('whisper_free').asFunction<WhisperFreeDart>();
