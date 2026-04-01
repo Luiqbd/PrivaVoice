@@ -133,11 +133,15 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
   Future<void> _processWithAI() async {
     if (_transcription == null || _isProcessing) return;
 
-    debugPrint('xxx STARTING AI PROCESSING xxx');\n    debugPrint('xxx Audio: ${_transcription!.audioPath}');
-    debugPrint('xxx BEFORE setState'); setState(() => _isProcessing = true); debugPrint('xxx AFTER setState');
+    debugPrint('xxx STARTING AI PROCESSING xxx');
+    debugPrint('xxx Audio: ${_transcription!.audioPath}');
+    debugPrint('xxx BEFORE setState');
+    setState(() => _isProcessing = true);
+    debugPrint('xxx AFTER setState');
 
     try {
-      debugPrint("xxx CALLING AIService.processAudio"); final result = await AIService.processAudio(
+      debugPrint('xxx CALLING AIService.processAudio');
+      final result = await AIService.processAudio(
         audioPath: _transcription!.audioPath,
         title: _transcription!.title,
       );
