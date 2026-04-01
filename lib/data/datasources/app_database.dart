@@ -191,14 +191,27 @@ class AppDatabase {
       final isEncrypted = map['isEncrypted'] == 1;
       debugPrint('AppDatabase: isEncrypted=$isEncrypted for id=${map['id']}');
       
+      // Decrypt title if encrypted
+      if (isEncrypted && map['title'] != null && map['title'].toString().isNotEmpty) {
+        try {
+          decrypted['title'] = await _decryptField(map['title'] as String);
+        } catch (e) {
+          debugPrint('AppDatabase: Decrypt title error (returning raw): $e');
+          decrypted['title'] = map['title'];
+        }
+      }
+      
+      // Decrypt text if encrypted
       if (isEncrypted && map['text'] != null && map['text'].toString().isNotEmpty) {
         try {
           decrypted['text'] = await _decryptField(map['text'] as String);
         } catch (e) {
           debugPrint('AppDatabase: Decrypt text error (returning raw): $e');
-          decrypted['text'] = map['text']; // Return raw text
+          decrypted['text'] = map['text'];
         }
       }
+      
+      // Decrypt summary if encrypted
       if (isEncrypted && map['summary'] != null && map['summary'].toString().isNotEmpty) {
         try {
           decrypted['summary'] = await _decryptField(map['summary'] as String);
@@ -320,7 +333,8 @@ static Future<void> updateTranscription(TranscriptionData data) async {
 
     try {
       await db.transaction((txn) async {
-        // For updates with actual text, encrypt first
+        // For updates with actual text, ALWAYS encrypt (ignore what AIService says)
+        // This ensures all real transcriptions are encrypted regardless of AIService.isEncrypted
         if (data.text != 'Processando...' && data.text.isNotEmpty) {
           final encryptedData = TranscriptionData(
             id: data.id,
@@ -330,7 +344,7 @@ static Future<void> updateTranscription(TranscriptionData data) async {
             wordTimestampsJson: await _encryptField(data.wordTimestampsJson),
             createdAt: data.createdAt,
             durationMs: data.durationMs,
-            isEncrypted: true,
+            isEncrypted: true, // ALWAYS true for real transcriptions
             speakerSegmentsJson: data.speakerSegmentsJson != null
                 ? await _encryptField(data.speakerSegmentsJson!)
                 : null,
@@ -340,7 +354,7 @@ static Future<void> updateTranscription(TranscriptionData data) async {
             actionItemsJson: data.actionItemsJson != null
                 ? await _encryptField(data.actionItemsJson!)
                 : null,
-            notes: data.notes, // Include notes (not encrypted)
+            notes: data.notes,
           );
 
           await txn.update(
