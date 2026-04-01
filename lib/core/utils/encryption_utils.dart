@@ -39,8 +39,11 @@ class EncryptionUtils {
   }
   
   static Future<String> decrypt(String encryptedText) async {
+    // Ensure encryption is initialized
     if (_key == null || _iv == null) {
+      debugPrint('EncryptionUtils: Keys not initialized, calling initialize()...');
       await initialize();
+      debugPrint('EncryptionUtils: Keys now initialized. key=${_key != null}, iv=${_iv != null}');
     }
     
     try {
@@ -53,19 +56,22 @@ class EncryptionUtils {
       final base64Regex = RegExp(r'^[A-Za-z0-9+/]*={0,2}$');
       bool looksLikeBase64 = base64Regex.hasMatch(encryptedText) && encryptedText.length % 4 == 0;
       
+      debugPrint('EncryptionUtils: text="${encryptedText.substring(0, encryptedText.length > 30 ? 30 : encryptedText.length)}...", isBase64=$looksLikeBase64, len=${encryptedText.length}');
+      
       if (!looksLikeBase64) {
         debugPrint('EncryptionUtils: Not valid base64 format, returning as-is');
         return encryptedText; // Return raw if not base64
       }
       
-      debugPrint('EncryptionUtils: Attempting decrypt of: ${encryptedText.substring(0, 20)}...');
+      debugPrint('EncryptionUtils: Attempting decrypt...');
       
       final encrypter = Encrypter(AES(_key!, mode: AESMode.gcm));
       final decrypted = encrypter.decrypt64(encryptedText, iv: _iv);
       debugPrint('EncryptionUtils: Decrypt successful!');
       return decrypted;
-    } catch (e) {
-      debugPrint('EncryptionUtils: Decrypt failed, returning raw text: $e');
+    } catch (e, st) {
+      debugPrint('EncryptionUtils: Decrypt FAILED: $e');
+      debugPrint('EncryptionUtils: Stack: $st');
       // Return raw text if decryption fails
       return encryptedText;
     }
