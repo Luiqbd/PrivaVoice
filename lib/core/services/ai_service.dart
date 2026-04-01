@@ -339,6 +339,25 @@ class AIService {
     required String title,
     required String modelPath,
   }) async {
+    _log('[Isolate] _processPipeline called');
+    _log('[Isolate] audioPath: $audioPath');
+    _log('[Isolate] modelPath: $modelPath');
+    
+    // Verify audio exists
+    final audioFile = File(audioPath);
+    if (!audioFile.existsSync()) {
+      throw Exception('[Isolate] Audio file NOT FOUND: $audioPath');
+    }
+    final audioSize = audioFile.lengthSync();
+    _log('[Isolate] Audio file exists, size: $audioSize bytes');
+    
+    // Verify model exists
+    final modelFile = File(modelPath);
+    if (!modelFile.existsSync()) {
+      throw Exception('[Isolate] Model file NOT FOUND: $modelPath');
+    }
+    final modelSize = modelFile.lengthSync();
+    _log('[Isolate] Model file exists, size: $modelSize bytes');
     _log('[Isolate] Pipeline start');
     _log('[Isolate] Using model path: $modelPath');
 
