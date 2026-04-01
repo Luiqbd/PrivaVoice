@@ -18,7 +18,7 @@ class PrivaVoiceApp extends StatefulWidget {
 }
 
 class _PrivaVoiceAppState extends State<PrivaVoiceApp> {
-  bool _showOnboarding = false;
+  bool _showOnboarding = true;  // Show onboarding on first launch
   bool _permissionsRequested = false;
   final AIService _aiService = AIService();
   final PermissionService _permissionService = PermissionService();
@@ -61,13 +61,16 @@ class _PrivaVoiceAppState extends State<PrivaVoiceApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'PrivaVoice',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
-      home: _showOnboarding 
-          ? OnboardingPage(onComplete: _onOnboardingComplete)
-          : const HomePage(),
+    return BlocProvider(
+      create: (_) => OnboardingBloc(),
+      child: MaterialApp(
+        title: 'PrivaVoice',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.darkTheme,
+        home: _showOnboarding 
+            ? OnboardingPage(onComplete: _onOnboardingComplete)
+            : const HomePage(),
+      ),
     );
   }
 }
