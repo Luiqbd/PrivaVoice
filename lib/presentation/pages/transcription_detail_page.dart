@@ -65,12 +65,6 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
     });
   }
 
-  @override
-  void dispose() {
-    _refreshTimer?.cancel();
-    super.dispose();
-  }
-
   void _setupAudioPlayer() {
     _audioPlayer.playerStateStream.listen((state) {
       if (mounted) {
@@ -194,6 +188,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
     _audioPlayer.dispose();
     super.dispose();
   }
