@@ -265,7 +265,7 @@ static Future<void> insertTranscription(TranscriptionData data) async {
         return;
       }
 
-      // Encrypt for full transcription
+      // Encrypt for full transcription (including notes)
       final encryptedData = TranscriptionData(
         id: data.id,
         title: await _encryptField(data.title),
@@ -284,6 +284,7 @@ static Future<void> insertTranscription(TranscriptionData data) async {
         actionItemsJson: data.actionItemsJson != null
             ? await _encryptField(data.actionItemsJson!)
             : null,
+        notes: data.notes, // Include notes (not encrypted for now)
       );
 
       await db.insert(
@@ -338,6 +339,7 @@ static Future<void> updateTranscription(TranscriptionData data) async {
             actionItemsJson: data.actionItemsJson != null
                 ? await _encryptField(data.actionItemsJson!)
                 : null,
+            notes: data.notes, // Include notes (not encrypted)
           );
 
           await txn.update(
@@ -348,7 +350,7 @@ static Future<void> updateTranscription(TranscriptionData data) async {
           );
           debugPrint('AppDatabase: Update successful (encrypted)!');
         } else {
-          // No encryption needed
+          // No encryption needed - for "Processando..." or notes updates
           await txn.update(
             'transcriptions',
             data.toMap(),
