@@ -361,15 +361,9 @@ class AIService {
         text = '';
       }
       
-      // Fallback demo if no model or empty result
+      // If Whisper returned empty, fail with real error
       if (text.isEmpty) {
-        _log('[Isolate] No Whisper result - using DEMO transcription');
-        text = 'Esta é uma transcrição de demonstração. '
-               'O modelo Whisper não está disponível no momento. '
-               'Gravação de áudio processada com sucesso. '
-               'O texto seria transcrito automaticamente pelo motor Whisper.cpp '
-               'quando o modelo .bin estiver presente nos assets do aplicativo. '
-               'A funcionalidade de reconhecimento de voz está funcionando corretamente.';
+        throw Exception('Whisper returned empty text - model may be corrupted or incompatible');
       }
 
       _log('[Isolate] Text: $text');
