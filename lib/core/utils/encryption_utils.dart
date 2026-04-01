@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:encrypt/encrypt.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class EncryptionUtils {
@@ -42,9 +43,33 @@ class EncryptionUtils {
       await initialize();
     }
     
-    final encrypter = Encrypter(AES(_key!, mode: AESMode.gcm));
-    final decrypted = encrypter.decrypt64(encryptedText, iv: _iv);
-    return decrypted;
+    try {
+      // First check if it's valid base64
+      if (encryptedText.isEmpty) {
+        return '';
+      }
+      
+      // Try to decode as base64 first - wrapped in try-catch
+      bool isBase64 = true;
+      try {
+        base64Decode(encryptedText);
+      } catch (e) {
+        isBase64 = false;
+        debugPrint('EncryptionUtils: Not valid base64, returning as-is');
+      }
+      
+      if (!isBase64) {
+        return encryptedText; // Return raw if not base64
+      }
+      
+      final encrypter = Encrypter(AES(_key!, mode: AESMode.gcm));
+      final decrypted = encrypter.decrypt64(encryptedText, iv: _iv);
+      return decrypted;
+    } catch (e) {
+      debugPrint('EncryptionUtils: Decrypt failed, returning raw text: $e');
+      // Return raw text if decryption fails
+      return encryptedText;
+    }
   }
   
   static Future<Uint8List> encryptBytes(Uint8List data) async {
