@@ -285,17 +285,35 @@ class AIService {
 
     try {
       final safePath = _validateModelPath();
+      _log('processAudio: validated model path: $safePath');
+      
       if (safePath == null) {
         throw Exception('Model path lost');
       }
+      
+      // Verify model file exists and has correct size
+      final modelFile = File(safePath);
+      if (!modelFile.existsSync()) {
+        throw Exception('Model file does not exist: $safePath');
+      }
+      final modelSize = modelFile.lengthSync();
+      _log('processAudio: model file size: $modelSize bytes');
+      if (modelSize < 100000000) {
+        throw Exception('Model file too small: $modelSize bytes (expected ~144MB)');
+      }
 
-      final result = await Isolate.run(() async {
-        return await _processPipeline(
-          audioPath: audioPath,
-          title: title,
-          modelPath: safePath,
-        );
-      });
+      _log('processAudio: About to start Isolate with modelPath: $safePath');
+    
+    final result = await Isolate.run(() async {
+      _log('[Isolate] Starting pipeline...');
+      return await _processPipeline(
+        audioPath: audioPath,
+        title: title,
+        modelPath: safePath,
+      );
+    });
+    
+    _log('processAudio: Isolate completed, result: ${result?.text?.substring(0, 30) ?? "NULL"}...');
 
       AIManager.setState(AIState.ready, message: 'Pronto');
       onProgress?.call(1.0, 'Completo');

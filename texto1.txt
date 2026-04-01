@@ -1,0 +1,121 @@
+# PrivaVoice - Estado do Projeto
+
+## 📱 O que é o PrivaVoice
+App Android de transcrição de áudio com IA on-device (Whisper + TinyLlama), focado em segurança militar (Zero Trust, AES-256).
+
+---
+
+## 🎯 Status Atual
+
+### ✅ Implementado:
+1. **UI/UX**
+   - Player com Glassmorphism, Neon Cyan (#00FFFF)
+   - Controles: Play/Pause, ±10s, Replay, Go to End
+   - Speed control (1x → 2x)
+   - SafeArea aplicado
+   - Auto-refresh quando IA termina
+
+2. **Banco de Dados**
+   - SQLite com sqflite_common_ffi
+   - WAL mode (resolveu problema de "read-only")
+   - DB version 2
+   - transaction wrapper para updates
+   - singleInstance: true
+
+3. **Segurança**
+   - AES-256 encryption para texto/summary
+   - isEncrypted flag no banco
+   - Decrypt only when isEncrypted=1
+
+4. **Repository**
+   - saveTranscription faz update se existir, insert se não existir
+
+### ❌ Pendente:
+- **Transcrição real da IA não aparece** - fica em "Processando..."
+- Modelo Whisper no repo está vazio (134 bytes vs 144MB real)
+- Modelo TinyLlama presente (653MB) mas precisa verificar se funciona
+
+---
+
+## 🔧 Problema Atual (MAIOR)
+
+O texto fica travado em "Processando...". Já foram feitas múltiplas correções:
+1. Repository saveTranscription → usa update se existir
+2. Auto-refresh timer (a cada 2s) para detectar quando AI termina
+3. Removido demo fallback - agora mostra erro real se falhar
+
+**Causa raiz**: O AIService tenta processar mas falha (provavelmente modelo vazio).
+
+---
+
+## 📋 pubspec.yaml (assets)
+
+```yaml
+assets:
+  - assets/models/whisper-base.bin    # 144MB (modelo real)
+  - assets/models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf  # 653MB
+  - assets/icons/
+```
+
+**ATENÇÃO**: Os arquivos no repo estão vazios! O usuário tem os arquivos reais (144MB e 653MB) no PC local mas precisam ser copiados para assets/models/.
+
+---
+
+## 📁 Arquivos Principais
+
+### Core AI
+- `lib/core/services/ai_service.dart` - Motor Whisper + Llama
+- `lib/core/ai/ai_state.dart` - Estado da IA
+- `lib/core/utils/encryption_utils.dart` - AES-256
+
+### Data
+- `lib/data/datasources/app_database.dart` - SQLite
+- `lib/data/repositories/transcription_repository_impl.dart` - Repository
+
+### Presentation
+- `lib/presentation/pages/transcription_detail_page.dart` - Player UI
+- `lib/presentation/blocs/recording/recording_bloc.dart` - Gravação
+
+---
+
+## 🔍 Logcat para Debug
+
+Quando rodar no dispositivo, procurar por:
+```
+[Isolate] Model file size: xxx bytes
+[Isolate] Init Whisper...
+[Isolate] Transcribing...
+TranscriptionDetailPage: Auto-refresh...
+TranscriptionDetailPage: AI finished!
+```
+
+---
+
+## 💻 Próximos Passos (para continuar a conversa)
+
+1. **Copiar modelos reais** para assets/models/
+   - whisper-base.bin (144MB)
+   - tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf (653MB)
+
+2. **Testar AI** - Ver se Whisper.cpp FFI carrega
+
+3. **Debugar** - Ver logs do Isolate para ver onde falha
+
+4. **Corrigir** - Se modelo não carregar, verificar bindings FFI
+
+---
+
+## Git
+- Branch: main
+- Último commit: 8cd0bef (fix: Remove duplicate dispose, combine with timer cancel)
+- Repo: https://github.com/Luiqbd/PrivaVoice.git
+
+---
+
+## ⚠️ Aviso Importante
+
+O usuário tem os arquivos reais dos modelos. O projeto currently não funciona porque:
+1. O modelo whisker-base.bin no repo está vazio (134 bytes)
+2. Precisa substituir pelos arquivos reais de 144MB
+
+O código está pronto para processar - só precisa dos modelos reais!
