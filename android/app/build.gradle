@@ -32,8 +32,16 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.debug
-            minifyEnabled = true
-            shrinkResources = true
+            // Disable minify and shrink to include native libs
+            minifyEnabled = false
+            shrinkResources = false
+        }
+    }
+
+    // Ensure native libs are packaged
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging = true
         }
     }
 
@@ -52,6 +60,7 @@ android {
     sourceSets {
         main {
             jniLibs.srcDirs = ['src/main/jniLibs']
+            assets.srcDirs = ['../../assets/models']
         }
     }
 }

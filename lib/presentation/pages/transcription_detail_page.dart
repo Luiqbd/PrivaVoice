@@ -145,6 +145,8 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
     setState(() => _isProcessing = true);
     debugPrint('xxx AFTER setState');
 
+    // Wrap AI call in try-catch to prevent UI crash
+    // Player will stay visible even if AI fails
     try {
       debugPrint('xxx CALLING AIService.processAudio');
       final result = await AIService.processAudio(
@@ -152,7 +154,17 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
         title: _transcription!.title,
       );
 
-      if (result == null) throw Exception('AI processing returned null');
+      if (result == null) {
+        // AI returned null - show error but keep player visible
+        debugPrint('TranscriptionDetailPage: AI returned null');
+        if (mounted) {
+          setState(() {
+            _error = 'IA retornou nulo - erro no processamento';
+            _isProcessing = false;
+          });
+        }
+        return;
+      }
 
       debugPrint('TranscriptionDetailPage: AI returned text: ${result.text.substring(0, result.text.length > 50 ? 50 : result.text.length)}...');
 
@@ -188,11 +200,15 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
         debugPrint('TranscriptionDetailPage: UI updated!');
       }
     } catch (e) {
-      debugPrint('TranscriptionDetailPage: Error: $e');
-      if (mounted) setState(() {
-        _error = e.toString();
-        _isProcessing = false;
-      });
+      // Catch any AI error and keep player visible
+      // Don't let AI errors crash the UI
+      debugPrint('TranscriptionDetailPage: AI Error (caught): $e');
+      if (mounted) {
+        setState(() {
+          _error = 'Erro na IA: ${e.toString()}';
+          _isProcessing = false;
+        });
+      }
     }
   }
 
