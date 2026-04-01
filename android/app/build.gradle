@@ -59,11 +59,13 @@ android {
     
     sourceSets {
         main {
+            // CRITICAL: Include native libs from jniLibs
             jniLibs.srcDirs = ['src/main/jniLibs']
         }
     }
 }
 
+// IMPORTANT: Keep flutter source pointing to project root
 flutter {
     source = "../.."
 }

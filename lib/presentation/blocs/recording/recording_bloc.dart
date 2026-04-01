@@ -223,6 +223,7 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
         speakerSegmentsJson: null,
         summary: null,
         actionItemsJson: null,
+        notes: null, // Include notes field (can be null)
       );
 
       await AppDatabase.insertTranscription(transcriptionData);
