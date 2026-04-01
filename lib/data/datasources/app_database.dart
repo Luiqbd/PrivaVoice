@@ -189,13 +189,14 @@ class AppDatabase {
     for (final map in maps) {
       final decrypted = Map<String, dynamic>.from(map);
       final isEncrypted = map['isEncrypted'] == 1;
+      debugPrint('AppDatabase: isEncrypted=$isEncrypted for id=${map['id']}');
       
       if (isEncrypted && map['text'] != null && map['text'].toString().isNotEmpty) {
         try {
           decrypted['text'] = await _decryptField(map['text'] as String);
         } catch (e) {
-          debugPrint('AppDatabase: Decrypt text error: $e');
-          decrypted['text'] = map['text'];
+          debugPrint('AppDatabase: Decrypt text error (returning raw): $e');
+          decrypted['text'] = map['text']; // Return raw text
         }
       }
       if (isEncrypted && map['summary'] != null && map['summary'].toString().isNotEmpty) {

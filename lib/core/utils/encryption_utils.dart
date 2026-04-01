@@ -49,16 +49,12 @@ class EncryptionUtils {
         return '';
       }
       
-      // Try to decode as base64 first - wrapped in try-catch
-      bool isBase64 = true;
-      try {
-        base64Decode(encryptedText);
-      } catch (e) {
-        isBase64 = false;
-        debugPrint('EncryptionUtils: Not valid base64, returning as-is');
-      }
+      // Use regex to check if it looks like base64 (more robust than trying to decode)
+      final base64Regex = RegExp(r'^[A-Za-z0-9+/]*={0,2}$');
+      bool looksLikeBase64 = base64Regex.hasMatch(encryptedText) && encryptedText.length % 4 == 0;
       
-      if (!isBase64) {
+      if (!looksLikeBase64) {
+        debugPrint('EncryptionUtils: Not valid base64 format, returning as-is');
         return encryptedText; // Return raw if not base64
       }
       
