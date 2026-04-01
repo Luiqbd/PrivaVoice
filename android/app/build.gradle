@@ -27,6 +27,11 @@ android {
 
         // Enable multidex for larger apps
         multiDexEnabled true
+        
+        // Only build for arm64-v8a (modern phones) - reduces APK size significantly
+        ndk {
+            abiFilters 'arm64-v8a'
+        }
     }
 
     buildTypes {
