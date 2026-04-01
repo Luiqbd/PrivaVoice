@@ -303,17 +303,24 @@ class AIService {
       }
 
       _log('processAudio: About to start Isolate with modelPath: $safePath');
-    
-    final result = await Isolate.run(() async {
-      _log('[Isolate] Starting pipeline...');
-      return await _processPipeline(
-        audioPath: audioPath,
-        title: title,
-        modelPath: safePath,
-      );
-    });
-    
-    _log('processAudio: Isolate completed, result: ${result?.text?.substring(0, 30) ?? "NULL"}...');
+      _log('processAudio: Audio path: $audioPath');
+
+      Transcription? result;
+      try {
+        result = await Isolate.run(() async {
+          _log('[Isolate] Starting pipeline...');
+          return await _processPipeline(
+            audioPath: audioPath,
+            title: title,
+            modelPath: safePath,
+          );
+        });
+        _log('processAudio: Isolate completed, result: ${result?.text?.substring(0, 50) ?? "NULL"}...');
+      } catch (isolateError, stack) {
+        _log('processAudio: Isolate FAILED: $isolateError');
+        _log('processAudio: Stack: $stack');
+        rethrow;
+      }
 
       AIManager.setState(AIState.ready, message: 'Pronto');
       onProgress?.call(1.0, 'Completo');
