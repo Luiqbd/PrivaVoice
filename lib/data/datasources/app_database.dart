@@ -175,22 +175,25 @@ class AppDatabase {
     
     debugPrint('AppDatabase: Raw records: ${maps.length}');
 
-    // Decrypt sensitive fields when reading
+    // Decrypt sensitive fields when reading (only if isEncrypted = true)
     final decryptedMaps = <Map<String, dynamic>>[];
     for (final map in maps) {
       final decrypted = Map<String, dynamic>.from(map);
-      if (map['text'] != null && map['text'].toString().isNotEmpty) {
+      final isEncrypted = map['isEncrypted'] == 1;
+      
+      if (isEncrypted && map['text'] != null && map['text'].toString().isNotEmpty) {
         try {
           decrypted['text'] = await _decryptField(map['text'] as String);
         } catch (e) {
-          debugPrint('AppDatabase: Decrypt error: $e');
+          debugPrint('AppDatabase: Decrypt text error: $e');
           decrypted['text'] = map['text'];
         }
       }
-      if (map['summary'] != null && map['summary'].toString().isNotEmpty) {
+      if (isEncrypted && map['summary'] != null && map['summary'].toString().isNotEmpty) {
         try {
           decrypted['summary'] = await _decryptField(map['summary'] as String);
         } catch (e) {
+          debugPrint('AppDatabase: Decrypt summary error: $e');
           decrypted['summary'] = map['summary'];
         }
       }
