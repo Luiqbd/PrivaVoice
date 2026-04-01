@@ -58,8 +58,11 @@ class EncryptionUtils {
         return encryptedText; // Return raw if not base64
       }
       
+      debugPrint('EncryptionUtils: Attempting decrypt of: ${encryptedText.substring(0, 20)}...');
+      
       final encrypter = Encrypter(AES(_key!, mode: AESMode.gcm));
       final decrypted = encrypter.decrypt64(encryptedText, iv: _iv);
+      debugPrint('EncryptionUtils: Decrypt successful!');
       return decrypted;
     } catch (e) {
       debugPrint('EncryptionUtils: Decrypt failed, returning raw text: $e');
