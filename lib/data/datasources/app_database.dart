@@ -17,6 +17,7 @@ class TranscriptionData {
   final String? speakerSegmentsJson;
   final String? summary;
   final String? actionItemsJson;
+  final String? notes; // Notas do usuário
 
   TranscriptionData({
     required this.id,
@@ -30,6 +31,7 @@ class TranscriptionData {
     this.speakerSegmentsJson,
     this.summary,
     this.actionItemsJson,
+    this.notes,
   });
 
   Map<String, dynamic> toMap() => {
@@ -44,6 +46,7 @@ class TranscriptionData {
     'speakerSegmentsJson': speakerSegmentsJson,
     'summary': summary,
     'actionItemsJson': actionItemsJson,
+    'notes': notes,
   };
 
   factory TranscriptionData.fromMap(Map<String, dynamic> map) => TranscriptionData(
@@ -58,6 +61,7 @@ class TranscriptionData {
     speakerSegmentsJson: map['speakerSegmentsJson'] as String?,
     summary: map['summary'] as String?,
     actionItemsJson: map['actionItemsJson'] as String?,
+    notes: map['notes'] as String?, // Novo campo
   );
 }
 
@@ -127,18 +131,23 @@ class AppDatabase {
             isEncrypted INTEGER NOT NULL DEFAULT 0,
             speakerSegmentsJson TEXT,
             summary TEXT,
-            actionItemsJson TEXT
+            actionItemsJson TEXT,
+            notes TEXT
           )
         ''');
         debugPrint('AppDatabase: Table created successfully!');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         debugPrint('AppDatabase: Upgrading database v$oldVersion -> v$newVersion');
-        // Future migrations can be added here
-        // Example:
-        // if (oldVersion < 2) {
-        //   await db.execute('ALTER TABLE transcriptions ADD COLUMN newColumn TEXT');
-        // }
+        // Migration for version 2: add notes column
+        if (oldVersion < 2) {
+          try {
+            await db.execute('ALTER TABLE transcriptions ADD COLUMN notes TEXT');
+            debugPrint('AppDatabase: Added notes column');
+          } catch (e) {
+            debugPrint('AppDatabase: Notes column already exists');
+          }
+        }
       },
     );
   }

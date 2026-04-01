@@ -12,6 +12,7 @@ class Transcription extends Equatable {
   final List<SpeakerSegment>? speakerSegments;
   final String? summary;
   final List<String>? actionItems;
+  final String? notes; // Campo para notas do usuário
   
   const Transcription({
     required this.id,
@@ -25,13 +26,14 @@ class Transcription extends Equatable {
     this.speakerSegments,
     this.summary,
     this.actionItems,
+    this.notes,
   });
   
   @override
   List<Object?> get props => [
     id, title, audioPath, text, wordTimestamps, 
     createdAt, duration, isEncrypted, speakerSegments, 
-    summary, actionItems
+    summary, actionItems, notes
   ];
 }
 

@@ -29,6 +29,11 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
   Duration _totalDuration = Duration.zero;
   int _activeSpeakerIndex = -1;
   
+  // Notes functionality
+  final TextEditingController _notesController = TextEditingController();
+  bool _isSavingNotes = false;
+  Timer? _notesSaveTimer;
+  
   // Playback speed control
   double _playbackSpeed = 1.0;
   final List<double> _speedOptions = [1.0, 1.25, 1.5, 2.0];
@@ -118,6 +123,11 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
           _isLoading = false;
         });
 
+        // Load notes if available
+        if (t != null && t.notes != null) {
+          _notesController.text = t.notes!;
+        }
+
         if (t != null && File(t.audioPath).existsSync()) {
           await _audioPlayer.setFilePath(t.audioPath);
           
@@ -133,6 +143,52 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
         _error = e.toString();
         _isLoading = false;
       });
+    }
+  }
+
+  // Save notes with debounce (wait 1 second after user stops typing)
+  void _saveNotesDebounced(String value) {
+    _notesSaveTimer?.cancel();
+    _notesSaveTimer = Timer(const Duration(seconds: 1), () {
+      _saveNotes(value);
+    });
+  }
+
+  Future<void> _saveNotes(String notes) async {
+    if (_transcription == null) return;
+    
+    setState(() => _isSavingNotes = true);
+    
+    try {
+      final repo = GetIt.instance<TranscriptionRepository>();
+      
+      // Update transcription with new notes
+      final updatedTranscription = Transcription(
+        id: _transcription!.id,
+        title: _transcription!.title,
+        audioPath: _transcription!.audioPath,
+        text: _transcription!.text,
+        wordTimestamps: _transcription!.wordTimestamps,
+        createdAt: _transcription!.createdAt,
+        duration: _transcription!.duration,
+        isEncrypted: _transcription!.isEncrypted,
+        speakerSegments: _transcription!.speakerSegments,
+        summary: _transcription!.summary,
+        actionItems: _transcription!.actionItems,
+        notes: notes,
+      );
+      
+      await repo.saveTranscription(updatedTranscription);
+      debugPrint('Notes saved successfully!');
+      
+      // Update local state
+      _transcription = updatedTranscription;
+    } catch (e) {
+      debugPrint('Error saving notes: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isSavingNotes = false);
+      }
     }
   }
 
@@ -215,6 +271,8 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _notesSaveTimer?.cancel();
+    _notesController.dispose();
     _audioPlayer.dispose();
     super.dispose();
   }
@@ -366,7 +424,68 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
             ),
           ),
         ],
+        
+        // Notas Section
+        const SizedBox(height: 24),
+        _buildNotesSection(),
       ],
+    );
+  }
+  
+  Widget _buildNotesSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primaryAccent.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.note_alt, color: AppColors.primaryAccent, size: 20),
+              const SizedBox(width: 8),
+              const Text(
+                'Minhas Notas',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              if (_isSavingNotes)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.primaryAccent,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _notesController,
+            maxLines: 5,
+            style: const TextStyle(color: AppColors.textSecondary),
+            decoration: InputDecoration(
+              hintText: 'Adicione suas anotações aqui...',
+              hintStyle: TextStyle(color: AppColors.textTertiary),
+              filled: true,
+              fillColor: AppColors.backgroundPrimary,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide.none,
+              ),
+            ),
+            onChanged: (value) => _saveNotesDebounced(value),
+          ),
+        ],
+      ),
     );
   }
 

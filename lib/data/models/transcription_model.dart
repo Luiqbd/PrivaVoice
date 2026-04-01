@@ -16,6 +16,7 @@ class TranscriptionModel {
       speakerSegments: _parseSpeakerSegments(dbModel.speakerSegmentsJson),
       summary: dbModel.summary,
       actionItems: _parseActionItems(dbModel.actionItemsJson),
+      notes: dbModel.notes, // Include notes
     );
   }
   
@@ -46,6 +47,7 @@ class TranscriptionModel {
           : null,
       summary: entity.summary,
       actionItemsJson: entity.actionItems != null ? jsonEncode(entity.actionItems) : null,
+      notes: entity.notes, // Include notes
     );
   }
   
