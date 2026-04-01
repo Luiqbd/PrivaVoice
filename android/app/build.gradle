@@ -79,5 +79,6 @@ flutter {
 
 // Add dependencies for prefab (if available)
 dependencies {
-    // AAR dependencies can be added here if needed
+    // Whisper Android library with pre-built ARM64 native libs
+    implementation("mx.valdora:whisper-android:1.0.0")
 }

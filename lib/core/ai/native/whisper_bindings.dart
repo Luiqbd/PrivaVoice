@@ -40,34 +40,32 @@ class WhisperBindings {
     if (_isLoaded) return true;
 
     try {
-      // Try multiple paths for Android - force libwhisper.so loading
-      List<String> paths = [
-        'libwhisper.so',
-        '/data/data/com.privavoice.privavoice/lib/libwhisper.so',
-        '/data/data/com.privavoice.privavoice/app_lib/libwhisper.so',
-        '/system/lib/libwhisper.so',
-      ];
-      
-      _lib = null;
-      for (String path in paths) {
-        try {
-          _lib = DynamicLibrary.open(path);
-          print('Whisper: ✅ Loaded from: $path');
-          break;
-        } catch (e) {
-          print('Whisper: ❌ Failed: $path - $e');
+      // First try to use System.loadLibrary via platform channel
+      // This works with AAR dependencies that include .so files
+      try {
+        _lib = DynamicLibrary.open('libwhisper.so');
+        print('Whisper: ✅ Loaded libwhisper.so directly');
+      } catch (e) {
+        print('Whisper: Direct open failed: $e');
+        // Try alternative paths for when AAR .so is loaded via System.loadLibrary
+        List<String> paths = [
+          '/data/data/com.privavoice.privavoice/lib/libwhisper.so',
+          '/data/data/com.privavoice.privavoice/app_lib/libwhisper.so',
+        ];
+        
+        for (String path in paths) {
+          try {
+            _lib = DynamicLibrary.open(path);
+            print('Whisper: ✅ Loaded from: $path');
+            break;
+          } catch (e) {
+            print('Whisper: ❌ Failed: $path - $e');
+          }
         }
       }
       
       if (_lib == null) {
-        // Force load - try once more with explicit loading
-        try {
-          _lib = DynamicLibrary.open('libwhisper.so');
-          print('Whisper: ✅ Force loaded libwhisper.so');
-        } catch (e) {
-          print('Whisper: ❌ Force load also failed: $e');
-          throw Exception('Could not load libwhisper.so from any path');
-        }
+        throw Exception('Could not load libwhisper.so from any path');
       }
       
       _initFromFile = _lib!.lookup<NativeFunction<WhisperInitFromFileNative>>('whisper_init_from_file').asFunction<WhisperInitFromFileDart>();
