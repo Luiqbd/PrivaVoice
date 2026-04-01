@@ -14,12 +14,9 @@ class VaultPage extends StatefulWidget {
 class _VaultPageState extends State<VaultPage> {
   bool _isUnlocked = false;
   bool _biometricsAvailable = false;
+  bool _deviceAuthAvailable = false;
   bool _isAuthenticating = false;
   final LocalAuthentication _auth = LocalAuthentication();
-  final TextEditingController _pinController = TextEditingController();
-  
-  // Demo PIN
-  static const String _demoPIN = '1234';
 
   @override
   void initState() {
@@ -29,46 +26,62 @@ class _VaultPageState extends State<VaultPage> {
 
   @override
   void dispose() {
-    _pinController.dispose();
     super.dispose();
   }
 
   Future<void> _checkBiometrics() async {
     try {
-      final canAuth = await _auth.canCheckBiometrics;
+      // Check available biometric types (fingerprint, face, etc.)
+      final canCheckBiometrics = await _auth.canCheckBiometrics;
       final isDeviceSupported = await _auth.isDeviceSupported();
+      
+      // Get available biometric types
+      final availableBiometrics = await _auth.getAvailableBiometrics();
+      
       setState(() {
-        _biometricsAvailable = canAuth && isDeviceSupported;
+        _biometricsAvailable = canCheckBiometrics && isDeviceSupported && availableBiometrics.isNotEmpty;
+        _deviceAuthAvailable = isDeviceSupported; // Device supports any auth (biometric, PIN, pattern)
       });
+      
       debugPrint('Biometrics available: $_biometricsAvailable');
+      debugPrint('Device auth available: $_deviceAuthAvailable');
+      debugPrint('Available biometrics: $availableBiometrics');
     } catch (e) {
       debugPrint('Biometric check error: $e');
-      setState(() => _biometricsAvailable = false);
+      setState(() {
+        _biometricsAvailable = false;
+        _deviceAuthAvailable = false;
+      });
     }
   }
 
-  Future<void> _authenticateWithBiometrics() async {
+  /// Authenticate using device credentials (biometric OR PIN/password/pattern)
+  /// This uses the same authentication as the phone's lock screen
+  Future<void> _authenticateWithDeviceCredentials() async {
     if (_isAuthenticating) return;
     
     setState(() => _isAuthenticating = true);
     
     try {
-      debugPrint('Starting biometric authentication...');
+      debugPrint('Starting device authentication...');
       
+      // Use biometricOnly: false to allow both biometric AND device PIN/password
       final authenticated = await _auth.authenticate(
         localizedReason: 'Autentique para acessar o cofre',
         options: const AuthenticationOptions(
           stickyAuth: true,
-          biometricOnly: true,
+          biometricOnly: false,  // Allow both biometric AND device PIN/password
           useErrorDialogs: true,
+          sensitiveTransaction: true,
         ),
       );
       
-      debugPrint('Biometric auth result: $authenticated');
+      debugPrint('Device auth result: $authenticated');
       
       if (authenticated) {
         setState(() => _isUnlocked = true);
         HapticUtils.mediumImpact();
+        _showSuccessSnackBar('Cofre desbloqueado!');
       } else {
         _showAuthFailedSnackBar();
       }
@@ -80,97 +93,39 @@ class _VaultPageState extends State<VaultPage> {
     }
   }
 
-  void _authenticateWithPIN() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => _buildPINSheet(),
-    );
-  }
-
-  Widget _buildPINSheet() {
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 24,
-        right: 24,
-        top: 24,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Digite o código PIN',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _pinController,
-            keyboardType: TextInputType.number,
-            maxLength: 4,
-            obscureText: true,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 24,
-              letterSpacing: 8,
-            ),
-            decoration: InputDecoration(
-              counterText: '',
-              hintText: '••••',
-              hintStyle: TextStyle(color: AppColors.textTertiary),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: AppColors.textTertiary.withOpacity(0.3)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.primaryAccent),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                if (_pinController.text == _demoPIN) {
-                  Navigator.pop(context);
-                  setState(() => _isUnlocked = true);
-                  _pinController.clear();
-                  _showSuccessSnackBar('Cofre desbloqueado!');
-                } else {
-                  _showErrorSnackBar('PIN incorreto');
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryAccent,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Text(
-                'Desbloquear',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  /// Authenticate using ONLY biometric (fingerprint/face)
+  Future<void> _authenticateWithBiometrics() async {
+    if (_isAuthenticating) return;
+    
+    setState(() => _isAuthenticating = true);
+    
+    try {
+      debugPrint('Starting biometric-only authentication...');
+      
+      final authenticated = await _auth.authenticate(
+        localizedReason: 'Use a digital para acessar o cofre',
+        options: const AuthenticationOptions(
+          stickyAuth: true,
+          biometricOnly: true,  // ONLY biometric, no PIN fallback
+          useErrorDialogs: true,
+        ),
+      );
+      
+      debugPrint('Biometric auth result: $authenticated');
+      
+      if (authenticated) {
+        setState(() => _isUnlocked = true);
+        HapticUtils.mediumImpact();
+        _showSuccessSnackBar('Cofre desbloqueado!');
+      } else {
+        _showAuthFailedSnackBar();
+      }
+    } catch (e) {
+      debugPrint('Biometric auth error: $e');
+      _showAuthFailedSnackBar();
+    } finally {
+      setState(() => _isAuthenticating = false);
+    }
   }
 
   void _showAuthFailedSnackBar() {
@@ -251,9 +206,9 @@ class _VaultPageState extends State<VaultPage> {
               ),
               const SizedBox(height: 8),
               Text(
-                _biometricsAvailable 
+                _deviceAuthAvailable 
                     ? 'Suas gravações protegidas'
-                    : 'PIN: 1234',
+                    : 'Autenticação não disponível',
                 style: const TextStyle(
                   color: AppColors.textTertiary,
                   fontSize: 16,
@@ -261,34 +216,35 @@ class _VaultPageState extends State<VaultPage> {
               ),
               const SizedBox(height: 48),
               
-              // Biometric Button
+              // Unlock Button - Uses device credentials (biometric OR PIN)
               GestureDetector(
-                onTap: _biometricsAvailable ? _authenticateWithBiometrics : _authenticateWithPIN,
+                onTap: _deviceAuthAvailable ? _authenticateWithDeviceCredentials : null,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
                   decoration: BoxDecoration(
-                    gradient: AppColors.primaryGradient,
+                    gradient: _deviceAuthAvailable ? AppColors.primaryGradient : null,
+                    color: _deviceAuthAvailable ? null : AppColors.surface,
                     borderRadius: BorderRadius.circular(30),
-                    boxShadow: [
+                    boxShadow: _deviceAuthAvailable ? [
                       BoxShadow(
                         color: AppColors.primaryAccent.withOpacity(0.4),
                         blurRadius: 20,
                         spreadRadius: 2,
                       ),
-                    ],
+                    ] : null,
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        _biometricsAvailable ? Icons.fingerprint : Icons.pin,
-                        color: Colors.white,
+                        _biometricsAvailable ? Icons.fingerprint : Icons.lock_open,
+                        color: _deviceAuthAvailable ? Colors.white : AppColors.textTertiary,
                       ),
                       const SizedBox(width: 12),
                       Text(
-                        _biometricsAvailable ? 'Desbloquear' : 'Usar PIN',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        _biometricsAvailable ? 'Desbloquear' : 'Usar PIN do Aparelho',
+                        style: TextStyle(
+                          color: _deviceAuthAvailable ? Colors.white : AppColors.textTertiary,
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
@@ -298,12 +254,13 @@ class _VaultPageState extends State<VaultPage> {
                 ),
               ),
               
-              if (_biometricsAvailable) ...[
+              // If both biometric AND device auth available, show option to use only biometric
+              if (_biometricsAvailable && _deviceAuthAvailable) ...[
                 const SizedBox(height: 16),
                 TextButton(
-                  onPressed: _authenticateWithPIN,
+                  onPressed: _authenticateWithBiometrics,
                   child: const Text(
-                    'Usar código PIN',
+                    'Usar apenas digital',
                     style: TextStyle(
                       color: AppColors.textTertiary,
                       fontSize: 14,
