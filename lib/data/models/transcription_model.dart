@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import '../../domain/entities/transcription.dart';
 import '../datasources/app_database.dart';
 
@@ -51,29 +52,47 @@ class TranscriptionModel {
     );
   }
   
-  static List<WordTimestamp> _parseWordTimestamps(String json) {
-    final List<dynamic> list = jsonDecode(json);
-    return list.map((item) => WordTimestamp(
-      word: item['word'] as String,
-      startTime: Duration(milliseconds: item['startTime'] as int),
-      endTime: Duration(milliseconds: item['endTime'] as int),
-      confidence: (item['confidence'] as num).toDouble(),
-    )).toList();
+  static List<WordTimestamp> _parseWordTimestamps(String? json) {
+    if (json == null || json.isEmpty || json == '[]') {
+      return [];
+    }
+    try {
+      final List<dynamic> list = jsonDecode(json);
+      return list.map((item) => WordTimestamp(
+        word: item['word'] as String,
+        startTime: Duration(milliseconds: item['startTime'] as int),
+        endTime: Duration(milliseconds: item['endTime'] as int),
+        confidence: (item['confidence'] as num).toDouble(),
+      )).toList();
+    } catch (e) {
+      debugPrint('TranscriptionModel: Failed to parse wordTimestamps: $e');
+      return []; // Return empty if parsing fails
+    }
   }
   
   static List<SpeakerSegment>? _parseSpeakerSegments(String? json) {
-    if (json == null) return null;
-    final List<dynamic> list = jsonDecode(json);
-    return list.map((item) => SpeakerSegment(
-      speakerId: item['speakerId'] as String,
-      startTime: Duration(milliseconds: item['startTime'] as int),
-      endTime: Duration(milliseconds: item['endTime'] as int),
-      text: item['text'] as String,
-    )).toList();
+    if (json == null || json.isEmpty) return null;
+    try {
+      final List<dynamic> list = jsonDecode(json);
+      return list.map((item) => SpeakerSegment(
+        speakerId: item['speakerId'] as String,
+        startTime: Duration(milliseconds: item['startTime'] as int),
+        endTime: Duration(milliseconds: item['endTime'] as int),
+        text: item['text'] as String,
+      )).toList();
+    } catch (e) {
+      debugPrint('TranscriptionModel: Failed to parse speakerSegments: $e');
+      return null;
+    }
   }
   
   static List<String>? _parseActionItems(String? json) {
-    if (json == null) return null;
-    return List<String>.from(jsonDecode(json));
+    if (json == null || json.isEmpty) return null;
+    try {
+      return List<String>.from(jsonDecode(json));
+    } catch (e) {
+      debugPrint('TranscriptionModel: Failed to parse actionItems: $e');
+      return null;
+    }
   }
 }
