@@ -241,20 +241,36 @@ class AppDatabase {
     
     if (isEncrypted) {
       debugPrint('AppDatabase: Decrypting transcription $id');
+      final decryptedMap = Map<String, dynamic>.from(map);
+      
+      // Decrypt title
+      if (map['title'] != null && map['title'].toString().isNotEmpty) {
+        try {
+          decryptedMap['title'] = await _decryptField(map['title'] as String);
+        } catch (e) {
+          debugPrint('AppDatabase: Decrypt title error: $e');
+        }
+      }
+      
+      // Decrypt text
       if (map['text'] != null && map['text'].toString().isNotEmpty) {
         try {
-          map['text'] = await _decryptField(map['text'] as String);
+          decryptedMap['text'] = await _decryptField(map['text'] as String);
         } catch (e) {
-          debugPrint('AppDatabase: Decrypt error (text may not be encrypted): $e');
+          debugPrint('AppDatabase: Decrypt text error: $e');
         }
       }
+      
+      // Decrypt summary
       if (map['summary'] != null && map['summary'].toString().isNotEmpty) {
         try {
-          map['summary'] = await _decryptField(map['summary'] as String);
+          decryptedMap['summary'] = await _decryptField(map['summary'] as String);
         } catch (e) {
-          debugPrint('AppDatabase: Decrypt error (summary may not be encrypted): $e');
+          debugPrint('AppDatabase: Decrypt summary error: $e');
         }
       }
+      
+      return TranscriptionData.fromMap(decryptedMap);
     } else {
       debugPrint('AppDatabase: Transcription $id not encrypted, skipping decrypt');
     }
