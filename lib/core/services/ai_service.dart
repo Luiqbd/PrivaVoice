@@ -308,7 +308,7 @@ class AIService {
       Transcription? result;
       try {
         result = await Isolate.run(() async {
-          _log('[Isolate] Starting pipeline...');
+          _log('🔥[Isolate] Starting pipeline...');
           return await _processPipeline(
             audioPath: audioPath,
             title: title,
@@ -339,9 +339,9 @@ class AIService {
     required String title,
     required String modelPath,
   }) async {
-    _log('[Isolate] _processPipeline called');
-    _log('[Isolate] audioPath: $audioPath');
-    _log('[Isolate] modelPath: $modelPath');
+    _log('🔥[Isolate] _processPipeline called');
+    _log('🔥[Isolate] audioPath: $audioPath');
+    _log('🔥[Isolate] modelPath: $modelPath');
     
     // Verify audio exists
     final audioFile = File(audioPath);
@@ -349,7 +349,7 @@ class AIService {
       throw Exception('[Isolate] Audio file NOT FOUND: $audioPath');
     }
     final audioSize = audioFile.lengthSync();
-    _log('[Isolate] Audio file exists, size: $audioSize bytes');
+    _log('🔥[Isolate] Audio file exists, size: $audioSize bytes');
     
     // Verify model exists
     final modelFile = File(modelPath);
@@ -357,9 +357,9 @@ class AIService {
       throw Exception('[Isolate] Model file NOT FOUND: $modelPath');
     }
     final modelSize = modelFile.lengthSync();
-    _log('[Isolate] Model file exists, size: $modelSize bytes');
-    _log('[Isolate] Pipeline start');
-    _log('[Isolate] Using model path: $modelPath');
+    _log('🔥[Isolate] Model file exists, size: $modelSize bytes');
+    _log('🔥[Isolate] Pipeline start');
+    _log('🔥[Isolate] Using model path: $modelPath');
 
     try {
       if (!File(audioPath).existsSync()) {
@@ -367,50 +367,49 @@ class AIService {
       }
 
       final audioStat = File(audioPath).statSync();
-      _log('[Isolate] Audio size: ${audioStat.size} bytes');
+      _log('🔥[Isolate] Audio size: ${audioStat.size} bytes');
 
-      // Check model file size - real Whisper model is > 100MB
+      // Verify model file exists
       final modelFile = File(modelPath);
-      final modelSize = modelFile.existsSync() ? modelFile.lengthSync() : 0;
-      _log('[Isolate] Model file size: $modelSize bytes');
-      
-      if (modelSize < WHISPER_MIN_SIZE) {
-        _log('[Isolate] Model file too small (< 100MB), skipping Whisper');
-        // Will use demo mode below
-      } else if (!_verifyModelIntegrity(modelPath, EXPECTED_WHISPER_SIZE, WHISPER_MIN_SIZE)) {
-        throw Exception('Model integrity check FAILED');
+      if (!modelFile.existsSync()) {
+        throw Exception('[Isolate] Model file NOT FOUND: $modelPath');
       }
+      final modelSize = modelFile.lengthSync();
+      _log('🔥[Isolate] Model file size: $modelSize bytes');
+      
+      // Skip integrity check - just verify file exists
+      // Let Whisper handle compatibility
 
-      _log('[Isolate] Model: $modelPath');
+      _log('🔥[Isolate] Model: $modelPath');
 
       if (!WhisperBindings.load()) {
         throw Exception('FFI Error: libwhisper.so not loaded');
       }
 
-      _log('[Isolate] Init Whisper...');
+      _log('🔥[Isolate] Init Whisper...');
       final whisperCtx = WhisperBindings.initFromFile(modelPath);
       
       if (whisperCtx == null) {
         throw Exception('FFI Error: whisper_init_from_file returned NULL');
       }
 
-      _log('[Isolate] ctx = $whisperCtx');
+      _log('🔥[Isolate] ctx = $whisperCtx');
 
-      _log('[Isolate] Transcribing...');
+      _log('🔥[Isolate] Transcribing...');
       String text;
       try {
         text = WhisperBindings.full(ctx: whisperCtx, audioPath: audioPath) ?? '';
       } catch (e) {
-        _log('[Isolate] Whisper error: $e - using demo mode');
-        text = '';
+        _log('🔥[Isolate] Whisper EXCEPTION: $e');
+        rethrow; // Propagate real error
       }
       
       // If Whisper returned empty, fail with real error
-      if (text.isEmpty) {
-        throw Exception('Whisper returned empty text - model may be corrupted or incompatible');
+      if (text.isEmpty || text == null) {
+        throw Exception('Whisper returned EMPTY - native lib may not be working');
       }
 
-      _log('[Isolate] Text: $text');
+      _log('🔥[Isolate] Text: $text');
 
       final speakers = _diarize(text);
 
@@ -418,15 +417,15 @@ class AIService {
       List<String> actionItems = [];
 
       final llamaPath = modelPath.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
-      _log('[Isolate] Llama path: $llamaPath');
+      _log('🔥[Isolate] Llama path: $llamaPath');
       
       if (File(llamaPath).existsSync()) {
         if (_verifyModelIntegrity(llamaPath, EXPECTED_LLAMA_SIZE, LLAMA_MIN_SIZE)) {
-          _log('[Isolate] Loading Llama...');
+          _log('🔥[Isolate] Loading Llama...');
           if (LlamaBindings.load()) {
             final llamaCtx = LlamaBindings.initFromFile(llamaPath);
             if (llamaCtx != null) {
-              _log('[Isolate] Llama ctx ready');
+              _log('🔥[Isolate] Llama ctx ready');
               final result = LlamaBindings.generate(ctx: llamaCtx, prompt: text);
               if (result != null) {
                 summary = result['summary'] ?? '';
@@ -436,10 +435,10 @@ class AIService {
           }
         }
       } else {
-        _log('[Isolate] Llama model NOT FOUND');
+        _log('🔥[Isolate] Llama model NOT FOUND');
       }
 
-      _log('[Isolate] Pipeline complete');
+      _log('🔥[Isolate] Pipeline complete');
 
       return Transcription(
         id: title.hashCode.abs().toString(),  // Use title as ID base
@@ -456,24 +455,24 @@ class AIService {
       );
       
     } finally {
-      _log('[Isolate] Finally block: Cleaning up memory...');
+      _log('🔥[Isolate] Finally block: Cleaning up memory...');
       
       try {
         WhisperBindings.dispose();
-        _log('[Isolate] Whisper disposed');
+        _log('🔥[Isolate] Whisper disposed');
       } catch (e) {
-        _log('[Isolate] Whisper dispose error: $e');
+        _log('🔥[Isolate] Whisper dispose error: $e');
       }
       
       try {
         LlamaBindings.dispose();
-        _log('[Isolate] Llama disposed');
+        _log('🔥[Isolate] Llama disposed');
       } catch (e) {
-        _log('[Isolate] Llama dispose error: $e');
+        _log('🔥[Isolate] Llama dispose error: $e');
       }
       
       await Future.delayed(const Duration(milliseconds: 500));
-      _log('[Isolate] Memory cleanup complete');
+      _log('🔥[Isolate] Memory cleanup complete');
     }
   }
 
