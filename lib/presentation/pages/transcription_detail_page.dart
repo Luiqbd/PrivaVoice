@@ -120,6 +120,12 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
 
         if (t != null && File(t.audioPath).existsSync()) {
           await _audioPlayer.setFilePath(t.audioPath);
+          
+          // Auto-start AI if text is still "Processando..."
+          if (t.text == 'Processando...') {
+            debugPrint('xxx AUTO-STARTING AI...');
+            _processWithAI();
+          }
         }
       }
     } catch (e) {
