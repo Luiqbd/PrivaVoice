@@ -64,9 +64,8 @@ android {
     
     sourceSets {
         main {
-            // CRITICAL: Include native libs from jniLibs
-            jniLibs.srcDirs = ['src/main/jniLibs']
-            // Also include assets explicitly
+            // Native libs now come from AAR (mx.valdora:whisper-android)
+            // No more jniLibs folder needed
             assets.srcDirs = ['../../assets/models']
         }
     }
