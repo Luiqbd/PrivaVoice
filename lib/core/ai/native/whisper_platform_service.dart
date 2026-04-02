@@ -10,12 +10,11 @@ class WhisperPlatformService {
   static bool _isInitialized = false;
   static String? _modelPath;
   
-  /// Initialize the whisper context with model file
+  /// Initialize the whisper context with model file (called from main thread)
   static Future<bool> initialize(String modelPath) async {
     if (_isInitialized) return true;
     
     try {
-      // Use absolute path directly
       _modelPath = modelPath;
       
       // Check if model file exists and get file size
@@ -25,20 +24,19 @@ class WhisperPlatformService {
         return false;
       }
       
-      // Verify file size - should be ~140MB for base model
       final fileSize = await file.length();
       print('WhisperPlatform: Model file size: $fileSize bytes');
       
-      // Model must be at least 100MB to be valid
-      const minValidSize = 100 * 1024 * 1024; // 100MB minimum
+      // Model must be at least 100MB
+      const minValidSize = 100 * 1024 * 1024;
       if (fileSize < minValidSize) {
-        print('WhisperPlatform: Model file too small: $fileSize bytes (expected ~140MB)');
+        print('WhisperPlatform: Model file too small: $fileSize bytes');
         return false;
       }
       
       print('WhisperPlatform: Model file verified, initializing...');
       
-      // Initialize via platform channel with absolute path
+      // Initialize via platform channel
       final result = await _channel.invokeMethod<bool>('init', {
         'modelPath': modelPath,
       });
@@ -60,14 +58,12 @@ class WhisperPlatformService {
     }
     
     try {
-      // Check audio file exists
       final audioFile = File(audioPath);
       if (!await audioFile.exists()) {
         print('WhisperPlatform: Audio file not found: $audioPath');
         return null;
       }
       
-      // Transcribe via platform channel
       final result = await _channel.invokeMethod<String>('transcribe', {
         'audioPath': audioPath,
       });
@@ -94,6 +90,11 @@ class WhisperPlatformService {
     }
   }
   
-  /// Check if available
   static bool get isAvailable => _isInitialized;
+  
+  /// Reset state (for testing or reinit)
+  static void reset() {
+    _isInitialized = false;
+    _modelPath = null;
+  }
 }

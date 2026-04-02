@@ -68,11 +68,25 @@ class WhisperBindings {
         throw Exception('Could not load libwhisper.so from any path');
       }
       
-      _initFromFile = _lib!.lookup<NativeFunction<WhisperInitFromFileNative>>('whisper_init_from_file').asFunction<WhisperInitFromFileDart>();
-      _free = _lib!.lookup<NativeFunction<WhisperFreeNative>>('whisper_free').asFunction<WhisperFreeDart>();
-      _full = _lib!.lookup<NativeFunction<WhisperFullNative>>('whisper_full').asFunction<WhisperFullDart>();
-      _nSegments = _lib!.lookup<NativeFunction<WhisperFullNSegmentsNative>>('whisper_full_n_segments').asFunction<WhisperFullNSegmentsDart>();
-      _getSegmentText = _lib!.lookup<NativeFunction<WhisperFullGetSegmentTextNative>>('whisper_full_get_segment_text').asFunction<WhisperFullGetSegmentTextDart>();
+      // Try standard C ABI first, then Java JNI names
+      try {
+        _initFromFile = _lib!.lookup<NativeFunction<WhisperInitFromFileNative>>('whisper_init_from_file').asFunction<WhisperInitFromFileDart>();
+        _free = _lib!.lookup<NativeFunction<WhisperFreeNative>>('whisper_free').asFunction<WhisperFreeDart>();
+        _full = _lib!.lookup<NativeFunction<WhisperFullNative>>('whisper_full').asFunction<WhisperFullDart>();
+        _nSegments = _lib!.lookup<NativeFunction<WhisperFullNSegmentsNative>>('whisper_full_n_segments').asFunction<WhisperFullNSegmentsDart>();
+        _getSegmentText = _lib!.lookup<NativeFunction<WhisperFullGetSegmentTextNative>>('whisper_full_get_segment_text').asFunction<WhisperFullGetSegmentTextDart>();
+        print('Whisper: ✅ Standard C ABI functions bound');
+      } catch (e) {
+        print('Whisper: Standard C ABI failed, trying Java JNI: $e');
+        // Try Java JNI names as fallback
+        try {
+          _initFromFile = _lib!.lookup<NativeFunction<WhisperInitFromFileNative>>('Java_com_whispercppdemo_whisper_WhisperLib_initContext').asFunction<WhisperInitFromFileDart>();
+          print('Whisper: ✅ Java JNI init found');
+        } catch (e2) {
+          print('Whisper: ❌ No valid symbols found: $e2');
+          throw Exception('No valid whisper symbols in library');
+        }
+      }
       
       _isLoaded = true;
       print('Whisper: ✅ All FFI functions bound');

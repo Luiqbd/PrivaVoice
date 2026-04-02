@@ -303,6 +303,11 @@ class AIService {
         throw Exception('Model file too small: $modelSize bytes (expected ~144MB)');
       }
 
+      // Initialize WhisperPlatformService on MAIN THREAD before isolate
+      _log('processAudio: Initializing platform service on main thread...');
+      final platformInitResult = await WhisperPlatformService.initialize(safePath);
+      _log('processAudio: Platform service init result: $platformInitResult');
+      
       _log('processAudio: About to start Isolate with modelPath: $safePath');
       _log('processAudio: Audio path: $audioPath');
 
@@ -383,50 +388,34 @@ class AIService {
 
       _log('🔥[Isolate] Model: $modelPath');
 
-      // Try platform service first (mx.valdora whisper-android)
-      String? text;
-      try {
-        _log('🔥[Isolate] Trying platform service (mx.valdora)...');
-        
-        // Initialize via platform channel
-        final initResult = await WhisperPlatformService.initialize(modelPath);
-        if (initResult) {
-          _log('🔥[Isolate] Platform service initialized');
-          text = await WhisperPlatformService.transcribe(audioPath);
-          if (text != null && text.isNotEmpty) {
-            _log('🔥[Isolate] Platform service SUCCESS: ${text.substring(0, text.length > 50 ? 50 : text.length)}...');
-          }
-        }
-      } catch (e) {
-        _log('🔥[Isolate] Platform service FAILED: $e');
-      }
+      // Note: WhisperPlatformService was already initialized on main thread
+      // Inside isolate we can only use FFI - platform channel won't work here
       
-      // If platform service didn't work, try FFI
-      if (text == null || text.isEmpty) {
-        _log('🔥[Isolate] Trying native FFI...');
-        
-        if (!WhisperBindings.load()) {
-          _log('Whisper: FFI load FAILED - using fallback');
-          return _generateFallbackTranscription(audioPath, title);
-        }
+      // Try native FFI directly
+      _log('🔥[Isolate] Trying native FFI...');
+      
+      if (!WhisperBindings.load()) {
+        _log('Whisper: FFI load FAILED - using fallback');
+        return _generateFallbackTranscription(audioPath, title);
+      }
 
-        _log('🔥[Isolate] Init Whisper...');
-        final whisperCtx = WhisperBindings.initFromFile(modelPath);
-        
-        if (whisperCtx == null) {
-          _log('Whisper: initFromFile returned NULL - using fallback');
-          return _generateFallbackTranscription(audioPath, title);
-        }
+      _log('🔥[Isolate] Init Whisper...');
+      final whisperCtx = WhisperBindings.initFromFile(modelPath);
+      
+      if (whisperCtx == null) {
+        _log('Whisper: initFromFile returned NULL - using fallback');
+        return _generateFallbackTranscription(audioPath, title);
+      }
 
-        _log('🔥[Isolate] ctx = $whisperCtx');
+      _log('🔥[Isolate] ctx = $whisperCtx');
 
-        _log('🔥[Isolate] Transcribing...');
-        try {
-          text = WhisperBindings.full(ctx: whisperCtx, audioPath: audioPath) ?? '';
-        } catch (e) {
-          _log('🔥[Isolate] Whisper EXCEPTION: $e - using fallback');
-          return _generateFallbackTranscription(audioPath, title);
-        }
+      String text;
+      _log('🔥[Isolate] Transcribing...');
+      try {
+        text = WhisperBindings.full(ctx: whisperCtx, audioPath: audioPath) ?? '';
+      } catch (e) {
+        _log('🔥[Isolate] Whisper EXCEPTION: $e - using fallback');
+        return _generateFallbackTranscription(audioPath, title);
       }
       
       // If Whisper returned empty, use fallback instead of failing
