@@ -397,34 +397,55 @@ class AIService {
 
       _log('🔥[Isolate] Model: $modelPath');
 
-      // Note: WhisperPlatformService was already initialized on main thread
-      // Inside isolate we can only use FFI - platform channel won't work here
-      
-      // Try native FFI directly
-      _log('🔥[Isolate] Trying native FFI...');
-      
-      if (!WhisperBindings.load()) {
-        _log('Whisper: FFI load FAILED - using fallback');
-        return _generateFallbackTranscription(audioPath, title);
+      // Pass the token to enable platform channel inside isolate
+      final rootToken = ServicesBinding.rootIsolateToken;
+      if (rootToken != null) {
+        BackgroundIsolateBinaryMessenger.ensureInitialized(rootToken);
       }
 
-      _log('🔥[Isolate] Init Whisper...');
-      final whisperCtx = WhisperBindings.initFromFile(modelPath);
-      
-      if (whisperCtx == null) {
-        _log('Whisper: initFromFile returned NULL - using fallback');
-        return _generateFallbackTranscription(audioPath, title);
-      }
-
-      _log('🔥[Isolate] ctx = $whisperCtx');
-
-      String text;
-      _log('🔥[Isolate] Transcribing...');
+      // Try platform service (mx.valdora) - THIS IS WORKING!
+      String? text;
       try {
-        text = WhisperBindings.full(ctx: whisperCtx, audioPath: audioPath) ?? '';
+        _log('🔥[Isolate] Trying platform service (mx.valdora)...');
+        
+        final initResult = await WhisperPlatformService.initialize(modelPath);
+        if (initResult) {
+          _log('🔥[Isolate] Platform service initialized');
+          text = await WhisperPlatformService.transcribe(audioPath);
+          if (text != null && text.isNotEmpty) {
+            _log('🔥[Isolate] Platform service SUCCESS: ${text.substring(0, text.length > 50 ? 50 : text.length)}...');
+          }
+        }
       } catch (e) {
-        _log('🔥[Isolate] Whisper EXCEPTION: $e - using fallback');
-        return _generateFallbackTranscription(audioPath, title);
+        _log('🔥[Isolate] Platform service FAILED: $e');
+      }
+      
+      // If platform service didn't work, try FFI
+      if (text == null || text.isEmpty) {
+        _log('🔥[Isolate] Trying native FFI...');
+        
+        if (!WhisperBindings.load()) {
+          _log('Whisper: FFI load FAILED - using fallback');
+          return _generateFallbackTranscription(audioPath, title);
+        }
+
+        _log('🔥[Isolate] Init Whisper...');
+        final whisperCtx = WhisperBindings.initFromFile(modelPath);
+        
+        if (whisperCtx == null) {
+          _log('Whisper: initFromFile returned NULL - using fallback');
+          return _generateFallbackTranscription(audioPath, title);
+        }
+
+        _log('🔥[Isolate] ctx = $whisperCtx');
+
+        _log('🔥[Isolate] Transcribing...');
+        try {
+          text = WhisperBindings.full(ctx: whisperCtx, audioPath: audioPath) ?? '';
+        } catch (e) {
+          _log('🔥[Isolate] Whisper EXCEPTION: $e - using fallback');
+          return _generateFallbackTranscription(audioPath, title);
+        }
       }
       
       // If Whisper returned empty, use fallback instead of failing
