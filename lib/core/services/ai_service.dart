@@ -308,12 +308,19 @@ class AIService {
       final platformInitResult = await WhisperPlatformService.initialize(safePath);
       _log('processAudio: Platform service init result: $platformInitResult');
       
+      // Capture the RootIsolateToken BEFORE starting the isolate
+      final rootToken = ServicesBinding.rootIsolateToken;
+      _log('processAudio: Got root isolate token');
+      
       _log('processAudio: About to start Isolate with modelPath: $safePath');
       _log('processAudio: Audio path: $audioPath');
 
       Transcription? result;
       try {
         result = await Isolate.run(() async {
+          // Initialize the background isolate messenger FIRST
+          BackgroundIsolateBinaryMessenger.ensureInitialized(rootToken);
+          
           _log('🔥[Isolate] Starting pipeline...');
           return await _processPipeline(
             audioPath: audioPath,
