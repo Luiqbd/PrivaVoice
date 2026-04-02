@@ -79,7 +79,6 @@ flutter {
 
 // Add dependencies for prefab (if available)
 dependencies {
-    // Whisper Android library with pre-built ARM64 native libs
-    // This provides JNI-based API via platform channels
+    // mx.valdora provides proper C API for whisper
     implementation("mx.valdora:whisper-android:1.0.0")
 }
