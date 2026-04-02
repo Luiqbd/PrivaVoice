@@ -47,3 +47,4 @@ flutter_bin/
 
 # AI Models (too large for Git, download via scripts/download_models.sh)
 assets/models/
+android/app/src/main/jniLibs/
