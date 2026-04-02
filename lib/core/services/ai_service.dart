@@ -310,7 +310,7 @@ class AIService {
       
       // Capture the RootIsolateToken BEFORE starting the isolate
       final rootToken = ServicesBinding.rootIsolateToken;
-      _log('processAudio: Got root isolate token');
+      _log('processAudio: Got root isolate token: ${rootToken != null}');
       
       _log('processAudio: About to start Isolate with modelPath: $safePath');
       _log('processAudio: Audio path: $audioPath');
@@ -319,7 +319,9 @@ class AIService {
       try {
         result = await Isolate.run(() async {
           // Initialize the background isolate messenger FIRST
-          BackgroundIsolateBinaryMessenger.ensureInitialized(rootToken);
+          if (rootToken != null) {
+            BackgroundIsolateBinaryMessenger.ensureInitialized(rootToken);
+          }
           
           _log('🔥[Isolate] Starting pipeline...');
           return await _processPipeline(
