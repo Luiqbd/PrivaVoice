@@ -1,14 +1,18 @@
 package com.privavoice.privavoice
 
 import android.content.Context
+import mx.valdora.whisper.WhisperContext
+import io.flutter.embedding.engine.plugins.FlutterPlugin
+import io.flutter.plugin.common.MethodCall
+import io.flutter.plugin.common.MethodChannel
 
 /**
- * Whisper Bridge - JNI interface to whisper.cpp
- * Handles on-device speech-to-text with GPU acceleration
+ * Whisper Bridge - Uses mx.valdora whisper-android AAR
+ * Provides 100% offline transcription with prebuilt ARM64 native libs
  */
 class WhisperBridge private constructor() {
     
-    private var nativeContext: Long = 0
+    private var whisperContext: WhisperContext? = null
     var isInitialized: Boolean = false
         private set
     
@@ -25,13 +29,13 @@ class WhisperBridge private constructor() {
     
     /**
      * Initialize Whisper model from file
-     * @param modelPath Path to GGML model file (e.g., whisper-base.bin)
+     * @param modelPath Path to GGML model file (e.g., ggml-base.bin)
      */
     fun initialize(modelPath: String): Boolean {
         return try {
-            nativeContext = nativeInit(modelPath)
-            isInitialized = nativeContext != 0L
-            isInitialized
+            whisperContext = WhisperContext(modelPath)
+            isInitialized = true
+            true
         } catch (e: Exception) {
             isInitialized = false
             false
@@ -40,87 +44,73 @@ class WhisperBridge private constructor() {
     
     /**
      * Transcribe audio file to text
-     * @param audioPath Path to audio file (M4A, WAV, etc.)
-     * @param maxContext Maximum context tokens (-1 for default)
-     * @param maxLen Maximum length of transcription (0 for no limit)
+     * @param audioPath Path to audio file (WAV 16kHz mono recommended)
      * @return Transcribed text
      */
-    fun transcribe(audioPath: String, maxContext: Int = -1, maxLen: Int = 0): String {
-        if (!isInitialized) {
-            throw IllegalStateException("Whisper not initialized. Call initialize() first.")
-        }
+    fun transcribe(audioPath: String): String {
+        val ctx = whisperContext ?: throw IllegalStateException("Whisper not initialized")
         
         return try {
-            nativeTranscribe(nativeContext, audioPath, maxContext, maxLen) ?: ""
+            val audioFile = java.io.File(audioPath)
+            ctx.transcribe(audioFile) ?: ""
         } catch (e: Exception) {
             "Erro na transcrição: ${e.message}"
         }
     }
     
     /**
-     * Get number of text segments
-     */
-    fun getSegmentCount(): Int {
-        return if (isInitialized) {
-            try {
-                nativeGetSegmentCount(nativeContext)
-            } catch (e: Exception) {
-                0
-            }
-        } else 0
-    }
-    
-    /**
-     * Get text for specific segment
-     */
-    fun getSegmentText(segmentIndex: Int): String {
-        return if (isInitialized) {
-            try {
-                nativeGetSegmentText(nativeContext, segmentIndex) ?: ""
-            } catch (e: Exception) {
-                ""
-            }
-        } else ""
-    }
-    
-    /**
-     * Get word timestamps for a segment
-     * Returns list of [word, start_ms, end_ms] triplets
-     */
-    fun getWordTimestamps(segmentIndex: Int): List<String> {
-        return if (isInitialized) {
-            try {
-                nativeGetWordTimestamps(nativeContext, segmentIndex)?.toList() ?: emptyList()
-            } catch (e: Exception) {
-                emptyList()
-            }
-        } else emptyList()
-    }
-    
-    /**
      * Free model resources
      */
     fun release() {
-        if (isInitialized && nativeContext != 0L) {
-            try {
-                nativeFree(nativeContext)
-            } catch (e: Exception) {
-                // Ignore
-            }
-            nativeContext = 0
-            isInitialized = false
+        try {
+            whisperContext?.close()
+        } catch (e: Exception) {
+            // Ignore
         }
+        whisperContext = null
+        isInitialized = false
     }
+}
+
+/**
+ * Flutter Method Channel handler for Whisper
+ */
+class WhisperMethodChannel(private val context: Context) : MethodChannel.MethodCallHandler {
     
-    // Native methods (implemented in C++)
-    private external fun nativeInit(modelPath: String): Long
-    private external fun nativeFree(contextPtr: Long)
-    private external fun nativeTranscribe(contextPtr: Long, audioPath: String, maxContext: Int, maxLen: Int): String?
-    private external fun nativeGetSegmentCount(contextPtr: Long): Int
-    private external fun nativeGetSegmentText(contextPtr: Long, segmentIndex: Int): String?
-    private external fun nativeGetWordTimestamps(contextPtr: Long, segmentIndex: Int): Array<String>?
+    private val whisper = WhisperBridge.getInstance()
     
-    init {
-        System.loadLibrary("whisper")
+    override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
+        when (call.method) {
+            "init" -> {
+                val modelPath = call.argument<String>("modelPath")
+                if (modelPath == null) {
+                    result.error("INVALID_ARGUMENT", "modelPath is required", null)
+                    return
+                }
+                val success = whisper.initialize(modelPath)
+                result.success(success)
+            }
+            
+            "transcribe" -> {
+                val audioPath = call.argument<String>("audioPath")
+                if (audioPath == null) {
+                    result.error("INVALID_ARGUMENT", "audioPath is required", null)
+                    return
+                }
+                try {
+                    val text = whisper.transcribe(audioPath)
+                    result.success(text)
+                } catch (e: Exception) {
+                    result.error("TRANSCRIBE_ERROR", e.message, null)
+                }
+            }
+            
+            "release" -> {
+                whisper.release()
+                result.success(true)
+            }
+            
+            else -> result.notImplemented()
+        }
     }
 }
