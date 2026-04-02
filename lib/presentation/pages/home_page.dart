@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/ai/ai_state.dart';
 import '../../data/datasources/app_database.dart';
 import 'record_page.dart';
 import 'library_page.dart';
@@ -63,34 +64,27 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       backgroundColor: AppColors.backgroundPrimary,
       body: Column(
         children: [
-          // Security Warning: Fallback encryption mode
-          if (AppDatabase.isFallbackModeUsed)
+          // AI Status - only show if actually processing
+          if (AIManager.isProcessing)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    Colors.orange.shade900,
-                    Colors.orange.shade700,
+                    Colors.blue.shade900,
+                    Colors.blue.shade700,
                   ],
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.orange.withOpacity(0.5),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
-                  SizedBox(width: 8),
+                  const Icon(Icons.mic, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Modo Segurança: Criptografia AES-256 em fallback',
-                      style: TextStyle(
+                      AIManager.statusMessage,
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 12,
                         fontWeight: FontWeight.w500,

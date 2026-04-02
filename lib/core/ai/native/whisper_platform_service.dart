@@ -15,16 +15,30 @@ class WhisperPlatformService {
     if (_isInitialized) return true;
     
     try {
+      // Use absolute path directly
       _modelPath = modelPath;
       
-      // Check if model file exists
+      // Check if model file exists and get file size
       final file = File(modelPath);
       if (!await file.exists()) {
         print('WhisperPlatform: Model file not found: $modelPath');
         return false;
       }
       
-      // Initialize via platform channel
+      // Verify file size - should be ~140MB for base model
+      final fileSize = await file.length();
+      print('WhisperPlatform: Model file size: $fileSize bytes');
+      
+      // Model must be at least 100MB to be valid
+      const minValidSize = 100 * 1024 * 1024; // 100MB minimum
+      if (fileSize < minValidSize) {
+        print('WhisperPlatform: Model file too small: $fileSize bytes (expected ~140MB)');
+        return false;
+      }
+      
+      print('WhisperPlatform: Model file verified, initializing...');
+      
+      // Initialize via platform channel with absolute path
       final result = await _channel.invokeMethod<bool>('init', {
         'modelPath': modelPath,
       });
