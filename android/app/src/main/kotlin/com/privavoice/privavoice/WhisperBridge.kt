@@ -31,9 +31,12 @@ class WhisperBridge private constructor() {
     /**
      * Initialize Whisper model from file
      * @param modelPath Path to GGML model file (e.g., ggml-base.bin)
+     * Note: mx.valdora whisper-android uses multilingual models and auto-detects language
+     * For Portuguese, ensure audio is clear and in pt-BR accent
      */
     fun initialize(modelPath: String): Boolean {
         return try {
+            // mx.valdora WhisperContext - language is auto-detected from multilingual models
             whisperContext = WhisperContext(modelPath)
             isInitialized = true
             true
