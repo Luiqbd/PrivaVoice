@@ -175,66 +175,15 @@ class LibraryPageState extends State<LibraryPage> {
                         itemCount: filteredTranscriptions.length,
                         itemBuilder: (context, index) {
                           final transcription = filteredTranscriptions[index];
-                          return Dismissible(
-                            key: Key(transcription.id),
-                            direction: DismissDirection.endToStart,
-                            confirmDismiss: (direction) async {
-                              return await _showDeleteConfirmation(context, transcription.id);
-                            },
-                            onDismissed: (direction) {
-                              _deleteTranscription(transcription.id, transcription.audioPath);
-                            },
-                            background: Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              decoration: BoxDecoration(
-                                color: Colors.red.shade900,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  // Edit button (Ciano Neon) - TOUCHABLE!
-                                  Container(
-                                    margin: const EdgeInsets.only(right: 8),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primaryAccent.withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: AppColors.primaryAccent, width: 2),
-                                    ),
-                                    child: IconButton(
-                                      icon: Icon(Icons.edit, color: AppColors.primaryAccent, size: 24),
-                                      onPressed: () {
-                                        // Dismiss the swipe first, then show rename
-                                        Navigator.of(context).pop(); // Pop if any dialog
-                                        _showRenameModal(context, transcription.id, transcription.title);
-                                      },
-                                    ),
-                                  ),
-                                  // Delete button (Vermelho)
-                                  Container(
-                                    margin: const EdgeInsets.only(right: 16),
-                                    decoration: BoxDecoration(
-                                      color: Colors.red.withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: Colors.redAccent, width: 2),
-                                    ),
-                                    child: IconButton(
-                                      icon: Icon(Icons.delete, color: Colors.redAccent, size: 24),
-                                      onPressed: () async {
-                                        final confirm = await _showDeleteConfirmation(context, transcription.id);
-                                        if (confirm == true) {
-                                          _deleteTranscription(transcription.id, transcription.audioPath);
-                                        }
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            child: TranscriptionCard(
-                              transcription: transcription,
-                              onTap: () => _openTranscription(transcription.id),
-                            ),
+                          return TranscriptionCard(
+                            transcription: transcription,
+                            onTap: () => _openTranscription(transcription.id),
+                            onLongPress: () => _showOptionsMenu(context, transcription.id, transcription.title),
+                            onDelete: () => _showDeleteConfirmation(context, transcription.id).then((confirm) {
+                              if (confirm == true) {
+                                _deleteTranscription(transcription.id, transcription.audioPath);
+                              }
+                            }),
                           );
                         },
                       ),
@@ -333,6 +282,80 @@ class LibraryPageState extends State<LibraryPage> {
             child: const Text('Salvar'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showOptionsMenu(BuildContext context, String id, String currentTitle) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.textTertiary,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryAccent.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.edit, color: AppColors.primaryAccent),
+              ),
+              title: const Text(
+                'Renomear',
+                style: TextStyle(color: AppColors.textPrimary),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _showRenameModal(context, id, currentTitle);
+              },
+            ),
+            const SizedBox(height: 8),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.delete, color: Colors.redAccent),
+              ),
+              title: const Text(
+                'Apagar',
+                style: TextStyle(color: Colors.redAccent),
+              ),
+              onTap: () async {
+                Navigator.pop(context);
+                final confirm = await _showDeleteConfirmation(context, id);
+                if (confirm == true) {
+                  // Find audio path and delete
+                  final transcriptions = _transcriptionBloc.state.transcriptions;
+                  final transcription = transcriptions.firstWhere(
+                    (t) => t.id == id,
+                    orElse: () => throw Exception('Transcription not found'),
+                  );
+                  _deleteTranscription(id, transcription.audioPath);
+                }
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
     );
   }
