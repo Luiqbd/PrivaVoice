@@ -277,6 +277,50 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
     super.dispose();
   }
 
+  /// Build processing status indicator (real-time UX)
+  Widget _buildProcessingIndicator() {
+    if (!_isProcessing) return const SizedBox.shrink();
+    
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primaryAccent.withOpacity(0.5), width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryAccent.withOpacity(0.3),
+            blurRadius: 12,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: AppColors.primaryAccent,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Text(
+            'IA processando áudio...',
+            style: TextStyle(
+              color: AppColors.primaryAccent,
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   static const List<Color> speakerColors = [
     Color(0xFF00FFFF),  // Cyan - P1
     Color(0xFFFF00FF),   // Magenta - P2
