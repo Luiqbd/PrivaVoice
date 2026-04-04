@@ -61,10 +61,10 @@ class AIService {
   static final _transcriptionController = StreamController<TranscriptionProgress>.broadcast();
   static Stream<TranscriptionProgress> get transcriptionStream => _transcriptionController.stream;
 
-  // Whisper small Q4_0 (~150MB) - optimized for speed and low RAM
-  static const int EXPECTED_WHISPER_SIZE = 160000000;
+  // Whisper small Q5_1 (~250MB) - optimized for speed and quality
+  static const int EXPECTED_WHISPER_SIZE = 260000000;
   static const int EXPECTED_LLAMA_SIZE = 653000000;
-  static const int WHISPER_MIN_SIZE = 140000000;
+  static const int WHISPER_MIN_SIZE = 240000000;
   static const int LLAMA_MIN_SIZE = 580000000;
   static const int MIN_DISK_SPACE_NEEDED = 1500000000;
   
@@ -75,7 +75,7 @@ class AIService {
   }
 
   // Whisper small renamed to whisper-base for compatibility
-  static const String WHISPER_FILENAME = 'whisper-small-q4_0.bin';
+  static const String WHISPER_FILENAME = 'ggml-small-q5_1.bin';
   static const String LLAMA_FILENAME = 'tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf';
 
   static bool get isModelsReady => _modelsCopied;
