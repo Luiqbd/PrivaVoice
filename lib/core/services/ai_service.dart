@@ -16,15 +16,15 @@ class AIService {
   static String _diagnosticLog = '';
   static int _availableSpaceBytes = 0;
 
-  // Whisper small (multilingual) ~466MB
+  // Whisper small (466MB) - renamed to whisper-base.bin
   static const int EXPECTED_WHISPER_SIZE = 490000000;
   static const int EXPECTED_LLAMA_SIZE = 653000000;
   static const int WHISPER_MIN_SIZE = 440000000;
   static const int LLAMA_MIN_SIZE = 580000000;
   static const int MIN_DISK_SPACE_NEEDED = 2000000000;
 
-  // Whisper small multilingual
-  static const String WHISPER_FILENAME = 'whisper-small.bin';
+  // Whisper small renamed to whisper-base for compatibility
+  static const String WHISPER_FILENAME = 'whisper-base.bin';
   static const String LLAMA_FILENAME = 'tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf';
 
   static bool get isModelsReady => _modelsCopied;
