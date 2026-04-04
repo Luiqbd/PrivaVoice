@@ -66,11 +66,18 @@ class WhisperBridge private constructor() {
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     fun transcribe(audioPath: String, language: String = "pt"): String {
-        val ctx = whisperContext ?: throw IllegalStateException("Whisper not initialized")
+        println("WhisperBridge: transcribe() called with audioPath: $audioPath")
+        val ctx = whisperContext ?: run {
+            println("WhisperBridge: transcribe() FAILED - context is null!")
+            throw IllegalStateException("Whisper not initialized")
+        }
+        
+        println("WhisperBridge: context found, starting transcription...")
         
         return runBlocking {
             try {
                 val audioFile = java.io.File(audioPath)
+                println("WhisperBridge: Audio file exists: ${audioFile.exists()}")
                 
                 // Force Portuguese for accuracy
                 val forcedLanguage = "pt"
@@ -80,11 +87,17 @@ class WhisperBridge private constructor() {
                 
                 // OPTIMIZED: beam_size=1 for speed (was 5, was 2)
                 // This is the KEY optimization for Moto G06 performance
+                println("WhisperBridge: Calling ctx.transcribe()...")
                 val rawResult = ctx.transcribe(audioFile) ?: ""
+                println("WhisperBridge: transcribe() returned: ${rawResult.take(50)}")
                 
                 // Process Portuguese corrections
-                processPortugueseResult(rawResult, forcedLanguage)
+                val result = processPortugueseResult(rawResult, forcedLanguage)
+                println("WhisperBridge: Final result: ${result.take(50)}")
+                result
             } catch (e: Exception) {
+                println("WhisperBridge: transcribe() EXCEPTION: ${e.message}")
+                println("WhisperBridge: Stack trace: ${e.stackTrace}")
                 "Erro na transcrição: ${e.message}"
             }
         }
