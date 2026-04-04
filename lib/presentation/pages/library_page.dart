@@ -17,6 +17,8 @@ class LibraryPage extends StatefulWidget {
 
 class LibraryPageState extends State<LibraryPage> {
   late TranscriptionBloc _transcriptionBloc;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -27,6 +29,7 @@ class LibraryPageState extends State<LibraryPage> {
 
   @override
   void dispose() {
+    _searchController.dispose();
     _transcriptionBloc.close();
     super.dispose();
   }
@@ -88,6 +91,41 @@ class LibraryPageState extends State<LibraryPage> {
                 ),
               ),
 
+              // Search Field (Ciano Neon)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (value) {
+                    setState(() {
+                      _searchQuery = value.toLowerCase();
+                    });
+                  },
+                  style: const TextStyle(color: AppColors.textPrimary),
+                  decoration: InputDecoration(
+                    hintText: 'Buscar notas...',
+                    hintStyle: const TextStyle(color: AppColors.textTertiary),
+                    prefixIcon: const Icon(Icons.search, color: AppColors.primaryAccent),
+                    filled: true,
+                    fillColor: AppColors.surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.primaryAccent, width: 2),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.primaryAccent, width: 1),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.primaryAccent, width: 2),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
               // Content
               Expanded(
                 child: BlocBuilder<TranscriptionBloc, TranscriptionState>(
@@ -104,6 +142,29 @@ class LibraryPageState extends State<LibraryPage> {
                       return _buildEmptyState();
                     }
 
+                    // Filter by search query
+                    final filteredTranscriptions = _searchQuery.isEmpty
+                        ? state.transcriptions
+                        : state.transcriptions.where((t) {
+                            return t.title.toLowerCase().contains(_searchQuery);
+                          }).toList();
+
+                    if (filteredTranscriptions.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.search_off, size: 48, color: AppColors.textTertiary),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Nenhum resultado para "$_searchQuery"',
+                              style: const TextStyle(color: AppColors.textSecondary),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
                     return RefreshIndicator(
                       onRefresh: () async {
                         _transcriptionBloc.add(LoadTranscriptions());
@@ -111,12 +172,48 @@ class LibraryPageState extends State<LibraryPage> {
                       color: AppColors.primaryAccent,
                       child: ListView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: state.transcriptions.length,
+                        itemCount: filteredTranscriptions.length,
                         itemBuilder: (context, index) {
-                          final transcription = state.transcriptions[index];
-                          return TranscriptionCard(
-                            transcription: transcription,
-                            onTap: () => _openTranscription(transcription.id),
+                          final transcription = filteredTranscriptions[index];
+                          return Dismissible(
+                            key: Key(transcription.id),
+                            direction: DismissDirection.endToStart,
+                            confirmDismiss: (direction) async {
+                              return await _showDeleteConfirmation(context, transcription.id);
+                            },
+                            onDismissed: (direction) {
+                              _deleteTranscription(transcription.id, transcription.audioPath);
+                            },
+                            background: Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade900,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  // Edit button (Ciano)
+                                  Padding(
+                                    padding: EdgeInsets.only(right: 8),
+                                    child: IconButton(
+                                      icon: Icon(Icons.edit, color: AppColors.primaryAccent),
+                                      onPressed: null, // handled by tap
+                                    ),
+                                  ),
+                                  // Delete button (Vermelho)
+                                  Padding(
+                                    padding: EdgeInsets.only(right: 16),
+                                    child: Icon(Icons.delete, color: Colors.redAccent, size: 28),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            child: TranscriptionCard(
+                              transcription: transcription,
+                              onTap: () => _openTranscription(transcription.id),
+                              onLongPress: () => _showRenameModal(context, transcription.id, transcription.title),
+                            ),
                           );
                         },
                       ),
@@ -127,6 +224,94 @@ class LibraryPageState extends State<LibraryPage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Future<bool> _showDeleteConfirmation(BuildContext context, String id) async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Confirmar Exclusão',
+          style: TextStyle(color: AppColors.textPrimary),
+        ),
+        content: const Text(
+          'Deseja apagar permanentemente esta inteligência?',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar', style: TextStyle(color: AppColors.textTertiary)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Apagar'),
+          ),
+        ],
+      ),
+    ) ?? false;
+  }
+
+  void _deleteTranscription(String id, String audioPath) {
+    // Delete from database and file system
+    _transcriptionBloc.add(DeleteTranscription(id));
+    // TODO: Delete audio file from filesystem
+  }
+
+  void _showRenameModal(BuildContext context, String id, String currentTitle) {
+    final controller = TextEditingController(text: currentTitle);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Renomear',
+          style: TextStyle(color: AppColors.textPrimary),
+        ),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: const TextStyle(color: AppColors.textPrimary),
+          decoration: InputDecoration(
+            hintText: 'Novo título',
+            hintStyle: const TextStyle(color: AppColors.textTertiary),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.primaryAccent),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.primaryAccent, width: 2),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar', style: TextStyle(color: AppColors.textTertiary)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (controller.text.isNotEmpty) {
+                _transcriptionBloc.add(RenameTranscription(id, controller.text));
+                Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryAccent,
+            ),
+            child: const Text('Salvar'),
+          ),
+        ],
       ),
     );
   }

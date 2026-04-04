@@ -17,7 +17,8 @@ class TranscriptionModel {
       speakerSegments: _parseSpeakerSegments(dbModel.speakerSegmentsJson),
       summary: dbModel.summary,
       actionItems: _parseActionItems(dbModel.actionItemsJson),
-      notes: dbModel.notes, // Include notes
+      notes: dbModel.notes,
+      speakerNames: _parseSpeakerNames(dbModel.speakerNamesJson),
     );
   }
   
@@ -38,21 +39,36 @@ class TranscriptionModel {
       createdAt: entity.createdAt,
       durationMs: entity.duration.inMilliseconds,
       isEncrypted: entity.isEncrypted,
-      speakerSegmentsJson: entity.speakerSegments != null
-          ? jsonEncode(entity.speakerSegments!.map((s) => {
+      speakerSegmentsJson: entity.speakerSegments != null 
+        ? jsonEncode(entity.speakerSegments!.map((s) => {
             'speakerId': s.speakerId,
             'startTime': s.startTime.inMilliseconds,
             'endTime': s.endTime.inMilliseconds,
             'text': s.text,
           }).toList())
-          : null,
+        : null,
       summary: entity.summary,
       actionItemsJson: entity.actionItems != null ? jsonEncode(entity.actionItems) : null,
-      notes: entity.notes, // Include notes
+      notes: entity.notes,
+      speakerNamesJson: entity.speakerNames != null ? jsonEncode(entity.speakerNames) : null,
     );
   }
   
-  static List<WordTimestamp> _parseWordTimestamps(String? json) {
+  static Map<String, String>? _parseSpeakerNames(String? json) {
+    if (json == null || json.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(json);
+      if (decoded is Map) {
+        return decoded.map((k, v) => MapEntry(k.toString(), v.toString()));
+      }
+    } catch (e) {
+      debugPrint('TranscriptionModel: Error parsing speakerNames: $e');
+    }
+    return null;
+  }
+}
+      
+      static List<WordTimestamp> _parseWordTimestamps(String? json) {
     if (json == null || json.isEmpty || json == '[]') {
       return [];
     }

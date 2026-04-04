@@ -23,6 +23,27 @@ class DeleteTranscription extends TranscriptionEvent {
   List<Object?> get props => [id];
 }
 
+class RenameTranscription extends TranscriptionEvent {
+  final String id;
+  final String newTitle;
+  const RenameTranscription(this.id, this.newTitle);
+  @override
+  List<Object?> get props => [id, newTitle];
+}
+
+class UpdateSpeakerName extends TranscriptionEvent {
+  final String transcriptionId;
+  final String speakerId;
+  final String newName;
+  const UpdateSpeakerName({
+    required this.transcriptionId,
+    required this.speakerId,
+    required this.newName,
+  });
+  @override
+  List<Object?> get props => [transcriptionId, speakerId, newName];
+}
+
 class SelectTranscription extends TranscriptionEvent {
   final String id;
   const SelectTranscription(this.id);

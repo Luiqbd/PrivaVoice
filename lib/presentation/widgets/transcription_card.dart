@@ -5,11 +5,13 @@ import '../../domain/entities/transcription.dart';
 class TranscriptionCard extends StatelessWidget {
   final Transcription transcription;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   const TranscriptionCard({
     super.key,
     required this.transcription,
     this.onTap,
+    this.onLongPress,
   });
 
   @override
@@ -24,6 +26,7 @@ class TranscriptionCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
+          onLongPress: onLongPress,
           borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.all(16),

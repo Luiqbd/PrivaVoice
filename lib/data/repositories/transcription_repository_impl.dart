@@ -47,4 +47,72 @@ class TranscriptionRepositoryImpl implements TranscriptionRepository {
       t.text.toLowerCase().contains(lowerQuery)
     ).toList();
   }
+  
+  @override
+  Future<void> updateTitle(String id, String newTitle) async {
+    final existing = await AppDatabase.getTranscriptionById(id);
+    if (existing != null) {
+      final updated = TranscriptionData(
+        id: existing.id,
+        title: newTitle,
+        audioPath: existing.audioPath,
+        text: existing.text,
+        wordTimestampsJson: existing.wordTimestampsJson,
+        createdAt: existing.createdAt,
+        durationMs: existing.durationMs,
+        isEncrypted: existing.isEncrypted,
+        speakerSegmentsJson: existing.speakerSegmentsJson,
+        summary: existing.summary,
+        actionItemsJson: existing.actionItemsJson,
+        notes: existing.notes,
+        speakerNamesJson: existing.speakerNamesJson,
+      );
+      await AppDatabase.updateTranscription(updated);
+    }
+  }
+  
+  @override
+  Future<Transcription?> getTranscription(String id) async {
+    final dbTranscription = await AppDatabase.getTranscriptionById(id);
+    if (dbTranscription == null) return null;
+    return TranscriptionModel.fromDbModel(dbTranscription);
+  }
+  
+  @override
+  Future<void> updateSpeakerName(String transcriptionId, String speakerId, String newName) async {
+    final existing = await AppDatabase.getTranscriptionById(transcriptionId);
+    if (existing != null) {
+      // Parse existing speaker names or create new map
+      Map<String, String> speakerNames = {};
+      if (existing.speakerNamesJson != null && existing.speakerNamesJson!.isNotEmpty) {
+        try {
+          speakerNames = Map<String, String>.from(
+            (existing.speakerNamesJson!.isNotEmpty) 
+              ? existing.speakerNamesJson!.codeUnits
+              : {}
+          );
+        } catch (e) {
+          speakerNames = {};
+        }
+      }
+      speakerNames[speakerId] = newName;
+      
+      final updated = TranscriptionData(
+        id: existing.id,
+        title: existing.title,
+        audioPath: existing.audioPath,
+        text: existing.text,
+        wordTimestampsJson: existing.wordTimestampsJson,
+        createdAt: existing.createdAt,
+        durationMs: existing.durationMs,
+        isEncrypted: existing.isEncrypted,
+        speakerSegmentsJson: existing.speakerSegmentsJson,
+        summary: existing.summary,
+        actionItemsJson: existing.actionItemsJson,
+        notes: existing.notes,
+        speakerNamesJson: speakerNames.toString(),
+      );
+      await AppDatabase.updateTranscription(updated);
+    }
+  }
 }

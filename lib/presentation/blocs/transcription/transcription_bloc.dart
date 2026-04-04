@@ -14,8 +14,10 @@ class TranscriptionBloc extends Bloc<TranscriptionEvent, TranscriptionState> {
     on<LoadTranscriptions>(_onLoadTranscriptions);
     on<ProcessAudio>(_onProcessAudio);
     on<DeleteTranscription>(_onDeleteTranscription);
+    on<RenameTranscription>(_onRenameTranscription);
     on<SelectTranscription>(_onSelectTranscription);
     on<SeekToWord>(_onSeekToWord);
+    on<UpdateSpeakerName>(_onUpdateSpeakerName);
   }
 
   Future<void> _onLoadTranscriptions(
@@ -91,6 +93,42 @@ class TranscriptionBloc extends Bloc<TranscriptionEvent, TranscriptionState> {
       ));
     } catch (e) {
       debugPrint('TranscriptionBloc delete error: $e');
+    }
+  }
+
+  Future<void> _onRenameTranscription(
+    RenameTranscription event,
+    Emitter<TranscriptionState> emit,
+  ) async {
+    try {
+      await _repository.updateTitle(event.id, event.newTitle);
+      final transcriptions = await _repository.getAllTranscriptions();
+      emit(state.copyWith(transcriptions: transcriptions));
+    } catch (e) {
+      debugPrint('TranscriptionBloc rename error: $e');
+    }
+  }
+
+  Future<void> _onUpdateSpeakerName(
+    UpdateSpeakerName event,
+    Emitter<TranscriptionState> emit,
+  ) async {
+    try {
+      await _repository.updateSpeakerName(
+        event.transcriptionId,
+        event.speakerId,
+        event.newName,
+      );
+      // Reload the specific transcription
+      final updated = await _repository.getTranscription(event.transcriptionId);
+      if (updated != null) {
+        final transcriptions = state.transcriptions.map((t) {
+          return t.id == event.transcriptionId ? updated : t;
+        }).toList();
+        emit(state.copyWith(transcriptions: transcriptions));
+      }
+    } catch (e) {
+      debugPrint('TranscriptionBloc update speaker name error: $e');
     }
   }
 

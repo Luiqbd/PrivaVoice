@@ -491,9 +491,19 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
 
   Widget _buildSpeakerBubble(SpeakerSegment segment, int index, bool isActive) {
     final color = _getSpeakerColor(index);
-    final initials = 'P${index + 1}';
+    // Use custom name if available, otherwise "Voz 1", "Voz 2", etc.
+    final speakerId = segment.speakerId;
+    final displayName = _transcription?.getSpeakerDisplayName(speakerId) ?? 'Voz ${index + 1}';
     final timeStr = _formatDuration(segment.startTime);
-
+    
+    // Allow editing speaker name on tap
+    void Function()? onSpeakerTap;
+    if (index == 0 || index == 1) {
+      onSpeakerTap = () => _showSpeakerEditDialog(speakerId);
+    } else {
+      onSpeakerTap = () => _seekToSegment(segment);
+    }
+    
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
@@ -503,7 +513,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
             children: [
               // Avatar com Glow Neon pulsante
               GestureDetector(
-                onTap: () => _seekToSegment(segment),
+                onTap: onSpeakerTap,
                 child: Container(
                   width: 52,
                   height: 52,
@@ -526,11 +536,11 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                   ),
                   child: Center(
                     child: Text(
-                      initials,
+                      displayName,
                       style: TextStyle(
                         color: color,
                         fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                        fontSize: 12,
                         shadows: isActive
                             ? [Shadow(color: color, blurRadius: 8)]
                             : null,
@@ -866,3 +876,70 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 }
+  void _showSpeakerEditDialog(String speakerId) {
+    final currentName = _transcription?.getSpeakerDisplayName(speakerId) ?? 'Voz';
+    final controller = TextEditingController(text: currentName.replaceFirst('Voz ', ''));
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Editar Locutor',
+          style: const TextStyle(color: AppColors.textPrimary),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Digite o nome do locutor:',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                hintText: 'Ex: Dr. Ricardo',
+                hintStyle: const TextStyle(color: AppColors.textTertiary),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.primaryAccent),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.primaryAccent, width: 2),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar', style: TextStyle(color: AppColors.textTertiary)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final newName = controller.text.trim();
+              if (newName.isNotEmpty) {
+                _transcriptionBloc.add(UpdateSpeakerName(
+                  transcriptionId: _transcription!.id,
+                  speakerId: speakerId,
+                  newName: newName,
+                ));
+                _loadTranscription();
+              }
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryAccent,
+            ),
+            child: const Text('Salvar'),
+          ),
+        ],
+      ),
+    );
+  }
