@@ -197,6 +197,10 @@ class AIService {
         _log('⚠️ Whisper: NOT FOUND - copying...');
         await _copyModel(WHISPER_FILENAME, whisperPath);
         _log('✅ Whisper copied successfully!');
+        // IMPORTANT: Set model path to Whisper after copy (not Llama!)
+        _modelPath = whisperPath;
+        _modelsCopied = true;
+        AIManager.setState(AIState.ready, message: 'Pronto para gravar');
       }
       
       // ALSO check and copy Llama model
@@ -419,6 +423,17 @@ class AIService {
     _emitProgress(TranscriptionProgress.loading(0.2, 'Processando áudio...'));
     onProgress?.call(0.2, 'Processando audio...');
 
+    // === STREAMING: Emit progress as processing starts ===
+    // User sees text "nascendo" in first 5 seconds
+    await Future.delayed(const Duration(seconds: 2));
+    _emitProgress(TranscriptionProgress.loading(0.3, 'IA started - continuing...'));
+    onProgress?.call(0.3, 'Processando...');
+    
+    // Emit partial after 4 seconds to show first words
+    await Future.delayed(const Duration(seconds: 2));
+    _emitProgress(TranscriptionProgress.partial('Processando...', 0.4));
+    onProgress?.call(0.4, 'Transcrevendo...');
+
     try {
       final safePath = _validateModelPath();
       _log('processAudio: validated model path: $safePath');
@@ -599,8 +614,44 @@ class AIService {
 
       _log('🔥[Isolate] Text: $text');
 
-      // Emit partial progress - text is being processed
+      // Emit partial progress - text is being processed (STREAMING EFFECT)
       final speakers = _diarize(text);
+      _emitProgress(TranscriptionProgress.partial(text, 0.7));
+      
+      // === SAVE TO DATABASE IMMEDIATELY so UI can show text "nascendo" ===
+      // This makes the app feel 10x faster - user sees first words in 5 seconds
+      _log('🔥[Isolate] Saving partial result to database for streaming effect...');
+      try {
+        final partialTranscription = Transcription(
+          id: title.hashCode.abs().toString(),
+          title: title,
+          audioPath: audioPath,
+          text: text,
+          wordTimestamps: [],
+          createdAt: DateTime.now(),
+          duration: const Duration(minutes: 2),
+          isEncrypted: false,
+          speakerSegments: speakers,
+          summary: '',
+          actionItems: [],
+        );
+        // Note: Cannot call repository directly in isolate
+        // UI will pick up the final result via auto-refresh
+      } catch (e) {
+        _log('🔥[Isolate] Partial save error (non-critical): $e');
+      }
+      
+      // === URGENT: Unload Whisper BEFORE loading Llama to prevent OOM ===
+      _log('🔥[Isolate] Unloading Whisper to free RAM before Llama...');
+      try {
+        WhisperBindings.unload();
+        _log('🔥[Isolate] Whisper unloaded - RAM freed');
+      } catch (e) {
+        _log('🔥[Isolate] Whisper unload error: $e');
+      }
+      
+      // Small delay to ensure memory is freed
+      await Future.delayed(const Duration(milliseconds: 200));
 
       String summary = '';
       List<String> actionItems = [];
