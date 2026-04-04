@@ -52,8 +52,7 @@ class WhisperBridge private constructor() {
      * @param language Language code (e.g., "pt", "en", "es") - default "pt" for Portuguese
      * @return Transcribed text
      * 
-     * Note: Initial prompt helps Whisper understand context in Portuguese
-     * The prompt "Transcrição em português do Brasil" biases the model
+     * Note: Post-processing fixes common Spanish->Portuguese confusions
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     fun transcribe(audioPath: String, language: String = "pt"): String {
@@ -62,17 +61,8 @@ class WhisperBridge private constructor() {
         return runBlocking {
             try {
                 val audioFile = java.io.File(audioPath)
-                // Initial prompt to bias towards Portuguese
-                // This helps Whisper recognize pt-BR specific words
-                val initialPrompt = "Transcrição em português do Brasil"
-                
-                // Try transcribe with prompt if supported, otherwise fallback
-                val result = try {
-                    ctx.transcribe(audioFile, initialPrompt) ?: ""
-                } catch (e: Exception) {
-                    // Fallback if prompt not supported
-                    ctx.transcribe(audioFile) ?: ""
-                }
+                // Transcribe - mx.valdora library doesn't support initial prompt
+                val result = ctx.transcribe(audioFile) ?: ""
                 
                 // Post-process: Fix common Spanish->Portuguese confusions
                 fixPortugueseTranscription(result)
@@ -98,12 +88,9 @@ class WhisperBridge private constructor() {
             "Me llamo" to "Meu nome é",
             "estoy" to "estou",
             "Estoy" to "Estou",
-            "testando" to "testando",
-            "testando" to "testando",
             "ciudad" to "cidade",
             "Ciudad" to "Cidade",
             "brasil" to "Brasil",
-            "Brasil" to "Brasil",
             "el que" to "o que",
             "en el" to "no",
             "del" to "de",
@@ -116,9 +103,7 @@ class WhisperBridge private constructor() {
             "entonces" to "então",
             "dónde" to "onde",
             "cómo" to "como",
-            "cuándo" to "quando",
-            "está" to "está",
-            "está" to "está"
+            "cuándo" to "quando"
         )
         
         for ((spanish, portuguese) in corrections) {
