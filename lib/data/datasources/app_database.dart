@@ -225,6 +225,47 @@ class AppDatabase {
           decrypted['summary'] = map['summary'];
         }
       }
+      
+      // Decrypt wordTimestampsJson if encrypted
+      if (isEncrypted && map['wordTimestampsJson'] != null && map['wordTimestampsJson'].toString().isNotEmpty) {
+        try {
+          decrypted['wordTimestampsJson'] = await _decryptField(map['wordTimestampsJson'] as String);
+        } catch (e) {
+          debugPrint('AppDatabase: Decrypt wordTimestampsJson error: $e');
+          decrypted['wordTimestampsJson'] = map['wordTimestampsJson'];
+        }
+      }
+      
+      // Decrypt speakerSegmentsJson if encrypted
+      if (isEncrypted && map['speakerSegmentsJson'] != null && map['speakerSegmentsJson'].toString().isNotEmpty) {
+        try {
+          decrypted['speakerSegmentsJson'] = await _decryptField(map['speakerSegmentsJson'] as String);
+        } catch (e) {
+          debugPrint('AppDatabase: Decrypt speakerSegmentsJson error: $e');
+          decrypted['speakerSegmentsJson'] = map['speakerSegmentsJson'];
+        }
+      }
+      
+      // Decrypt actionItemsJson if encrypted
+      if (isEncrypted && map['actionItemsJson'] != null && map['actionItemsJson'].toString().isNotEmpty) {
+        try {
+          decrypted['actionItemsJson'] = await _decryptField(map['actionItemsJson'] as String);
+        } catch (e) {
+          debugPrint('AppDatabase: Decrypt actionItemsJson error: $e');
+          decrypted['actionItemsJson'] = map['actionItemsJson'];
+        }
+      }
+      
+      // Decrypt speakerNamesJson if encrypted
+      if (isEncrypted && map['speakerNamesJson'] != null && map['speakerNamesJson'].toString().isNotEmpty) {
+        try {
+          decrypted['speakerNamesJson'] = await _decryptField(map['speakerNamesJson'] as String);
+        } catch (e) {
+          debugPrint('AppDatabase: Decrypt speakerNamesJson error: $e');
+          decrypted['speakerNamesJson'] = map['speakerNamesJson'];
+        }
+      }
+      
       decryptedMaps.add(decrypted);
     }
     
@@ -272,6 +313,42 @@ class AppDatabase {
           decryptedMap['summary'] = await _decryptField(map['summary'] as String);
         } catch (e) {
           debugPrint('AppDatabase: Decrypt summary error: $e');
+        }
+      }
+      
+      // Decrypt wordTimestampsJson
+      if (map['wordTimestampsJson'] != null && map['wordTimestampsJson'].toString().isNotEmpty) {
+        try {
+          decryptedMap['wordTimestampsJson'] = await _decryptField(map['wordTimestampsJson'] as String);
+        } catch (e) {
+          debugPrint('AppDatabase: Decrypt wordTimestampsJson error: $e');
+        }
+      }
+      
+      // Decrypt speakerSegmentsJson
+      if (map['speakerSegmentsJson'] != null && map['speakerSegmentsJson'].toString().isNotEmpty) {
+        try {
+          decryptedMap['speakerSegmentsJson'] = await _decryptField(map['speakerSegmentsJson'] as String);
+        } catch (e) {
+          debugPrint('AppDatabase: Decrypt speakerSegmentsJson error: $e');
+        }
+      }
+      
+      // Decrypt actionItemsJson
+      if (map['actionItemsJson'] != null && map['actionItemsJson'].toString().isNotEmpty) {
+        try {
+          decryptedMap['actionItemsJson'] = await _decryptField(map['actionItemsJson'] as String);
+        } catch (e) {
+          debugPrint('AppDatabase: Decrypt actionItemsJson error: $e');
+        }
+      }
+      
+      // Decrypt speakerNamesJson
+      if (map['speakerNamesJson'] != null && map['speakerNamesJson'].toString().isNotEmpty) {
+        try {
+          decryptedMap['speakerNamesJson'] = await _decryptField(map['speakerNamesJson'] as String);
+        } catch (e) {
+          debugPrint('AppDatabase: Decrypt speakerNamesJson error: $e');
         }
       }
       

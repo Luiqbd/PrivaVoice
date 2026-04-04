@@ -166,46 +166,71 @@ class AIService {
 
       final appDir = await getApplicationDocumentsDirectory();
       final modelDir = Directory('${appDir.path}/models');
+      _log('Model directory: ${modelDir.path}');
       
       if (!await modelDir.exists()) {
+        _log('Creating model directory...');
         await modelDir.create(recursive: true);
       }
       
       final whisperPath = '${modelDir.path}/$WHISPER_FILENAME';
-      _log('Looking for Whisper at: $whisperPath');
+      _log('🔍 Looking for Whisper at: $whisperPath');
       
       // Check Whisper model
       if (await File(whisperPath).exists()) {
+        _log('Whisper file exists, checking integrity...');
         if (!_verifyModelIntegrity(whisperPath, EXPECTED_WHISPER_SIZE, WHISPER_MIN_SIZE)) {
-          _log('Recreating corrupted Whisper model...');
+          _log('Whisper corrupted, recreating...');
           await _deleteAndRecreateModel(whisperPath, WHISPER_FILENAME);
         } else {
           _modelPath = whisperPath;
           _modelsCopied = true;
           AIManager.setState(AIState.ready, message: 'Pronto para gravar');
-          _log('Whisper model ready');
+          _log('✅ Whisper model ready');
         }
       } else {
-        _log('Whisper: NOT FOUND - copying...');
+        _log('⚠️ Whisper: NOT FOUND - copying...');
         await _copyModel(WHISPER_FILENAME, whisperPath);
+        _log('✅ Whisper copied successfully!');
       }
       
       // ALSO check and copy Llama model
       final llamaPath = '${modelDir.path}/$LLAMA_FILENAME';
       _log('🔍 Looking for Llama at: $llamaPath');
       
-      if (await File(llamaPath).exists()) {
+      // Check if directory exists first
+      if (!await modelDir.exists()) {
+        _log('⚠️ Model directory does not exist, creating...');
+        await modelDir.create(recursive: true);
+      }
+      
+      final llamaFile = File(llamaPath);
+      _log('🔍 Llama file exists check: ${await llamaFile.exists()}');
+      
+      if (await llamaFile.exists()) {
         _log('🔍 Llama file exists, checking integrity...');
+        final stat = llamaFile.statSync();
+        _log('🔍 Llama file size: ${stat.size} bytes');
+        
         if (!_verifyModelIntegrity(llamaPath, EXPECTED_LLAMA_SIZE, LLAMA_MIN_SIZE)) {
-          _log('🔍 Llama corrupted, recreating...');
+          _log('⚠️ Llama corrupted, recreating...');
           await _deleteAndRecreateModel(llamaPath, LLAMA_FILENAME);
+          _log('✅ Llama recreated successfully!');
         } else {
-          _log('✅ Llama model ready');
+          _log('✅ Llama model ready (verified)');
         }
       } else {
-        _log('🔍 Llama: NOT FOUND - copying...');
+        _log('⚠️ Llama: NOT FOUND - will copy...');
         await _copyModel(LLAMA_FILENAME, llamaPath);
-        _log('✅ Llama copied successfully!');
+        
+        // Verify copy worked
+        final copiedFile = File(llamaPath);
+        if (await copiedFile.exists()) {
+          final copiedSize = copiedFile.statSync().size;
+          _log('✅ Llama copied successfully! Size: $copiedSize bytes');
+        } else {
+          _log('❌ ERROR: Llama copy failed - file not found after copy');
+        }
       }
 
       _validateModelPath();
