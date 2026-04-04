@@ -411,7 +411,7 @@ class AIService {
         final initResult = await WhisperPlatformService.initialize(modelPath);
         if (initResult) {
           _log('🔥[Isolate] Platform service initialized');
-          text = await WhisperPlatformService.transcribe(audioPath);
+          text = await WhisperPlatformService.transcribe(audioPath, language: 'pt');
           if (text != null && text.isNotEmpty) {
             _log('🔥[Isolate] Platform service SUCCESS: ${text.substring(0, text.length > 50 ? 50 : text.length)}...');
           }

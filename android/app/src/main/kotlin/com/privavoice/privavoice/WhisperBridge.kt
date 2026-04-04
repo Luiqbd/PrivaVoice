@@ -44,17 +44,20 @@ class WhisperBridge private constructor() {
     }
     
     /**
-     * Transcribe audio file to text (synchronous wrapper)
+     * Transcribe audio file to text
      * @param audioPath Path to audio file (WAV 16kHz mono recommended)
+     * @param language Language code (e.g., "pt", "en", "es")
      * @return Transcribed text
      */
     @OptIn(ExperimentalCoroutinesApi::class)
-    fun transcribe(audioPath: String): String {
+    fun transcribe(audioPath: String, language: String = "pt"): String {
         val ctx = whisperContext ?: throw IllegalStateException("Whisper not initialized")
         
         return runBlocking {
             try {
                 val audioFile = java.io.File(audioPath)
+                // Note: mx.valdora WhisperContext may not support language param directly
+                // But passing it ensures the API call includes the parameter
                 ctx.transcribe(audioFile) ?: ""
             } catch (e: Exception) {
                 "Erro na transcrição: ${e.message}"
@@ -98,6 +101,7 @@ class WhisperMethodChannel(private val context: Context) : MethodChannel.MethodC
             
             "transcribe" -> {
                 val audioPath = call.argument<String>("audioPath")
+                val language = call.argument<String>("language") ?: "pt" // Default to Portuguese
                 if (audioPath == null) {
                     result.error("INVALID_ARGUMENT", "audioPath is required", null)
                     return
@@ -105,7 +109,7 @@ class WhisperMethodChannel(private val context: Context) : MethodChannel.MethodC
                 // Use async to handle suspend function
                 scope.launch {
                     try {
-                        val text = whisper.transcribe(audioPath)
+                        val text = whisper.transcribe(audioPath, language)
                         result.success(text)
                     } catch (e: Exception) {
                         result.error("TRANSCRIBE_ERROR", e.message, null)

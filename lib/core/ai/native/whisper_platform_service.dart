@@ -51,7 +51,7 @@ class WhisperPlatformService {
   }
   
   /// Transcribe audio file (must be WAV 16kHz mono)
-  static Future<String?> transcribe(String audioPath) async {
+  static Future<String?> transcribe(String audioPath, {String language = 'pt'}) async {
     if (!_isInitialized) {
       print('WhisperPlatform: Not initialized');
       return null;
@@ -66,6 +66,7 @@ class WhisperPlatformService {
       
       final result = await _channel.invokeMethod<String>('transcribe', {
         'audioPath': audioPath,
+        'language': language,  // Pass language parameter
       });
       
       print('WhisperPlatform: Transcribe result: ${result?.substring(0, 50) ?? "null"}...');
