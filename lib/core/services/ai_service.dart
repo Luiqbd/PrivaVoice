@@ -623,29 +623,40 @@ class AIService {
       final llamaPath = modelPath.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
       _log('🔥[Isolate] Llama path: $llamaPath');
       
-      // SKIP Llama for now - it's causing OOM and slow performance
-      // Just use Whisper transcription without summary
-      _log('🔥[Isolate] Skipping Llama summary (disabled for speed/reliability)');
-      /*
+      // Try to generate summary with Llama (with better error handling)
       if (File(llamaPath).existsSync()) {
-        if (_verifyModelIntegrity(llamaPath, EXPECTED_LLAMA_SIZE, LLAMA_MIN_SIZE)) {
-          _log('🔥[Isolate] Loading Llama...');
-          if (LlamaBindings.load()) {
-            final llamaCtx = LlamaBindings.initFromFile(llamaPath);
-            if (llamaCtx != null) {
-              _log('🔥[Isolate] Llama ctx ready');
-              final result = LlamaBindings.generate(ctx: llamaCtx, prompt: text);
-              if (result != null) {
-                summary = result['summary'] ?? '';
-                actionItems = List<String>.from(result['actionItems'] ?? []);
+        try {
+          _log('🔥[Isolate] Checking Llama model integrity...');
+          if (_verifyModelIntegrity(llamaPath, EXPECTED_LLAMA_SIZE, LLAMA_MIN_SIZE)) {
+            _log('🔥[Isolate] Loading Llama (may take time on Moto G06)...');
+            if (LlamaBindings.load()) {
+              _log('🔥[Isolate] Llama loaded, initializing...');
+              final llamaCtx = LlamaBindings.initFromFile(llamaPath);
+              if (llamaCtx != null) {
+                _log('🔥[Isolate] Llama ctx ready, generating summary...');
+                final result = LlamaBindings.generate(ctx: llamaCtx, prompt: text);
+                if (result != null) {
+                  summary = result['summary'] ?? '';
+                  actionItems = List<String>.from(result['actionItems'] ?? []);
+                  _log('🔥[Isolate] Summary generated successfully');
+                }
+                // Dispose immediately after use
+                LlamaBindings.dispose();
+                _log('🔥[Isolate] Llama disposed after summary');
+              } else {
+                _log('🔥[Isolate] Llama ctx is NULL - skipping summary');
               }
+            } else {
+              _log('🔥[Isolate] Llama load failed - skipping summary');
             }
           }
+        } catch (e) {
+          _log('🔥[Isolate] Llama error (non-fatal): $e');
+          // Continue without summary
         }
       } else {
         _log('🔥[Isolate] Llama model NOT FOUND');
       }
-      */
 
       _log('🔥[Isolate] Pipeline complete');
 
