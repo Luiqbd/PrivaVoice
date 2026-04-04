@@ -634,31 +634,77 @@ class AIService {
 
   static List<SpeakerSegment> _diarize(String text) {
     if (text.isEmpty) return [];
-    final lines = text.split('\n').where((l) => l.trim().isNotEmpty).toList();
+    
+    // Split by paragraphs or double newlines to find speaker changes
+    // Also look for patterns like "Speaker:", "P1:", "Person A:", etc.
+    final paragraphs = text.split(RegExp(r'\n\n|\r\n\r\n'));
     final speakers = <SpeakerSegment>[];
     var time = 0;
-    var voiceIndex = 0;
+    var voiceCount = 0;
+    final uniqueVoices = <String>{}; // Track unique voices found
     
-    // Simple voice detection - alternate between 3 voices
-    // In production, this would use actual voice embeddings
-    for (var line in lines) {
-      // Detect voice change by checking for patterns like "Speaker 2:", 
-      // or alternate voices every few lines
-      voiceIndex = (voiceIndex % 3);
-      final voiceName = voiceIndex == 0 ? 'Voz 1' : (voiceIndex == 1 ? 'Voz 2' : 'Voz 3');
+    // Detect voice changes based on:
+    // 1. Empty lines (new paragraph = potentially new speaker)
+    // 2. Text patterns like "Speaker 1:", "P1:", etc.
+    // 3. If no patterns, alternate every paragraph
+    
+    for (var i = 0; i < paragraphs.length; i++) {
+      final paragraph = paragraphs[i].trim();
+      if (paragraph.isEmpty) continue;
       
-      // Estimate duration based on text length (average 150 chars per 10 seconds)
-      final estimatedDuration = (line.length / 15).ceil();
+      // Check if this paragraph indicates a new speaker
+      String voiceName;
+      
+      // Look for speaker patterns in the text
+      final speakerMatch = RegExp(r'(?:speaker|p\d|person|pessoa)[\s:]*(\d+)?', caseSensitive: false).firstMatch(paragraph.toLowerCase());
+      if (speakerMatch != null) {
+        // Found a speaker pattern - use it
+        final speakerNum = speakerMatch.group(1) ?? '${voiceCount + 1}';
+        voiceName = 'Voz $speakerNum';
+      } else if (i > 0 && paragraphs[i-1].trim().isEmpty) {
+        // Empty line before this paragraph = new speaker
+        voiceCount++;
+        voiceName = 'Voz ${voiceCount + 1}';
+      } else if (i > 0 && voiceCount < 10) {
+        // Alternate every paragraph if no clear pattern
+        voiceCount++;
+        voiceName = 'Voz ${(voiceCount % 2) + 1}'; // Alternate between Voz 1 and Voz 2
+      } else {
+        // Default
+        voiceName = 'Voz 1';
+      }
+      
+      // Only add unique voices up to 3
+      uniqueVoices.add(voiceName);
+      if (uniqueVoices.length > 3) {
+        voiceName = uniqueVoices.toList()[2]; // Cap at 3 voices
+      }
+      
+      // Estimate duration based on text length
+      final estimatedDuration = (paragraph.length / 15).ceil().clamp(3, 30);
       
       speakers.add(SpeakerSegment(
         speakerId: voiceName,
         startTime: Duration(seconds: time),
         endTime: Duration(seconds: time + estimatedDuration),
-        text: line.trim(),
+        text: paragraph,
       ));
       time += estimatedDuration;
-      voiceIndex++;
     }
+    
+    // If we only have one voice but multiple segments, consolidate
+    if (speakers.isNotEmpty && uniqueVoices.length == 1) {
+      // Merge all segments into one voice
+      for (var i = 0; i < speakers.length; i++) {
+        speakers[i] = SpeakerSegment(
+          speakerId: 'Voz 1',
+          startTime: speakers[i].startTime,
+          endTime: speakers[i].endTime,
+          text: speakers[i].text,
+        );
+      }
+    }
+    
     return speakers;
   }
 
