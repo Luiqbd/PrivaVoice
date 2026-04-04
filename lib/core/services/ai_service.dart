@@ -192,18 +192,20 @@ class AIService {
       
       // ALSO check and copy Llama model
       final llamaPath = '${modelDir.path}/$LLAMA_FILENAME';
-      _log('Looking for Llama at: $llamaPath');
+      _log('🔍 Looking for Llama at: $llamaPath');
       
       if (await File(llamaPath).exists()) {
+        _log('🔍 Llama file exists, checking integrity...');
         if (!_verifyModelIntegrity(llamaPath, EXPECTED_LLAMA_SIZE, LLAMA_MIN_SIZE)) {
-          _log('Recreating corrupted Llama model...');
+          _log('🔍 Llama corrupted, recreating...');
           await _deleteAndRecreateModel(llamaPath, LLAMA_FILENAME);
         } else {
-          _log('Llama model ready');
+          _log('✅ Llama model ready');
         }
       } else {
-        _log('Llama: NOT FOUND - copying...');
+        _log('🔍 Llama: NOT FOUND - copying...');
         await _copyModel(LLAMA_FILENAME, llamaPath);
+        _log('✅ Llama copied successfully!');
       }
 
       _validateModelPath();
