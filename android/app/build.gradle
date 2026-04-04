@@ -48,6 +48,10 @@ android {
         jniLibs {
             useLegacyPackaging = true
         }
+        // Don't compress model files - they need to be loaded directly
+        resources {
+            excludes += ['assets/models/*']
+        }
     }
 
     // Native build configuration for Whisper and Llama
