@@ -56,23 +56,11 @@ class WhisperBridge private constructor() {
         return runBlocking {
             try {
                 val audioFile = java.io.File(audioPath)
-                
-                // Force Portuguese language for better Brazilian Portuguese transcription
-                // mx.valdora: whisper-android uses these params
-                val params = mx.valdora.whisper.WhisperParams().apply {
-                    language = language  // Force: "pt"
-                    n_threads = 4
-                    n_processors = 2
-                }
-                
-                ctx.transcribe(audioFile, params) ?: ""
+                // Use simple transcribe - mx.valdora uses model language by default
+                // The model whisper-base.bin is multilingual, will detect language automatically
+                ctx.transcribe(audioFile) ?: ""
             } catch (e: Exception) {
-                // Fallback if params not supported
-                try {
-                    ctx.transcribe(audioFile) ?: ""
-                } catch (e2: Exception) {
-                    "Erro na transcrição: ${e2.message}"
-                }
+                "Erro na transcrição: ${e.message}"
             }
         }
     }
