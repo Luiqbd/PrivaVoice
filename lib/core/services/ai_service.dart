@@ -649,60 +649,17 @@ class AIService {
         _log('🔥[Isolate] Partial save error (non-critical): $e');
       }
       
-      // === URGENT: Unload Whisper BEFORE loading Llama to prevent OOM ===
-      _log('🔥[Isolate] Unloading Whisper to free RAM before Llama...');
-      try {
-        WhisperBindings.unload();
-        _log('🔥[Isolate] Whisper unloaded - RAM freed');
-      } catch (e) {
-        _log('🔥[Isolate] Whisper unload error: $e');
-      }
-      
-      // Small delay to ensure memory is freed
-      await Future.delayed(const Duration(milliseconds: 200));
+      // === URGENT: Don't load Llama here - will cause OOM ===
+      // Summary will be generated on-demand when user clicks button
+      _log('🔥[Isolate] Skipping automatic summary generation to save RAM');
+      _log('🔥[Isolate] User can generate summary later on-demand');
 
       String summary = '';
       List<String> actionItems = [];
 
-      final llamaPath = modelPath.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
-      _log('🔥[Isolate] Llama path: $llamaPath');
-      
-      // Try to generate summary with Llama (with better error handling)
-      if (File(llamaPath).existsSync()) {
-        try {
-          _log('🔥[Isolate] Checking Llama model integrity...');
-          if (_verifyModelIntegrity(llamaPath, EXPECTED_LLAMA_SIZE, LLAMA_MIN_SIZE)) {
-            _log('🔥[Isolate] Loading Llama (may take time on Moto G06)...');
-            if (LlamaBindings.load()) {
-              _log('🔥[Isolate] Llama loaded, initializing...');
-              final llamaCtx = LlamaBindings.initFromFile(llamaPath);
-              if (llamaCtx != null) {
-                _log('🔥[Isolate] Llama ctx ready, generating summary...');
-                final result = LlamaBindings.generate(ctx: llamaCtx, prompt: text);
-                if (result != null) {
-                  summary = result['summary'] ?? '';
-                  actionItems = List<String>.from(result['actionItems'] ?? []);
-                  _log('🔥[Isolate] Summary generated successfully');
-                }
-                // Dispose immediately after use
-                LlamaBindings.dispose();
-                _log('🔥[Isolate] Llama disposed after summary');
-              } else {
-                _log('🔥[Isolate] Llama ctx is NULL - skipping summary');
-              }
-            } else {
-              _log('🔥[Isolate] Llama load failed - skipping summary');
-            }
-          }
-        } catch (e) {
-          _log('🔥[Isolate] Llama error (non-fatal): $e');
-          // Continue without summary
-        }
-      } else {
-        _log('🔥[Isolate] Llama model NOT FOUND');
-      }
-
-      _log('🔥[Isolate] Pipeline complete');
+      // Skip automatic Llama loading - summary will be generated on-demand
+      // This prevents OOM on low-end devices like Moto G06
+      _log('🔥[Isolate] Pipeline complete (summary available on-demand)');
 
       return Transcription(
         id: title.hashCode.abs().toString(),  // Use title as ID base
@@ -867,5 +824,92 @@ $_diagnosticLog
       summary: '',
       actionItems: [],
     );
+  }
+
+  /// Generate summary on-demand when user clicks button
+  /// This loads Llama only when needed, preventing OOM
+  static Future<Transcription?> generateSummary({
+    required String transcriptionId,
+    required String text,
+  }) async {
+    _log('=== GENERATE SUMMARY ON-DEMAND ===');
+    AIManager.setState(AIState.processing, message: 'Gerando resumo...');
+    
+    // Capture token for isolate
+    final rootToken = ServicesBinding.rootIsolateToken!;
+    
+    try {
+      final result = await Isolate.run(() async {
+        // Initialize token
+        BackgroundIsolateBinaryMessenger.ensureInitialized(rootToken);
+        
+        _log('🔥[Isolate] Loading Llama for summary...');
+        
+        final modelPath = _modelPath;
+        if (modelPath == null) {
+          _log('🔥[Isolate] Model path not set');
+          return null;
+        }
+        
+        final llamaPath = modelPath.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
+        
+        // Check Llama model exists
+        if (!File(llamaPath).existsSync()) {
+          _log('🔥[Isolate] Llama model not found');
+          return null;
+        }
+        
+        // Load Llama
+        if (!LlamaBindings.load()) {
+          _log('🔥[Isolate] Llama load failed');
+          return null;
+        }
+        
+        final llamaCtx = LlamaBindings.initFromFile(llamaPath);
+        if (llamaCtx == null) {
+          _log('🔥[Isolate] Llama ctx init failed');
+          return null;
+        }
+        
+        _log('🔥[Isolate] Llama ready, generating summary...');
+        final llmResult = LlamaBindings.generate(ctx: llamaCtx, prompt: text);
+        
+        // Dispose immediately
+        LlamaBindings.dispose();
+        _log('🔥[Isolate] Llama disposed');
+        
+        if (llmResult == null) {
+          _log('🔥[Isolate] Llama generate returned null');
+          return null;
+        }
+        
+        final summary = llmResult['summary'] ?? '';
+        final actionItems = List<String>.from(llmResult['actionItems'] ?? []);
+        
+        _log('🔥[Isolate] Summary generated: $summary');
+        
+        // Return a new Transcription with summary
+        return Transcription(
+          id: transcriptionId,
+          title: '',
+          audioPath: '',
+          text: text,
+          wordTimestamps: [],
+          createdAt: DateTime.now(),
+          duration: const Duration(minutes: 2),
+          isEncrypted: false,
+          speakerSegments: [],
+          summary: summary,
+          actionItems: actionItems,
+        );
+      });
+      
+      AIManager.setState(AIState.ready, message: 'Pronto');
+      return result;
+    } catch (e) {
+      _log('Generate summary failed: $e');
+      AIManager.setError('Resumo falhou: $e');
+      return null;
+    }
   }
 }

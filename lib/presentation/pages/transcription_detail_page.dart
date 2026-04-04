@@ -420,7 +420,31 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
           },
         ),
         const SizedBox(height: 24),
-        if (_transcription!.summary != null) ...[
+        
+        // Show "Generate Summary" button if no summary yet
+        if (_transcription!.summary == null || _transcription!.summary!.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: ElevatedButton.icon(
+              onPressed: _isProcessing ? null : () => _generateSummary(),
+              icon: _isProcessing 
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.summarize),
+              label: Text(_isProcessing ? 'Gerando resumo...' : 'Gerar Resumo'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.secondaryAccent,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+          ),
+        
+        // Show summary if available
+        if (_transcription!.summary != null && _transcription!.summary!.isNotEmpty) ...[
           _buildSection(
               'Resumo', Icons.summarize, AppColors.secondaryAccent, _transcription!.summary!),
           const SizedBox(height: 16),
@@ -1051,6 +1075,58 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
       _loadTranscription();
     } catch (e) {
       debugPrint('Error saving speaker name: $e');
+    }
+  }
+  
+  /// Generate summary on-demand when user clicks button
+  /// This loads Llama only when needed, preventing OOM
+  Future<void> _generateSummary() async {
+    if (_transcription == null || _transcription!.text.isEmpty) {
+      debugPrint('Cannot generate summary: no transcription text');
+      return;
+    }
+    
+    setState(() => _isProcessing = true);
+    
+    try {
+      debugPrint('Generating summary for: ${_transcription!.title}');
+      
+      // Use AIService to generate summary (pass text directly)
+      final result = await AIService.generateSummary(
+        transcriptionId: _transcription!.id,
+        text: _transcription!.text,
+      );
+      
+      if (result != null && result.summary != null && result.summary!.isNotEmpty) {
+        // Update local transcription with new summary
+        setState(() {
+          _transcription = Transcription(
+            id: _transcription!.id,
+            title: _transcription!.title,
+            audioPath: _transcription!.audioPath,
+            text: _transcription!.text,
+            wordTimestamps: _transcription!.wordTimestamps,
+            createdAt: _transcription!.createdAt,
+            duration: _transcription!.duration,
+            isEncrypted: _transcription!.isEncrypted,
+            speakerSegments: _transcription!.speakerSegments,
+            summary: result.summary,
+            actionItems: result.actionItems,
+            notes: _transcription!.notes,
+          );
+        });
+        
+        // Save to database
+        final repo = GetIt.instance<TranscriptionRepository>();
+        await repo.saveTranscription(_transcription!);
+        debugPrint('Summary saved successfully!');
+      }
+    } catch (e) {
+      debugPrint('Error generating summary: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+      }
     }
   }
 }
