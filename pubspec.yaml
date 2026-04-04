@@ -29,6 +29,7 @@ dependencies:
   intl: ^0.19.0
   rxdart: ^0.27.7
   share_plus: ^7.2.1
+  http: ^1.2.0
 
 dev_dependencies:
   flutter_test:
@@ -40,6 +41,5 @@ dependency_overrides:
 
 flutter:
   uses-material-design: true
-  assets:
-    - assets/models/whisper-base.bin
-    - assets/models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf
+  # Models are downloaded at runtime, not bundled in APK
+  # This keeps APK small (~30MB instead of ~1GB)
