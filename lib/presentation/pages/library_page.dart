@@ -190,21 +190,43 @@ class LibraryPageState extends State<LibraryPage> {
                                 color: Colors.red.shade900,
                                 borderRadius: BorderRadius.circular(16),
                               ),
-                              child: const Row(
+                              child: Row(
                                 mainAxisAlignment: MainAxisAlignment.end,
                                 children: [
-                                  // Edit button (Ciano)
-                                  Padding(
-                                    padding: EdgeInsets.only(right: 8),
+                                  // Edit button (Ciano Neon) - TOUCHABLE!
+                                  Container(
+                                    margin: const EdgeInsets.only(right: 8),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primaryAccent.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: AppColors.primaryAccent, width: 2),
+                                    ),
                                     child: IconButton(
-                                      icon: Icon(Icons.edit, color: AppColors.primaryAccent),
-                                      onPressed: null, // handled by tap
+                                      icon: Icon(Icons.edit, color: AppColors.primaryAccent, size: 24),
+                                      onPressed: () {
+                                        // Dismiss the swipe first, then show rename
+                                        Navigator.of(context).pop(); // Pop if any dialog
+                                        _showRenameModal(context, transcription.id, transcription.title);
+                                      },
                                     ),
                                   ),
                                   // Delete button (Vermelho)
-                                  Padding(
-                                    padding: EdgeInsets.only(right: 16),
-                                    child: Icon(Icons.delete, color: Colors.redAccent, size: 28),
+                                  Container(
+                                    margin: const EdgeInsets.only(right: 16),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: Colors.redAccent, width: 2),
+                                    ),
+                                    child: IconButton(
+                                      icon: Icon(Icons.delete, color: Colors.redAccent, size: 24),
+                                      onPressed: () async {
+                                        final confirm = await _showDeleteConfirmation(context, transcription.id);
+                                        if (confirm == true) {
+                                          _deleteTranscription(transcription.id, transcription.audioPath);
+                                        }
+                                      },
+                                    ),
                                   ),
                                 ],
                               ),
@@ -212,7 +234,6 @@ class LibraryPageState extends State<LibraryPage> {
                             child: TranscriptionCard(
                               transcription: transcription,
                               onTap: () => _openTranscription(transcription.id),
-                              onLongPress: () => _showRenameModal(context, transcription.id, transcription.title),
                             ),
                           );
                         },
