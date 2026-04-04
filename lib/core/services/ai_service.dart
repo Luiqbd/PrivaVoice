@@ -295,7 +295,8 @@ class AIService {
       }
 
       _modelsCopied = true;
-      _modelPath = destPath;
+      // IMPORTANT: Don't set _modelPath here - it's set in checkAssetsIntegrity
+      // to ensure it's set to Whisper path, not Llama path
       _log('Model ready: $destPath');
     } catch (e) {
       _log('Copy FAILED: $e');
@@ -402,22 +403,18 @@ class AIService {
     onProgress?.call(0.4, 'Transcrevendo...');
 
     try {
-      final safePath = _validateModelPath();
-      _log('processAudio: validated model path: $safePath');
+      // CRITICAL: Always use Whisper model for transcription, not Llama!
+      // The _modelPath might be set to Llama by checkAssetsIntegrity, so we need to fix it
+      final appDir = await getApplicationDocumentsDirectory();
+      final modelDir = Directory('${appDir.path}/models');
+      final whisperPath = '${modelDir.path}/$WHISPER_FILENAME';
       
-      if (safePath == null) {
-        throw Exception('Model path lost');
-      }
+      // Use Whisper path directly for transcription
+      final safePath = whisperPath;
+      _log('processAudio: Using Whisper path: $safePath');
       
-      // Verify model file exists and has correct size
-      final modelFile = File(safePath);
-      if (!modelFile.existsSync()) {
-        throw Exception('Model file does not exist: $safePath');
-      }
-      final modelSize = modelFile.lengthSync();
-      _log('processAudio: model file size: $modelSize bytes');
-      if (modelSize < 100000000) {
-        throw Exception('Model file too small: $modelSize bytes (expected ~144MB)');
+      if (!File(safePath).existsSync()) {
+        throw Exception('Whisper model not found: $safePath');
       }
 
       // Initialize WhisperPlatformService on MAIN THREAD before isolate
@@ -447,7 +444,7 @@ class AIService {
             modelPath: safePath,
           );
         });
-        _log('processAudio: Isolate completed, result: ${result?.text?.substring(0, 50) ?? "NULL"}...');
+        _log('processAudio: Isolate completed, result: ${result?.text != null && result!.text.length > 50 ? result.text.substring(0, 50) + "..." : result?.text ?? "NULL"}');
       } catch (isolateError, stack) {
         _log('processAudio: Isolate FAILED: $isolateError');
         _log('processAudio: Stack: $stack');
