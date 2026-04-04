@@ -18,6 +18,7 @@ class TranscriptionData {
   final String? summary;
   final String? actionItemsJson;
   final String? notes; // Notas do usuário
+  final String? speakerNamesJson; // Custom speaker names (Map<String, String>)
 
   TranscriptionData({
     required this.id,
@@ -32,6 +33,7 @@ class TranscriptionData {
     this.summary,
     this.actionItemsJson,
     this.notes,
+    this.speakerNamesJson,
   });
 
   Map<String, dynamic> toMap() => {
@@ -47,6 +49,7 @@ class TranscriptionData {
     'summary': summary,
     'actionItemsJson': actionItemsJson,
     'notes': notes,
+    'speakerNamesJson': speakerNamesJson,
   };
 
   factory TranscriptionData.fromMap(Map<String, dynamic> map) => TranscriptionData(
@@ -61,7 +64,8 @@ class TranscriptionData {
     speakerSegmentsJson: map['speakerSegmentsJson'] as String?,
     summary: map['summary'] as String?,
     actionItemsJson: map['actionItemsJson'] as String?,
-    notes: map['notes'] as String?, // Novo campo
+    notes: map['notes'] as String?,
+    speakerNamesJson: map['speakerNamesJson'] as String?,
   );
 }
 
@@ -132,7 +136,8 @@ class AppDatabase {
             speakerSegmentsJson TEXT,
             summary TEXT,
             actionItemsJson TEXT,
-            notes TEXT
+            notes TEXT,
+            speakerNamesJson TEXT
           )
         ''');
         debugPrint('AppDatabase: Table created successfully!');

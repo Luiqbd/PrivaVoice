@@ -14,6 +14,9 @@ class Transcription extends Equatable {
   final List<String>? actionItems;
   final String? notes; // Campo para notas do usuário
   
+  // Custom speaker names (e.g., "Dr. Ricardo" instead of "Voz 1")
+  final Map<String, String>? speakerNames; // speakerId -> customName
+  
   const Transcription({
     required this.id,
     required this.title,
@@ -27,13 +30,25 @@ class Transcription extends Equatable {
     this.summary,
     this.actionItems,
     this.notes,
+    this.speakerNames,
   });
+  
+  /// Get display name for a speaker
+  String getSpeakerDisplayName(String speakerId) {
+    return speakerNames?[speakerId] ?? _defaultSpeakerName(speakerId);
+  }
+  
+  String _defaultSpeakerName(String speakerId) {
+    // Convert "speaker_0" to "Voz 1", "speaker_1" to "Voz 2", etc.
+    final index = int.tryParse(speakerId.replaceAll('speaker_', '')) ?? 0;
+    return 'Voz ${index + 1}';
+  }
   
   @override
   List<Object?> get props => [
     id, title, audioPath, text, wordTimestamps, 
     createdAt, duration, isEncrypted, speakerSegments, 
-    summary, actionItems, notes
+    summary, actionItems, notes, speakerNames
   ];
 }
 
