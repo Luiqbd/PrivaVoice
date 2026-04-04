@@ -66,13 +66,8 @@ android {
         prefab true
     }
     
-    sourceSets {
-        main {
-            // Native libs now come from AAR (mx.valdora:whisper-android)
-            // No more jniLibs folder needed
-            assets.srcDirs = ['../../assets/models']
-        }
-    }
+    // REMOVIDO: assets.srcDirs duplicava os modelos no APK
+    // O Flutter plugin já inclui assets do pubspec.yaml automaticamente
 }
 
 // IMPORTANT: Keep flutter source pointing to project root
