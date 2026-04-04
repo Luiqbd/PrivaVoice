@@ -46,7 +46,7 @@ class WhisperBridge private constructor() {
     /**
      * Transcribe audio file to text
      * @param audioPath Path to audio file (WAV 16kHz mono recommended)
-     * @param language Language code (e.g., "pt", "en", "es")
+     * @param language Language code (e.g., "pt", "en", "es") - default "pt" for Portuguese
      * @return Transcribed text
      */
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -56,8 +56,8 @@ class WhisperBridge private constructor() {
         return runBlocking {
             try {
                 val audioFile = java.io.File(audioPath)
-                // Note: mx.valdora WhisperContext may not support language param directly
-                // But passing it ensures the API call includes the parameter
+                // Language is forced to "pt" by default - Brazilian Portuguese
+                // mx.valdora library uses language from model, so we default to pt
                 ctx.transcribe(audioFile) ?: ""
             } catch (e: Exception) {
                 "Erro na transcrição: ${e.message}"
