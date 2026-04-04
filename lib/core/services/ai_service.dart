@@ -163,8 +163,13 @@ class AIService {
       // Bytes 22-25 = sample rate
       // Bytes 34-35 = bits per sample * channels
       final raf = file.openSync(mode: FileMode.read);
-      final header = List<int>.generate(44, (i) => raf.readByte());
+      final bytes = raf.readSync(44);
       raf.closeSync();
+      
+      if (bytes.length < 44) return null;
+      
+      // Convert Uint8List to List<int>
+      final header = bytes.toList();
       
       // Check if it's a WAV file (RIFF header)
       if (header[0] != 0x52 || header[1] != 0x49 || header[2] != 0x46 || header[3] != 0x46) {
