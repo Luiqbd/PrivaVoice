@@ -79,16 +79,16 @@ class WhisperBridge private constructor() {
                 val audioFile = java.io.File(audioPath)
                 println("WhisperBridge: Audio file exists: ${audioFile.exists()}")
                 
-                // Force Portuguese for accuracy
+                // Force Portuguese for accuracy - use strong language hint
                 val forcedLanguage = "pt"
                 
-                // Fast context prompt - minimal tokens for speed
-                val contextPrompt = "Português brasileiro."
+                // Strong Portuguese context prompt - this helps Whisper recognize Portuguese
+                val contextPrompt = "Transcreva em português brasileiro. Fale em português do Brasil. Portuguese language audio. Brazilian Portuguese."
                 
-                // OPTIMIZED: beam_size=1 for speed (was 5, was 2)
-                // This is the KEY optimization for Moto G06 performance
-                println("WhisperBridge: Calling ctx.transcribe()...")
-                val rawResult = ctx.transcribe(audioFile) ?: ""
+                // Use default transcription - the model is multilingual
+                // The language prompt helps with accuracy
+                println("WhisperBridge: Calling ctx.transcribe() with Portuguese prompt...")
+                val rawResult = ctx.transcribe(audioFile, language = forcedLanguage) ?: ""
                 println("WhisperBridge: transcribe() returned: ${rawResult.take(50)}")
                 
                 // Process Portuguese corrections
