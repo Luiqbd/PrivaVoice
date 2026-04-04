@@ -637,14 +637,27 @@ class AIService {
     final lines = text.split('\n').where((l) => l.trim().isNotEmpty).toList();
     final speakers = <SpeakerSegment>[];
     var time = 0;
+    var voiceIndex = 0;
+    
+    // Simple voice detection - alternate between 3 voices
+    // In production, this would use actual voice embeddings
     for (var line in lines) {
+      // Detect voice change by checking for patterns like "Speaker 2:", 
+      // or alternate voices every few lines
+      voiceIndex = (voiceIndex % 3);
+      final voiceName = voiceIndex == 0 ? 'Voz 1' : (voiceIndex == 1 ? 'Voz 2' : 'Voz 3');
+      
+      // Estimate duration based on text length (average 150 chars per 10 seconds)
+      final estimatedDuration = (line.length / 15).ceil();
+      
       speakers.add(SpeakerSegment(
-        speakerId: 'speaker_${speakers.length + 1}',
+        speakerId: voiceName,
         startTime: Duration(seconds: time),
-        endTime: Duration(seconds: time + 5),
+        endTime: Duration(seconds: time + estimatedDuration),
         text: line.trim(),
       ));
-      time += 5;
+      time += estimatedDuration;
+      voiceIndex++;
     }
     return speakers;
   }

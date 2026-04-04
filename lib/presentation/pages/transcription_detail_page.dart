@@ -372,30 +372,6 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
       );
     }
 
-    if (_isProcessing) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(color: AppColors.primaryAccent),
-            SizedBox(height: 24),
-            Text('Processando IA...',
-                style: TextStyle(color: AppColors.textPrimary, fontSize: 18)),
-          ],
-        ),
-      );
-    }
-
-    if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text('Erro: $_error',
-              style: const TextStyle(color: AppColors.error)),
-        ),
-      );
-    }
-
     if (_transcription == null) {
       return const Center(child: Text('Nao encontrado'));
     }
@@ -659,20 +635,8 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    // Texto com alto contraste
-                    Text(
-                      segment.text,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.95),
-                        fontSize: 15,
-                        height: 1.5,
-                        fontWeight: FontWeight.w400,
-                        letterSpacing: 0.2,
-                        shadows: [
-                          Shadow(color: Colors.black.withOpacity(0.3), blurRadius: 2),
-                        ],
-                      ),
-                    ),
+                    // Texto com efeito karaoke - destaca palavras conforme reproduz
+                    _buildKaraokeText(segment, isActive),
                   ],
                 ),
               ),
@@ -680,6 +644,50 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
           ),
         ],
       ),
+    );
+  }
+  
+  /// Karaoke effect - highlight words being spoken based on time
+  Widget _buildKaraokeText(SpeakerSegment segment, bool isActive) {
+    if (segment.text.isEmpty) return const SizedBox.shrink();
+    
+    final words = segment.text.split(' ');
+    final segmentDuration = segment.endTime - segment.startTime;
+    final now = _currentPosition;
+    final color = _getSpeakerColor(_transcription!.speakerSegments!.indexOf(segment));
+    
+    // Calculate which word should be highlighted
+    int highlightedIndex = -1;
+    if (isActive && now >= segment.startTime && now <= segment.endTime) {
+      final progress = (now - segment.startTime).inMilliseconds / segmentDuration.inMilliseconds;
+      highlightedIndex = (progress * words.length).floor().clamp(0, words.length - 1);
+    }
+    
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: List.generate(words.length, (index) {
+        final isHighlighted = index == highlightedIndex && isActive;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: isHighlighted ? const EdgeInsets.symmetric(horizontal: 6, vertical: 2) : EdgeInsets.zero,
+          decoration: isHighlighted
+              ? BoxDecoration(
+                  color: color.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(4),
+                )
+              : null,
+          child: Text(
+            words[index],
+            style: TextStyle(
+              color: isHighlighted ? Colors.white : Colors.white.withOpacity(0.95),
+              fontSize: 15,
+              fontWeight: isHighlighted ? FontWeight.bold : FontWeight.w400,
+              height: 1.5,
+            ),
+          ),
+        );
+      }),
     );
   }
 
