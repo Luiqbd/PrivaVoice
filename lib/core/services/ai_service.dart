@@ -365,7 +365,12 @@ class AIService {
         throw Exception('No disk space or permission denied');
       }
 
+      // Capture token before isolate
+      final rootToken = ServicesBinding.rootIsolateToken!;
+      
       await Isolate.run(() async {
+        // Initialize token for this isolate
+        BackgroundIsolateBinaryMessenger.ensureInitialized(rootToken);
         await _copyModelsToDocuments();
       });
 
