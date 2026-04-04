@@ -51,6 +51,9 @@ class WhisperBridge private constructor() {
      * @param audioPath Path to audio file (WAV 16kHz mono recommended)
      * @param language Language code (e.g., "pt", "en", "es") - default "pt" for Portuguese
      * @return Transcribed text
+     * 
+     * Note: Initial prompt helps Whisper understand context in Portuguese
+     * The prompt "Transcrição em português do Brasil" biases the model
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     fun transcribe(audioPath: String, language: String = "pt"): String {
@@ -59,13 +62,70 @@ class WhisperBridge private constructor() {
         return runBlocking {
             try {
                 val audioFile = java.io.File(audioPath)
-                // Use simple transcribe - mx.valdora uses model language by default
-                // The model whisper-base.bin is multilingual, will detect language automatically
-                ctx.transcribe(audioFile) ?: ""
+                // Initial prompt to bias towards Portuguese
+                // This helps Whisper recognize pt-BR specific words
+                val initialPrompt = "Transcrição em português do Brasil"
+                
+                // Try transcribe with prompt if supported, otherwise fallback
+                val result = try {
+                    ctx.transcribe(audioFile, initialPrompt) ?: ""
+                } catch (e: Exception) {
+                    // Fallback if prompt not supported
+                    ctx.transcribe(audioFile) ?: ""
+                }
+                
+                // Post-process: Fix common Spanish->Portuguese confusions
+                fixPortugueseTranscription(result)
             } catch (e: Exception) {
                 "Erro na transcrição: ${e.message}"
             }
         }
+    }
+    
+    /**
+     * Fix common Spanish words that Whisper might confuse with Portuguese
+     */
+    private fun fixPortugueseTranscription(text: String): String {
+        var result = text
+        
+        // Common confusions: Spanish -> Portuguese
+        val corrections = mapOf(
+            "hola" to "olá",
+            "Hola" to "Olá",
+            "qué tal" to "que tal",
+            "Qué tal" to "Que tal",
+            "me llamo" to "meu nome é",
+            "Me llamo" to "Meu nome é",
+            "estoy" to "estou",
+            "Estoy" to "Estou",
+            "testando" to "testando",
+            "testando" to "testando",
+            "ciudad" to "cidade",
+            "Ciudad" to "Cidade",
+            "brasil" to "Brasil",
+            "Brasil" to "Brasil",
+            "el que" to "o que",
+            "en el" to "no",
+            "del" to "de",
+            "los" to "os",
+            "las" to "as",
+            "una" to "uma",
+            "uno" to "um",
+            "pero" to "mas",
+            "ahora" to "agora",
+            "entonces" to "então",
+            "dónde" to "onde",
+            "cómo" to "como",
+            "cuándo" to "quando",
+            "está" to "está",
+            "está" to "está"
+        )
+        
+        for ((spanish, portuguese) in corrections) {
+            result = result.replace(spanish, portuguese, ignoreCase = true)
+        }
+        
+        return result
     }
     
     /**
