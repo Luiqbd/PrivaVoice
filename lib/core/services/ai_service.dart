@@ -151,6 +151,46 @@ class AIService {
       return false;
     }
   }
+/// Get audio file duration by reading WAV header
+  static Duration? _getAudioDuration(String audioPath) {
+    try {
+      final file = File(audioPath);
+      if (!file.existsSync()) return null;
+      
+      // Read WAV file header to get duration
+      // WAV format: 44 bytes header
+      // Bytes 40-43 = file size - 8
+      // Bytes 22-25 = sample rate
+      // Bytes 34-35 = bits per sample * channels
+      final raf = file.openSync(mode: FileMode.read);
+      final header = List<int>.generate(44, (i) => raf.readByte());
+      raf.closeSync();
+      
+      // Check if it's a WAV file (RIFF header)
+      if (header[0] != 0x52 || header[1] != 0x49 || header[2] != 0x46 || header[3] != 0x46) {
+        return null; // Not WAV
+      }
+      
+      // Get sample rate (bytes 22-25, little endian)
+      final sampleRate = header[22] | (header[23] << 8) | (header[24] << 16) | (header[25] << 24);
+      if (sampleRate <= 0) return null;
+      
+      // Get byte rate (bytes 28-31, little endian)
+      final byteRate = header[28] | (header[29] << 8) | (header[30] << 16) | (header[31] << 24);
+      if (byteRate <= 0) return null;
+      
+      // Get data size (bytes 40-43, little endian)
+      final dataSize = header[40] | (header[41] << 8) | (header[42] << 16) | (header[43] << 24);
+      
+      final durationSeconds = dataSize / byteRate;
+      _log('WAV duration: ${durationSeconds.toStringAsFixed(1)}s (sampleRate: $sampleRate, dataSize: $dataSize)');
+      
+      return Duration(milliseconds: (durationSeconds * 1000).round());
+    } catch (e) {
+      _log('Error getting audio duration: $e');
+      return null;
+    }
+  }
 
   static Future<bool> checkAssetsIntegrity() async {
     _log('=== PRE-FLIGHT CHECK ===');
@@ -578,8 +618,12 @@ class AIService {
 
       _log('🔥[Isolate] Text: $text');
 
+      // Get actual audio duration for proper karaoke sync
+      final audioDuration = _getAudioDuration(audioPath);
+      _log('🔥[Isolate] Audio duration: ${audioDuration?.inSeconds ?? 120} seconds');
+
       // Emit partial progress - text is being processed (STREAMING EFFECT)
-      final speakers = _diarize(text);
+      final speakers = _diarize(text, audioDuration: audioDuration);
       _emitProgress(TranscriptionProgress.partial(text, 0.7));
       
       // === SAVE TO DATABASE IMMEDIATELY so UI can show text "nascendo" ===
@@ -696,16 +740,24 @@ class AIService {
     }
   }
 
-  static List<SpeakerSegment> _diarize(String text) {
+  static List<SpeakerSegment> _diarize(String text, {Duration? audioDuration}) {
     if (text.isEmpty) return [];
     
     // Split by paragraphs or double newlines to find speaker changes
     // Also look for patterns like "Speaker:", "P1:", "Person A:", etc.
     final paragraphs = text.split(RegExp(r'\n\n|\r\n\r\n'));
     final speakers = <SpeakerSegment>[];
+    
+    // Get actual audio duration (default to 2 min if not provided)
+    final totalDuration = audioDuration ?? const Duration(minutes: 2);
     var time = 0;
     var voiceCount = 0;
     final uniqueVoices = <String>{}; // Track unique voices found
+    
+    // Calculate timing based on actual audio duration
+    // Each paragraph gets time proportional to its length relative to total text
+    final totalTextLength = paragraphs.fold<int>(0, (sum, p) => sum + p.trim().length);
+    var accumulatedTime = 0;
     
     // Detect voice changes based on:
     // 1. Empty lines (new paragraph = potentially new speaker)
@@ -744,8 +796,14 @@ class AIService {
         voiceName = uniqueVoices.toList()[2]; // Cap at 3 voices
       }
       
-      // Estimate duration based on text length
-      final estimatedDuration = (paragraph.length / 15).ceil().clamp(3, 30);
+      // Calculate duration proportionally based on actual audio duration
+      final paragraphRatio = totalTextLength > 0 ? paragraph.length / totalTextLength : 0.0;
+      final estimatedDuration = (totalDuration.inSeconds * paragraphRatio).round().clamp(3, totalDuration.inSeconds);
+      
+      // Ensure we don't exceed total duration
+      if (time + estimatedDuration > totalDuration.inSeconds) {
+        time = totalDuration.inSeconds - estimatedDuration;
+      }
       
       speakers.add(SpeakerSegment(
         speakerId: voiceName,
