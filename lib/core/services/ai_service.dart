@@ -391,15 +391,15 @@ class AIService {
     _emitProgress(TranscriptionProgress.loading(0.2, 'Processando áudio...'));
     onProgress?.call(0.2, 'Processando audio...');
 
-    // === STREAMING: Emit progress as processing starts ===
-    // User sees text "nascendo" in first 5 seconds
-    await Future.delayed(const Duration(seconds: 2));
-    _emitProgress(TranscriptionProgress.loading(0.3, 'IA started - continuing...'));
+    // === STREAMING: Emit progress quickly so user doesn't see static screen ===
+    // User sees progress updates immediately
+    await Future.delayed(const Duration(milliseconds: 500));
+    _emitProgress(TranscriptionProgress.loading(0.3, 'Transcrevendo...'));
     onProgress?.call(0.3, 'Processando...');
     
-    // Emit partial after 4 seconds to show first words
-    await Future.delayed(const Duration(seconds: 2));
-    _emitProgress(TranscriptionProgress.partial('Processando...', 0.4));
+    // Emit partial quickly
+    await Future.delayed(const Duration(milliseconds: 500));
+    _emitProgress(TranscriptionProgress.partial('Aguarde...', 0.4));
     onProgress?.call(0.4, 'Transcrevendo...');
 
     try {
@@ -623,6 +623,10 @@ class AIService {
       final llamaPath = modelPath.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
       _log('🔥[Isolate] Llama path: $llamaPath');
       
+      // SKIP Llama for now - it's causing OOM and slow performance
+      // Just use Whisper transcription without summary
+      _log('🔥[Isolate] Skipping Llama summary (disabled for speed/reliability)');
+      /*
       if (File(llamaPath).existsSync()) {
         if (_verifyModelIntegrity(llamaPath, EXPECTED_LLAMA_SIZE, LLAMA_MIN_SIZE)) {
           _log('🔥[Isolate] Loading Llama...');
@@ -641,6 +645,7 @@ class AIService {
       } else {
         _log('🔥[Isolate] Llama model NOT FOUND');
       }
+      */
 
       _log('🔥[Isolate] Pipeline complete');
 
