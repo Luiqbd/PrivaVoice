@@ -636,7 +636,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                         border: Border.all(color: color.withOpacity(0.5)),
                       ),
                       child: Text(
-                        initials,
+                        displayName,
                         style: TextStyle(
                           color: color,
                           fontSize: 12,
@@ -919,19 +919,19 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
     final seconds = duration.inSeconds % 60;
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
-}
+
   void _showSpeakerEditDialog(String speakerId) {
     final currentName = _transcription?.getSpeakerDisplayName(speakerId) ?? 'Voz';
     final controller = TextEditingController(text: currentName.replaceFirst('Voz ', ''));
     
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
+        title: const Text(
           'Editar Locutor',
-          style: const TextStyle(color: AppColors.textPrimary),
+          style: TextStyle(color: AppColors.textPrimary),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -962,21 +962,17 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancelar', style: TextStyle(color: AppColors.textTertiary)),
           ),
           ElevatedButton(
             onPressed: () {
               final newName = controller.text.trim();
               if (newName.isNotEmpty) {
-                _transcriptionBloc.add(UpdateSpeakerName(
-                  transcriptionId: _transcription!.id,
-                  speakerId: speakerId,
-                  newName: newName,
-                ));
-                _loadTranscription();
+                // Save to database
+                _saveSpeakerName(speakerId, newName);
               }
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primaryAccent,
@@ -987,3 +983,16 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
       ),
     );
   }
+  
+  Future<void> _saveSpeakerName(String speakerId, String newName) async {
+    if (_transcription == null) return;
+    try {
+      final repo = GetIt.instance<TranscriptionRepository>();
+      await repo.updateSpeakerName(_transcription!.id, speakerId, newName);
+      // Reload transcription
+      _loadTranscription();
+    } catch (e) {
+      debugPrint('Error saving speaker name: $e');
+    }
+  }
+}

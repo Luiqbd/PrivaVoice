@@ -66,9 +66,8 @@ class TranscriptionModel {
     }
     return null;
   }
-}
-      
-      static List<WordTimestamp> _parseWordTimestamps(String? json) {
+  
+  static List<WordTimestamp> _parseWordTimestamps(String? json) {
     if (json == null || json.isEmpty || json == '[]') {
       return [];
     }
@@ -82,7 +81,7 @@ class TranscriptionModel {
       )).toList();
     } catch (e) {
       debugPrint('TranscriptionModel: Failed to parse wordTimestamps: $e');
-      return []; // Return empty if parsing fails
+      return [];
     }
   }
   

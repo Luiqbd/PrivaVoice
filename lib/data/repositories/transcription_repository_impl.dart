@@ -86,11 +86,11 @@ class TranscriptionRepositoryImpl implements TranscriptionRepository {
       Map<String, String> speakerNames = {};
       if (existing.speakerNamesJson != null && existing.speakerNamesJson!.isNotEmpty) {
         try {
-          speakerNames = Map<String, String>.from(
-            (existing.speakerNamesJson!.isNotEmpty) 
-              ? existing.speakerNamesJson!.codeUnits
-              : {}
-          );
+          // Parse JSON properly
+          final decoded = jsonDecode(existing.speakerNamesJson!);
+          if (decoded is Map) {
+            speakerNames = decoded.map((k, v) => MapEntry(k.toString(), v.toString()));
+          }
         } catch (e) {
           speakerNames = {};
         }
