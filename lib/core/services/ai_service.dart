@@ -467,20 +467,14 @@ class AIService {
       final platformInitResult = await WhisperPlatformService.initialize(safePath);
       _log('processAudio: Platform service init result: $platformInitResult');
       
-      // Capture the RootIsolateToken BEFORE starting the isolate
-      final rootToken = ServicesBinding.rootIsolateToken;
-      _log('processAudio: Got root isolate token: ${rootToken != null}');
+      // Capture token BEFORE isolate
+      final rootToken = ServicesBinding.rootIsolateToken!;
       
-      _log('processAudio: About to start Isolate with modelPath: $safePath');
-      _log('processAudio: Audio path: $audioPath');
-
       Transcription? result;
       try {
         result = await Isolate.run(() async {
-          // Initialize the background isolate messenger FIRST
-          if (rootToken != null) {
-            BackgroundIsolateBinaryMessenger.ensureInitialized(rootToken);
-          }
+          // Initialize the background isolate messenger FIRST - CRITICAL!
+          BackgroundIsolateBinaryMessenger.ensureInitialized(rootToken);
           
           _log('🔥[Isolate] Starting pipeline...');
           return await _processPipeline(
@@ -543,6 +537,8 @@ class AIService {
     _log('🔥[Isolate] Pipeline start');
     _log('🔥[Isolate] Using model path: $modelPath');
 
+    // Token already initialized in Isolate.run() closure
+
     try {
       if (!File(audioPath).existsSync()) {
         throw Exception('Audio file NOT FOUND: $audioPath');
@@ -563,12 +559,6 @@ class AIService {
       // Let Whisper handle compatibility
 
       _log('🔥[Isolate] Model: $modelPath');
-
-      // Pass the token to enable platform channel inside isolate
-      final rootToken = ServicesBinding.rootIsolateToken;
-      if (rootToken != null) {
-        BackgroundIsolateBinaryMessenger.ensureInitialized(rootToken);
-      }
 
       // Try platform service (mx.valdora) - THIS IS WORKING!
       String? text;
