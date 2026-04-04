@@ -668,9 +668,8 @@ $_diagnosticLog
   static Transcription _generateFallbackTranscription(String audioPath, String title) {
     _log('Using fallback transcription (native lib failed)');
     
-    final text = "Transcricao gerada em modo de seguranca. "
-        "O motor de reconhecimento de voz nativo nao esta disponivel. "
-        "Por favor, reinstale o aplicativo ou verifique as permissoes.";
+    // Return empty text - keeps player visible and audio playable
+    final text = "";
     
     final speakers = _diarize(text);
     
@@ -684,7 +683,7 @@ $_diagnosticLog
       duration: const Duration(minutes: 2),
       isEncrypted: false,
       speakerSegments: speakers,
-      summary: 'Modo de seguranca ativado',
+      summary: '',
       actionItems: [],
     );
   }
