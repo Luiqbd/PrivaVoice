@@ -9,12 +9,57 @@ import '../ai/native/whisper_platform_service.dart';
 import '../ai/native/llama_bindings.dart';
 import '../ai/ai_state.dart';
 
+/// Stream controller for real-time transcription updates
+class TranscriptionProgress {
+  final String? partialText;
+  final List<SpeakerSegment>? speakerSegments;
+  final double progress; // 0.0 to 1.0
+  final bool isComplete;
+  final String? statusMessage;
+  
+  TranscriptionProgress({
+    this.partialText,
+    this.speakerSegments,
+    this.progress = 0.0,
+    this.isComplete = false,
+    this.statusMessage,
+  });
+  
+  static TranscriptionProgress empty() => TranscriptionProgress(
+    progress: 0.0,
+    statusMessage: 'Iniciando...',
+  );
+  
+  static TranscriptionProgress loading(double progress, String message) => TranscriptionProgress(
+    progress: progress,
+    statusMessage: message,
+  );
+  
+  static TranscriptionProgress partial(String text, double progress) => TranscriptionProgress(
+    partialText: text,
+    progress: progress,
+    statusMessage: 'Processando áudio...',
+  );
+  
+  static TranscriptionProgress complete(String text, List<SpeakerSegment>? speakers) => TranscriptionProgress(
+    partialText: text,
+    speakerSegments: speakers,
+    progress: 1.0,
+    isComplete: true,
+    statusMessage: 'Completo!',
+  );
+}
+
 class AIService {
   static bool _initialized = false;
   static bool _modelsCopied = false;
   static String? _modelPath;
   static String _diagnosticLog = '';
   static int _availableSpaceBytes = 0;
+  
+  // Stream for real-time transcription updates
+  static final _transcriptionController = StreamController<TranscriptionProgress>.broadcast();
+  static Stream<TranscriptionProgress> get transcriptionStream => _transcriptionController.stream;
 
   // Whisper small (466MB) - renamed to whisper-base.bin
   static const int EXPECTED_WHISPER_SIZE = 490000000;
@@ -36,6 +81,11 @@ class AIService {
     final timestamp = DateTime.now().toIso8601String();
     _diagnosticLog += '[$timestamp] $message\n';
     print('AI: $message');
+  }
+  
+  /// Emit progress to stream
+  static void _emitProgress(TranscriptionProgress progress) {
+    _transcriptionController.add(progress);
   }
 
   static Future<bool> _checkDiskSpace() async {
@@ -256,11 +306,16 @@ class AIService {
     Function(double progress, String status)? onProgress,
   }) async {
     _log('=== PROCESS AUDIO ===');
+    
+    // Emit initial progress
+    _emitProgress(TranscriptionProgress.loading(0.0, 'Iniciando transcrição...'));
+    onProgress?.call(0.05, 'Preparando...');
 
     final validatedPath = _validateModelPath();
     if (validatedPath == null) {
       _log('Models not ready, running pre-flight...');
       AIManager.setState(AIState.loading, message: 'Carregando modelo...');
+      _emitProgress(TranscriptionProgress.loading(0.1, 'Carregando modelo...'));
       final ready = await checkAssetsIntegrity();
       if (!ready) {
         throw Exception('Pre-flight check failed');
@@ -284,7 +339,8 @@ class AIService {
     }
 
     AIManager.setState(AIState.processing, message: 'Transcrevendo...');
-    onProgress?.call(0.1, 'Processando audio...');
+    _emitProgress(TranscriptionProgress.loading(0.2, 'Processando áudio...'));
+    onProgress?.call(0.2, 'Processando audio...');
 
     try {
       final safePath = _validateModelPath();
@@ -342,7 +398,15 @@ class AIService {
       AIManager.setState(AIState.ready, message: 'Pronto');
       onProgress?.call(1.0, 'Completo');
       _log('=== PROCESS COMPLETE ===');
-
+      
+      // Emit completion
+      if (result != null) {
+        _emitProgress(TranscriptionProgress.complete(
+          result!.text,
+          result!.speakerSegments,
+        ));
+      }
+      
       return result;
     } catch (e) {
       _log('PROCESS FAILED: $e');
@@ -458,6 +522,7 @@ class AIService {
 
       _log('🔥[Isolate] Text: $text');
 
+      // Emit partial progress - text is being processed
       final speakers = _diarize(text);
 
       String summary = '';
