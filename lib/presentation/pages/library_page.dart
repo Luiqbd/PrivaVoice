@@ -184,6 +184,7 @@ class LibraryPageState extends State<LibraryPage> {
                                 _deleteTranscription(transcription.id, transcription.audioPath);
                               }
                             }),
+                            onRename: () => _showRenameModal(context, transcription.id, transcription.title),
                           );
                         },
                       ),

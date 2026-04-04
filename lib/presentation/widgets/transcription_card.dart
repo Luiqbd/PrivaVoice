@@ -7,6 +7,7 @@ class TranscriptionCard extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final VoidCallback? onDelete;
+  final VoidCallback? onRename; // Add rename callback
 
   const TranscriptionCard({
     super.key,
@@ -14,6 +15,7 @@ class TranscriptionCard extends StatelessWidget {
     this.onTap,
     this.onLongPress,
     this.onDelete,
+    this.onRename, // Add this
   });
 
   @override
@@ -133,6 +135,40 @@ class TranscriptionCard extends StatelessWidget {
                             ),
                           ],
                         ),
+                        // Edit and Delete buttons
+                        if (onRename != null || onDelete != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                if (onRename != null)
+                                  GestureDetector(
+                                    onTap: onRename,
+                                    child: const Padding(
+                                      padding: EdgeInsets.all(4),
+                                      child: Icon(
+                                        Icons.edit,
+                                        color: AppColors.primaryAccent,
+                                        size: 18,
+                                      ),
+                                    ),
+                                  ),
+                                if (onDelete != null)
+                                  GestureDetector(
+                                    onTap: onDelete,
+                                    child: const Padding(
+                                      padding: EdgeInsets.all(4),
+                                      child: Icon(
+                                        Icons.delete_outline,
+                                        color: Colors.redAccent,
+                                        size: 18,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
                         if (isProcessing) ...[
                           const SizedBox(height: 8),
                           // Show subtle "Transcrevendo..." text
