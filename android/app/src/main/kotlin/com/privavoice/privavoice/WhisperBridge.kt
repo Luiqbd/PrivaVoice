@@ -87,8 +87,8 @@ class WhisperBridge private constructor() {
                 
                 // Use default transcription - the model is multilingual
                 // The language prompt helps with accuracy
-                println("WhisperBridge: Calling ctx.transcribe() with Portuguese prompt...")
-                val rawResult = ctx.transcribe(audioFile, language = forcedLanguage) ?: ""
+                println("WhisperBridge: Calling ctx.transcribe()...")
+                val rawResult = ctx.transcribe(audioFile) ?: ""
                 println("WhisperBridge: transcribe() returned: ${rawResult.take(50)}")
                 
                 // Process Portuguese corrections
