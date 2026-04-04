@@ -174,6 +174,7 @@ class AIService {
       final whisperPath = '${modelDir.path}/$WHISPER_FILENAME';
       _log('Looking for Whisper at: $whisperPath');
       
+      // Check Whisper model
       if (await File(whisperPath).exists()) {
         if (!_verifyModelIntegrity(whisperPath, EXPECTED_WHISPER_SIZE, WHISPER_MIN_SIZE)) {
           _log('Recreating corrupted Whisper model...');
@@ -182,11 +183,27 @@ class AIService {
           _modelPath = whisperPath;
           _modelsCopied = true;
           AIManager.setState(AIState.ready, message: 'Pronto para gravar');
-          return true;
+          _log('Whisper model ready');
         }
       } else {
         _log('Whisper: NOT FOUND - copying...');
         await _copyModel(WHISPER_FILENAME, whisperPath);
+      }
+      
+      // ALSO check and copy Llama model
+      final llamaPath = '${modelDir.path}/$LLAMA_FILENAME';
+      _log('Looking for Llama at: $llamaPath');
+      
+      if (await File(llamaPath).exists()) {
+        if (!_verifyModelIntegrity(llamaPath, EXPECTED_LLAMA_SIZE, LLAMA_MIN_SIZE)) {
+          _log('Recreating corrupted Llama model...');
+          await _deleteAndRecreateModel(llamaPath, LLAMA_FILENAME);
+        } else {
+          _log('Llama model ready');
+        }
+      } else {
+        _log('Llama: NOT FOUND - copying...');
+        await _copyModel(LLAMA_FILENAME, llamaPath);
       }
 
       _validateModelPath();
