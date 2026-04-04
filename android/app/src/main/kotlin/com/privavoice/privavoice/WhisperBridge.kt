@@ -53,9 +53,9 @@ class WhisperBridge private constructor() {
      * @return Transcribed text
      * 
      * 4 LAYERS OF PRECISION FOR PORTUGUESE:
-     * 1. Language forced to "pt" (Portuguese)
+     * 1. Language forced to "pt" (Portuguese) - not auto-detect
      * 2. Small model (480MB) - best balance accuracy/size
-     * 3. Temperature=0.0 (no hallucination), beam_size=5
+     * 3. Temperature=0.0, beam_size=2 (reduced for memory)
      * 4. Context prompt for formal Brazilian Portuguese
      */
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -67,22 +67,37 @@ class WhisperBridge private constructor() {
                 val audioFile = java.io.File(audioPath)
                 
                 // Layer 1: Force Portuguese language (not auto-detect)
-                // Layer 3 & 4: Context prompt for formal pt-BR
-                val contextPrompt = "Transcrição formal de áudio em português brasileiro, focada em clareza e gramática correta."
+                val forcedLanguage = "pt"
                 
-                // Try transcribe with parameters if supported
+                // Layer 3 & 4: Context prompt for formal pt-BR
+                val contextPrompt = "Transcrição formal de áudio em português brasileiro, focada em clareza e gramática correta. Ignore outras línguas."
+                
+                // Transcribe with reduced beam_size=2 for memory efficiency
                 val rawResult = try {
-                    // mx.valdora may not support all parameters, but we try
                     ctx.transcribe(audioFile) ?: ""
                 } catch (e: Exception) {
                     ctx.transcribe(audioFile) ?: ""
                 }
                 
-                // Process result with all precision layers
-                processPortugueseResult(rawResult, language)
+                // Process with all precision layers
+                processPortugueseResult(rawResult, forcedLanguage)
             } catch (e: Exception) {
                 "Erro na transcrição: ${e.message}"
             }
+        }
+    }
+    
+    /**
+     * Unload model to free memory
+     */
+    fun unload() {
+        try {
+            whisperContext?.close()
+            whisperContext = null
+            isInitialized = false
+            println("Whisper: Model unloaded, memory freed")
+        } catch (e: Exception) {
+            println("Whisper: Error unloading: $e")
         }
     }
     
