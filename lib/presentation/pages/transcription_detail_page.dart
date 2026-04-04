@@ -733,10 +733,15 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                 overlayColor: const Color(0xFF00FFFF).withOpacity(0.2),
               ),
               child: Slider(
-                value: _currentPosition.inMilliseconds.toDouble(),
+                // SECURITY: Clamp value to prevent "value > max" error
+                value: _currentPosition.inMilliseconds.toDouble().clamp(0.0, _totalDuration.inMilliseconds.toDouble().clamp(1, double.infinity)),
                 max: _totalDuration.inMilliseconds.toDouble().clamp(1, double.infinity),
                 onChanged: (value) {
-                  _audioPlayer.seek(Duration(milliseconds: value.toInt()));
+                  // Validate value before seeking
+                  if (_totalDuration.inMilliseconds > 0) {
+                    final clampedValue = value.clamp(0.0, _totalDuration.inMilliseconds.toDouble());
+                    _audioPlayer.seek(Duration(milliseconds: clampedValue.toInt()));
+                  }
                 },
               ),
             ),
