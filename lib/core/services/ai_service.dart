@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:isolate';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import '../../domain/entities/transcription.dart';
 import '../ai/native/whisper_bindings.dart';
@@ -72,10 +71,6 @@ class AIService {
   // Whisper small renamed to whisper-base for compatibility
   static const String WHISPER_FILENAME = 'whisper-base.bin';
   static const String LLAMA_FILENAME = 'tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf';
-  
-  // Model download URLs - HuggingFace mirrors
-  static const String WHISPER_URL = 'https://huggingface.co/datasets/ggerganov/whisper.cpp/resolve/main/ggml-small.bin';
-  static const String LLAMA_URL = 'https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf';
 
   static bool get isModelsReady => _modelsCopied;
   static String? get modelPath => _modelPath;
@@ -261,17 +256,9 @@ class AIService {
     await _copyModel(assetName, path);
   }
 
-  static Future<void> _downloadModel(String assetName, String destPath) async {
-    // Determine URL based on asset name
-    final url = assetName == WHISPER_FILENAME ? WHISPER_URL : 
-                assetName == LLAMA_FILENAME ? LLAMA_URL : null;
-    
-    if (url == null) {
-      throw Exception('Unknown model: $assetName');
-    }
-    
-    _log('Downloading $assetName from $url...');
-    AIManager.setState(AIState.loading, message: 'Baixando $assetName...');
+  static Future<void> _copyModel(String assetName, String destPath) async {
+    _log('Loading $assetName from assets...');
+    AIManager.setState(AIState.loading, message: 'Carregando $assetName...');
 
     try {
       final hasSpace = await _checkDiskSpace();
@@ -279,38 +266,6 @@ class AIService {
         throw Exception('No disk space available');
       }
 
-      // Download with HTTP
-      final response = await http.get(Uri.parse(url));
-      if (response.statusCode != 200) {
-        throw Exception('Download failed: ${response.statusCode}');
-      }
-      
-      final data = response.bodyBytes;
-      _log('Downloaded: ${data.length} bytes');
-
-      final file = File(destPath);
-      await file.writeAsBytes(data);
-
-      _log('Model saved: ${file.lengthSync()} bytes');
-
-      if (file.lengthSync() < data.length ~/ 2) {
-        throw Exception('Download incomplete');
-      }
-
-      _modelsCopied = true;
-      _modelPath = destPath;
-      _log('Model ready: $destPath');
-    } catch (e) {
-      _log('Download FAILED: $e');
-      AIManager.setError('Erro ao baixar $assetName: $e');
-      rethrow;
-    }
-  }
-
-  static Future<void> _copyModel(String assetName, String destPath) async {
-    // Try asset first, fallback to download
-    try {
-      _log('Trying to load from asset: $assetName');
       final data = await rootBundle.load('assets/models/$assetName');
       _log('Asset loaded: ${data.lengthInBytes} bytes');
 
@@ -321,16 +276,28 @@ class AIService {
       await sink.flush();
       await sink.close();
 
-      _log('Asset copied: ${file.lengthSync()} bytes');
+      _log('Sink closed, waiting for filesystem...');
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      if (!file.existsSync()) {
+        throw Exception('File not found after write');
+      }
+
+      final stat = file.statSync();
+      _log('Model copied: ${stat.size} bytes');
+
+      if (stat.size < data.lengthInBytes ~/ 2) {
+        throw Exception('Model copy incomplete');
+      }
+
       _modelsCopied = true;
       _modelPath = destPath;
-      return;
+      _log('Model ready: $destPath');
     } catch (e) {
-      _log('Asset not found, will download: $e');
+      _log('Copy FAILED: $e');
+      AIManager.setError('Erro ao copiar $assetName: $e');
+      rethrow;
     }
-    
-    // Fallback to HTTP download
-    await _downloadModel(assetName, destPath);
   }
 
   static Future<void> initializeInBackground() async {
