@@ -320,6 +320,9 @@ static Future<void> insertTranscription(TranscriptionData data) async {
             ? await _encryptField(data.actionItemsJson!)
             : null,
         notes: data.notes, // Include notes (not encrypted for now)
+        speakerNamesJson: data.speakerNamesJson != null
+            ? await _encryptField(data.speakerNamesJson!)
+            : null,
       );
 
       await db.insert(
@@ -376,6 +379,9 @@ static Future<void> updateTranscription(TranscriptionData data) async {
                 ? await _encryptField(data.actionItemsJson!)
                 : null,
             notes: data.notes,
+            speakerNamesJson: data.speakerNamesJson != null
+                ? await _encryptField(data.speakerNamesJson!)
+                : null,
           );
 
           await txn.update(
