@@ -89,12 +89,12 @@ class WhisperBridge private constructor() {
                 // The language prompt helps with accuracy
                 println("WhisperBridge: Calling ctx.transcribe()...")
                 val rawResult = ctx.transcribe(audioFile) ?: ""
-                val rawPreview = if (rawResult.isNotEmpty) rawResult.take(50) else "(empty)"
+                val rawPreview = if (rawResult.length > 50) rawResult.take(50) + "..." else rawResult
                 println("WhisperBridge: transcribe() returned: $rawPreview")
                 
                 // Process Portuguese corrections
                 val result = processPortugueseResult(rawResult, forcedLanguage)
-                val resultPreview = if (result.isNotEmpty) result.take(50) else "(empty)"
+                val resultPreview = if (result.length > 50) result.take(50) + "..." else result
                 println("WhisperBridge: Final result: $resultPreview")
                 result
             } catch (e: Exception) {
