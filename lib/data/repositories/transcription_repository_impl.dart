@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../../domain/entities/transcription.dart';
 import '../../domain/repositories/transcription_repository.dart';
 import '../datasources/app_database.dart';
