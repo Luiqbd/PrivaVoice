@@ -36,11 +36,15 @@ class WhisperBridge private constructor() {
      */
     fun initialize(modelPath: String): Boolean {
         return try {
+            println("WhisperBridge: Initializing with path: $modelPath")
             // mx.valdora WhisperContext - language is auto-detected from multilingual models
             whisperContext = WhisperContext(modelPath)
             isInitialized = true
+            println("WhisperBridge: Initialized successfully!")
             true
         } catch (e: Exception) {
+            println("WhisperBridge: Initialize FAILED: ${e.message}")
+            println("WhisperBridge: Stack trace: ${e.stackTrace}")
             isInitialized = false
             false
         }
