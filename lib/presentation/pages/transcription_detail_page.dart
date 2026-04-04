@@ -50,19 +50,32 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
   }
 
   void _startRefreshTimer() {
-    // Refresh transcription every 2 seconds while AI is processing
-    _refreshTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+    // Refresh transcription more frequently while AI is processing (every 1 second)
+    _refreshTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
       if (_isProcessing && _transcription != null) {
         debugPrint('TranscriptionDetailPage: Auto-refresh...');
-        final repo = GetIt.instance<TranscriptionRepository>();
-        final updated = await repo.getTranscriptionById(_transcription!.id);
-        if (updated != null && updated.text != 'Processando...' && mounted) {
-          debugPrint('TranscriptionDetailPage: AI finished! Text: ${updated.text.substring(0, updated.text.length > 50 ? 50 : updated.text.length)}...');
-          setState(() {
-            _transcription = updated;
-            _isProcessing = false;
-          });
-          timer.cancel();
+        try {
+          final repo = GetIt.instance<TranscriptionRepository>();
+          final updated = await repo.getTranscriptionById(_transcription!.id);
+          if (updated != null && mounted) {
+            // Update UI even if still processing - show partial results
+            if (updated.text != _transcription!.text) {
+              debugPrint('TranscriptionDetailPage: Text changed! Updating UI...');
+              setState(() {
+                _transcription = updated;
+              });
+            }
+            // Check if processing is complete (text is not empty and not "Processando...")
+            if (updated.text.isNotEmpty && updated.text != 'Processando...') {
+              debugPrint('TranscriptionDetailPage: AI finished! Text: ${updated.text.substring(0, updated.text.length > 50 ? 50 : updated.text.length)}...');
+              setState(() {
+                _isProcessing = false;
+              });
+              timer.cancel();
+            }
+          }
+        } catch (e) {
+          debugPrint('TranscriptionDetailPage: Refresh error: $e');
         }
       } else {
         timer.cancel();
@@ -674,13 +687,50 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Transcricao',
-          style: TextStyle(
-              color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
+        Row(
+          children: [
+            const Text(
+              'Transcricao',
+              style: TextStyle(
+                  color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            if (_isProcessing) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryAccent.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.primaryAccent,
+                      ),
+                    ),
+                    SizedBox(width: 6),
+                    Text(
+                      'Transcrevendo...',
+                      style: TextStyle(
+                        color: AppColors.primaryAccent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
         ),
         const SizedBox(height: 12),
         Container(
+          width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
