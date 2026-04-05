@@ -1,0 +1,15 @@
+São Paulo, Rio de Janeiro, Belo Horizonte, Salvador, Fortaleza, Brasília, Curitiba, Recife, Porto Alegre, Manaus
+Campinas, São José dos Campos, Santo André, São Bernardo do Campo, Niterói, Guarulhos, Osasco, Sorocaba
+Santo André, Diadema, Mauá, São Caetano do Sul, Carapicuíba, Barueri, Jundiaí, São José dos Campos
+Petrópolis, Teresopolis, Nova Friburgo, Buzios, Paraty, Angra dos Reis, Ubatuba, São Sebastião
+Belo Horizonte, Ouro Preto, Diamantina, Tiradentes, São João del Rei, Barbacena, Juiz de Fora
+Recife, Olinda, Fernando de Noronha, Caruaru, Petrolina, Garanhuns,Gravatá, Beberibe
+Fortaleza, Jericoacoara, Canoa Quebrada, Mucugê, Chapada Diamantina, Jericoacoara
+Salvador, Morro de São Paulo, Porto Seguro, Trancoso, Chapada Diamantina, Lençóis
+Curitiba, Gramado, Canela, Morretes, Antonina, Paranaguá, Campo Largo, Lapa
+Porto Alegre, Bento Gonçalves, Gramado, Canela, São Francisco de Paula, Cambará do Sul
+Norte: Manaus, Belém, Macapá, Porto Velho, Boa Vista, Acre
+Nordeste: Maceió, Natal, João Pessoa, Aracaju, Teresina, São Luís, Imperatriz
+Centro-Oeste: Goiânia, Campo Grande, Dourados, Anápolis, Caldas Novas
+Sudeste: Vitória, Campos dos Goytacazes, Cabo Frio, Búzios, Paraty, Ubatuba
+Sul: Foz do Iguaçu, Londrina, Maringá, Blumenau, Itajaí, Balneário Camboriú

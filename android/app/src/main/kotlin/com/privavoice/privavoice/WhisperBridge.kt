@@ -36,6 +36,7 @@ class WhisperBridge private constructor() {
     
     /**
      * Load Portuguese context from assets to guide Whisper
+     * Unifies all pt-br files into a single 200-word initial_prompt
      */
     private fun loadPortuguesePrompt(): String {
         if (appContext == null) {
@@ -47,17 +48,30 @@ class WhisperBridge private constructor() {
         try {
             // Load frases_basicas
             val frasesInput = appContext!!.assets.open("pt-br/frases_basicas.txt")
-            frasesInput.bufferedReader().use { reader ->
-                builder.append(reader.readText())
-            }
+            builder.append(frasesInput.bufferedReader().readText())
             builder.append(" ")
             
             // Load palavras_comuns
             val palavrasInput = appContext!!.assets.open("pt-br/palavras_comuns.txt")
-            palavrasInput.bufferedReader().use { reader ->
-                builder.append(reader.readText())
-            }
+            builder.append(palavrasInput.bufferedReader().readText())
             builder.append(" ")
+            
+            // Load localidades (Brazilian cities and places)
+            val localidadesInput = appContext!!.assets.open("pt-br/localidades.txt")
+            val localidades = localidadesInput.bufferedReader().readText().split(",").map { it.trim() }.take(30)
+            builder.append(localidades.joinToString(", "))
+            builder.append(" ")
+            
+            // Load nomes_proprios (common Brazilian names)
+            val nomesInput = appContext!!.assets.open("pt-br/nomes_proprios.txt")
+            val nomes = nomesInput.bufferedReader().readText().split(",").map { it.trim() }.take(30)
+            builder.append(nomes.joinToString(", "))
+            builder.append(" ")
+            
+            // Load negocios (business terms)
+            val negociosInput = appContext!!.assets.open("pt-br/negocios.txt")
+            val negocios = negociosInput.bufferedReader().readText().split(",").map { it.trim() }.take(30)
+            builder.append(negocios.joinToString(", "))
             
             // Load dicionario terms as prompt context
             val dicionarioInput = appContext!!.assets.open("pt-br/dicionario.json")
@@ -77,10 +91,14 @@ class WhisperBridge private constructor() {
                     }
                 }
             }
+            builder.append(" ")
             builder.append(promptTerms.take(50).joinToString(", "))
             
-            val prompt = builder.toString()
-            println("WhisperBridge: Loaded Portuguese prompt (${prompt.length} chars)")
+            // Limit to 200 words
+            val words = builder.toString().split(Regex("\\s+")).take(200)
+            val prompt = words.joinToString(" ")
+            
+            println("WhisperBridge: Loaded Portuguese prompt (${prompt.length} chars, ${words.size} words)")
             return prompt
         } catch (e: Exception) {
             println("WhisperBridge: Error loading assets: ${e.message}")
@@ -459,11 +477,14 @@ class WhisperBridge private constructor() {
         // Layer 5: Final dictionary sweep - remove any Spanish remnants
         result = applyDicionarioFilter(result)
         
+        // Layer 6: Dicionario reverso - final cleanup for remaining portunhol
+        result = applyDicionarioReversoFilter(result)
+        
         return result
     }
     
     /**
-     * Load dictionary and apply final Portuguese filter
+     * Load dictionary and apply final Portuguese filter (dicionario.json)
      */
     private fun applyDicionarioFilter(text: String): String {
         if (appContext == null) return text
@@ -505,6 +526,52 @@ class WhisperBridge private constructor() {
             println("WhisperBridge: Dictionary filter applied with ${corrections.size} corrections")
         } catch (e: Exception) {
             println("WhisperBridge: Dictionary filter error: ${e.message}")
+        }
+        
+        return result
+    }
+    
+    /**
+     * Apply dicionario_reverso.json for final portunhol cleanup
+     */
+    private fun applyDicionarioReversoFilter(text: String): String {
+        if (appContext == null) return text
+        
+        var result = text
+        try {
+            val inputStream = appContext!!.assets.open("pt-br/dicionario_reverso.json")
+            val jsonText = inputStream.bufferedReader().readText()
+            val jsonObject = org.json.JSONObject(jsonText)
+            
+            // Apply mappings
+            if (jsonObject.has("mapeamentos")) {
+                val mapeamentos = jsonObject.getJSONObject("mapeamentos")
+                val keys = mapeamentos.keys()
+                while (keys.hasNext()) {
+                    val spanish = keys.next()
+                    val portuguese = mapeamentos.getString(spanish)
+                    result = result.replace(spanish, portuguese, ignoreCase = true)
+                    result = result.replace(spanish.replaceFirstChar { it.uppercase() }, 
+                        portuguese.replaceFirstChar { it.uppercase() }, ignoreCase = true)
+                }
+            }
+            
+            // Apply expressoes
+            if (jsonObject.has("expressoes")) {
+                val expressoes = jsonObject.getJSONObject("expressoes")
+                val keys = expressoes.keys()
+                while (keys.hasNext()) {
+                    val spanish = keys.next()
+                    val portuguese = expressoes.getString(spanish)
+                    result = result.replace(spanish, portuguese, ignoreCase = true)
+                    result = result.replace(spanish.replaceFirstChar { it.uppercase() }, 
+                        portuguese.replaceFirstChar { it.uppercase() }, ignoreCase = true)
+                }
+            }
+            
+            println("WhisperBridge: Dicionario reverso filter applied")
+        } catch (e: Exception) {
+            println("WhisperBridge: Dicionario reverso error: ${e.message}")
         }
         
         return result
