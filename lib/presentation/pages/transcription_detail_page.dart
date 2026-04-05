@@ -4,7 +4,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:path_provider/path_provider.dart';
 import '../../core/services/ai_service.dart';
 import '../../core/ai/ai_state.dart';
 import '../../core/theme/app_colors.dart';
@@ -637,22 +636,22 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
     // Show bookmarks section if there are any
     Widget? bookmarksSection;
     if (_transcription!.bookmarks != null && _transcription!.bookmarks!.isNotEmpty) {
-      bookmarksSection = Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppColors.warning.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.warning.withOpacity(0.4), width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.warning.withOpacity(0.2),
-              blurRadius: 8,
-              spreadRadius: 0,
+      bookmarksSection = ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.warning.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.warning.withOpacity(0.4), width: 1),
+              boxShadow: [
+                BoxShadow(color: AppColors.warning.withOpacity(0.2), blurRadius: 8, spreadRadius: 0),
+              ],
             ),
-          ],
-        ),
-        child: Column(
+            child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -715,26 +714,30 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
         if (bookmarksSection != null) bookmarksSection,
         // Keywords Highlight (from Llama)
         if (_transcription!.keywords != null && _transcription!.keywords!.isNotEmpty)
-          Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              // Glassmorphism - thin neon border
-              color: AppColors.primaryAccent.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.primaryAccent.withOpacity(0.4),
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primaryAccent.withOpacity(0.3),
-                  blurRadius: 8,
-                  spreadRadius: 0,
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  // Glassmorphism - thin neon border
+                  color: AppColors.primaryAccent.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.primaryAccent.withOpacity(0.4),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primaryAccent.withOpacity(0.3),
+                      blurRadius: 8,
+                      spreadRadius: 0,
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Column(
+                child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
@@ -847,29 +850,30 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                       fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               ..._transcription!.actionItems!.map(
-            (item) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  Container(
-                    width: 20,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.secondaryAccent),
-                    ),
-                    child: const Icon(Icons.check,
-                        size: 14, color: AppColors.secondaryAccent),
+                (item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppColors.secondaryAccent),
+                        ),
+                        child: const Icon(Icons.check,
+                            size: 14, color: AppColors.secondaryAccent),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                          child: Text(item,
+                              style: const TextStyle(color: AppColors.textSecondary))),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                      child: Text(item,
-                          style: const TextStyle(color: AppColors.textSecondary))),
-                ],
-              ),
-            ),
+                ),
+              ).toList(),
+            ],
           ),
-        ],
         
         // Notas Section
         const SizedBox(height: 24),
