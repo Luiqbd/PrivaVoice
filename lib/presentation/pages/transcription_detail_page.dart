@@ -615,18 +615,16 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                   ),
                   child: Center(
                     child: Text(
-                      // Limit to 5 chars max to stay inside round avatar
-                      displayName.length > 5 ? '${displayName.substring(0, 5)}' : displayName,
+                      // Show only voice number in circle: "Voz 1", "Voz 2"
+                      'Voz ${index + 1}',
                       style: TextStyle(
                         color: color,
                         fontWeight: FontWeight.bold,
-                        fontSize: 11,
+                        fontSize: 12,
                         shadows: isActive
                             ? [Shadow(color: color, blurRadius: 8)]
                             : null,
                       ),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
                     ),
                   ),
                 ),
