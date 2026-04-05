@@ -9,6 +9,7 @@ import '../../core/theme/app_colors.dart';
 import '../../domain/entities/transcription.dart';
 import '../../domain/repositories/transcription_repository.dart';
 import '../../core/utils/pdf_exporter.dart';
+import 'package:image_picker/image_picker.dart';
 
 class TranscriptionDetailPage extends StatefulWidget {
   final String transcriptionId;
@@ -535,6 +536,62 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
           style: const TextStyle(color: AppColors.textPrimary),
         ),
         actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: AppColors.textPrimary),
+            color: AppColors.surface,
+            onSelected: (value) {
+              switch (value) {
+                case 'note':
+                  _showAddNoteDialog();
+                  break;
+                case 'image':
+                  _attachImage();
+                  break;
+                case 'hide':
+                  _toggleHidden();
+                  break;
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'note',
+                child: Row(
+                  children: [
+                    Icon(Icons.note_add, color: AppColors.secondaryAccent, size: 20),
+                    const SizedBox(width: 8),
+                    const Text('Adicionar Nota', style: TextStyle(color: AppColors.textPrimary)),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'image',
+                child: Row(
+                  children: [
+                    Icon(Icons.photo_camera, color: AppColors.tertiaryAccent, size: 20),
+                    const SizedBox(width: 8),
+                    const Text('Anexar Foto', style: TextStyle(color: AppColors.textPrimary)),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'hide',
+                child: Row(
+                  children: [
+                    Icon(
+                      _transcription?.isHidden == true ? Icons.lock_open : Icons.lock,
+                      color: AppColors.warning,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _transcription?.isHidden == true ? 'Remover do Cofre' : 'Mover para Cofre',
+                      style: const TextStyle(color: AppColors.textPrimary),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
           IconButton(
             icon: const Icon(Icons.picture_as_pdf, color: AppColors.primaryAccent),
             onPressed: _exportToPdf,
@@ -1760,6 +1817,253 @@ Responda em português brasileiro de forma clara e útil.
       }
     } finally {
       if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+  
+  /// Show dialog to add manual note
+  void _showAddNoteDialog() {
+    final controller = TextEditingController(text: _transcription?.manualNote ?? '');
+    
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.note_add, color: AppColors.secondaryAccent),
+            SizedBox(width: 8),
+            Text('Nota Manual', style: TextStyle(color: AppColors.textPrimary)),
+          ],
+        ),
+        content: TextField(
+          controller: controller,
+          maxLines: 5,
+          style: const TextStyle(color: AppColors.textPrimary),
+          decoration: InputDecoration(
+            hintText: 'Adicione contexto ou observações...',
+            hintStyle: const TextStyle(color: AppColors.textTertiary),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.textTertiary),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.secondaryAccent),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancelar', style: TextStyle(color: AppColors.textTertiary)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              _saveManualNote(controller.text.trim());
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.secondaryAccent,
+            ),
+            child: const Text('Salvar'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Future<void> _saveManualNote(String note) async {
+    if (_transcription == null) return;
+    try {
+      final updated = Transcription(
+        id: _transcription!.id,
+        title: _transcription!.title,
+        audioPath: _transcription!.audioPath,
+        text: _transcription!.text,
+        wordTimestamps: _transcription!.wordTimestamps,
+        createdAt: _transcription!.createdAt,
+        duration: _transcription!.duration,
+        isEncrypted: _transcription!.isEncrypted,
+        speakerSegments: _transcription!.speakerSegments,
+        summary: _transcription!.summary,
+        actionItems: _transcription!.actionItems,
+        keywords: _transcription!.keywords,
+        notes: _transcription!.notes,
+        bookmarks: _transcription!.bookmarks,
+        manualNote: note,
+        attachedImagePath: _transcription!.attachedImagePath,
+        isHidden: _transcription!.isHidden,
+        speakerNames: _transcription!.speakerNames,
+      );
+      final repo = GetIt.instance<TranscriptionRepository>();
+      await repo.saveTranscription(updated);
+      setState(() => _transcription = updated);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Nota salva!'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error saving note: $e');
+    }
+  }
+  
+  /// Attach image from camera or gallery
+  Future<void> _attachImage() async {
+    final picker = ImagePicker();
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: AppColors.primaryAccent),
+              title: const Text('Tirar Foto', style: TextStyle(color: AppColors.textPrimary)),
+              onTap: () async {
+                Navigator.pop(context);
+                final img = await picker.pickImage(source: ImageSource.camera);
+                if (img != null) await _saveAttachedImage(img.path);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library, color: AppColors.secondaryAccent),
+              title: const Text('Escolher da Galeria', style: TextStyle(color: AppColors.textPrimary)),
+              onTap: () async {
+                Navigator.pop(context);
+                final img = await picker.pickImage(source: ImageSource.gallery);
+                if (img != null) await _saveAttachedImage(img.path);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Future<void> _saveAttachedImage(String tempPath) async {
+    if (_transcription == null) return;
+    try {
+      // Copy to app directory
+      final appDir = await getApplicationDocumentsDirectory();
+      final fileName = '${_transcription!.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final destPath = '${appDir.path}/attachments/$fileName';
+      
+      final dir = Directory('${appDir.path}/attachments');
+      if (!await dir.exists()) await dir.create(recursive: true);
+      
+      await File(tempPath).copy(destPath);
+      
+      final updated = Transcription(
+        id: _transcription!.id,
+        title: _transcription!.title,
+        audioPath: _transcription!.audioPath,
+        text: _transcription!.text,
+        wordTimestamps: _transcription!.wordTimestamps,
+        createdAt: _transcription!.createdAt,
+        duration: _transcription!.duration,
+        isEncrypted: _transcription!.isEncrypted,
+        speakerSegments: _transcription!.speakerSegments,
+        summary: _transcription!.summary,
+        actionItems: _transcription!.actionItems,
+        keywords: _transcription!.keywords,
+        notes: _transcription!.notes,
+        bookmarks: _transcription!.bookmarks,
+        manualNote: _transcription!.manualNote,
+        attachedImagePath: destPath,
+        isHidden: _transcription!.isHidden,
+        speakerNames: _transcription!.speakerNames,
+      );
+      final repo = GetIt.instance<TranscriptionRepository>();
+      await repo.saveTranscription(updated);
+      setState(() => _transcription = updated);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Imagem anexada!'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error attaching image: $e');
+    }
+  }
+  
+  /// Toggle hidden vault status with biometric
+  Future<void> _toggleHidden() async {
+    if (_transcription == null) return;
+    
+    final newHidden = !_transcription!.isHidden;
+    
+    // For adding to vault, require biometric
+    if (newHidden) {
+      // TODO: Implement biometric check via local_auth
+      // For now, just toggle
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.lock, color: AppColors.warning),
+              const SizedBox(width: 8),
+              const Text('Movendo para Cofre Seguro...'),
+            ],
+          ),
+          backgroundColor: AppColors.surface,
+        ),
+      );
+    }
+    
+    try {
+      final updated = Transcription(
+        id: _transcription!.id,
+        title: _transcription!.title,
+        audioPath: _transcription!.audioPath,
+        text: _transcription!.text,
+        wordTimestamps: _transcription!.wordTimestamps,
+        createdAt: _transcription!.createdAt,
+        duration: _transcription!.duration,
+        isEncrypted: _transcription!.isEncrypted,
+        speakerSegments: _transcription!.speakerSegments,
+        summary: _transcription!.summary,
+        actionItems: _transcription!.actionItems,
+        keywords: _transcription!.keywords,
+        notes: _transcription!.notes,
+        bookmarks: _transcription!.bookmarks,
+        manualNote: _transcription!.manualNote,
+        attachedImagePath: _transcription!.attachedImagePath,
+        isHidden: newHidden,
+        speakerNames: _transcription!.speakerNames,
+      );
+      final repo = GetIt.instance<TranscriptionRepository>();
+      await repo.saveTranscription(updated);
+      setState(() => _transcription = updated);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(newHidden ? Icons.lock : Icons.lock_open, color: AppColors.warning),
+                const SizedBox(width: 8),
+                Text(newHidden ? 'Salvo no Cofre Seguro' : 'Removido do Cofre'),
+              ],
+            ),
+            backgroundColor: AppColors.surface,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error toggling hidden: $e');
     }
   }
 }

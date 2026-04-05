@@ -16,6 +16,13 @@ class Transcription extends Equatable {
   final String? notes; // Campo para notas do usuário
   final List<Duration>? bookmarks; // Star timestamps marked by user
   
+  // Attachments - manual notes and photos
+  final String? manualNote; // Text note attached by user
+  final String? attachedImagePath; // Photo/document attached
+  
+  // Vault - ultra-sensitive notes require double biometric
+  final bool isHidden; // If true, requires biometric to view
+  
   // Custom speaker names (e.g., "Dr. Ricardo" instead of "Voz 1")
   final Map<String, String>? speakerNames; // speakerId -> customName
   
@@ -34,6 +41,9 @@ class Transcription extends Equatable {
     this.keywords,
     this.notes,
     this.bookmarks,
+    this.manualNote,
+    this.attachedImagePath,
+    this.isHidden = false,
     this.speakerNames,
   });
   
@@ -55,7 +65,8 @@ class Transcription extends Equatable {
   List<Object?> get props => [
     id, title, audioPath, text, wordTimestamps, 
     createdAt, duration, isEncrypted, speakerSegments, 
-    summary, actionItems, keywords, notes, bookmarks, speakerNames
+    summary, actionItems, keywords, notes, bookmarks, 
+    manualNote, attachedImagePath, isHidden, speakerNames
   ];
 }
 

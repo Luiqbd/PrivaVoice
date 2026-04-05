@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:file_picker/file_picker.dart';
 import '../blocs/transcription/transcription_state.dart';
 import '../blocs/transcription/transcription_event.dart';
 import '../../core/theme/app_colors.dart';
 import '../../injection_container.dart';
+import '../../core/services/media_importer.dart';
 import '../blocs/transcription/transcription_bloc.dart';
 import '../widgets/transcription_card.dart';
 import 'transcription_detail_page.dart';
@@ -78,6 +80,14 @@ class LibraryPageState extends State<LibraryPage> {
                       ),
                     ),
                     const Spacer(),
+                    IconButton(
+                      onPressed: _importMediaFile,
+                      icon: const Icon(
+                        Icons.upload_file,
+                        color: AppColors.secondaryAccent,
+                      ),
+                      tooltip: 'Importar áudio',
+                    ),
                     IconButton(
                       onPressed: () {
                         _transcriptionBloc.add(LoadTranscriptions());
@@ -238,6 +248,148 @@ class LibraryPageState extends State<LibraryPage> {
     // Delete from database and file system
     _transcriptionBloc.add(DeleteTranscription(id));
     // TODO: Delete audio file from filesystem
+  }
+  
+  /// Import media file from external storage
+  Future<void> _importMediaFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['mp3', 'wav', 'm4a', 'aac', 'ogg'],
+        allowMultiple: false,
+      );
+      
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        if (file.path != null) {
+          // Show import dialog with options
+          _showImportDialog(file.path!, file.name);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error importing file: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao importar: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+  
+  void _showImportDialog(String filePath, String fileName) {
+    final titleController = TextEditingController(
+      text: fileName.replaceAll(RegExp(r'\.[^.]+$'), ''),
+    );
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.upload_file, color: AppColors.primaryAccent),
+            SizedBox(width: 8),
+            Text('Importar Áudio', style: TextStyle(color: AppColors.textPrimary)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: titleController,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                labelText: 'Título',
+                labelStyle: const TextStyle(color: AppColors.textTertiary),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.textTertiary),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.primaryAccent),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'O áudio será transcrito offline com Whisper',
+              style: TextStyle(color: AppColors.textTertiary, fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar', style: TextStyle(color: AppColors.textTertiary)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _processImport(titleController.text.trim(), filePath);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryAccent,
+            ),
+            child: const Text('Importar'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _processImport(String title, String filePath) async {
+    // Import and transcribe the audio file
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.hourglass_empty, color: AppColors.warning),
+            const SizedBox(width: 8),
+            Text('Importando "$title"...'),
+          ],
+        ),
+        backgroundColor: AppColors.surface,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+    
+    final result = await MediaImporter.importAudio(filePath, title);
+    
+    if (mounted) {
+      if (result != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: AppColors.success),
+                const SizedBox(width: 8),
+                Text('Importado: "$title"'),
+              ],
+            ),
+            backgroundColor: AppColors.surface,
+          ),
+        );
+        _transcriptionBloc.add(LoadTranscriptions());
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.error, color: AppColors.error),
+                SizedBox(width: 8),
+                Text('Erro ao importar áudio'),
+              ],
+            ),
+            backgroundColor: AppColors.surface,
+          ),
+        );
+      }
+    }
   }
 
   void _showRenameModal(BuildContext context, String id, String currentTitle) {

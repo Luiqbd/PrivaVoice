@@ -167,9 +167,23 @@ class AppDatabase {
             debugPrint('AppDatabase: KeywordsJson column already exists');
           }
         }
+        // Migration for version 4: add bookmarks, manualNote, attachedImage, isHidden
+        if (oldVersion < 4) {
+          try {
+            await db.execute('ALTER TABLE transcriptions ADD COLUMN bookmarksJson TEXT');
+            await db.execute('ALTER TABLE transcriptions ADD COLUMN manualNote TEXT');
+            await db.execute('ALTER TABLE transcriptions ADD COLUMN attachedImagePath TEXT');
+            await db.execute('ALTER TABLE transcriptions ADD COLUMN isHidden INTEGER NOT NULL DEFAULT 0');
+            debugPrint('AppDatabase: Added vault columns');
+          } catch (e) {
+            debugPrint('AppDatabase: Vault columns already exist');
+          }
+        }
       },
     );
   }
+  
+  static int get currentVersion => 4;
 
   /// Encrypt data before storing (AES-256 GCM)
   static Future<String> _encryptField(String plainText) async {
