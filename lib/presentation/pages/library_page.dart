@@ -308,53 +308,6 @@ class LibraryPageState extends State<LibraryPage> {
               ),
             ),
             const SizedBox(height: 20),
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryAccent.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.edit, color: AppColors.primaryAccent),
-              ),
-              title: const Text(
-                'Renomear',
-                style: TextStyle(color: AppColors.textPrimary),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _showRenameModal(context, id, currentTitle);
-              },
-            ),
-            const SizedBox(height: 8),
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.delete, color: Colors.redAccent),
-              ),
-              title: const Text(
-                'Apagar',
-                style: TextStyle(color: Colors.redAccent),
-              ),
-              onTap: () async {
-                Navigator.pop(context);
-                final confirm = await _showDeleteConfirmation(context, id);
-                if (confirm == true) {
-                  // Find audio path and delete
-                  final transcriptions = _transcriptionBloc.state.transcriptions;
-                  final transcription = transcriptions.firstWhere(
-                    (t) => t.id == id,
-                    orElse: () => throw Exception('Transcription not found'),
-                  );
-                  _deleteTranscription(id, transcription.audioPath);
-                }
-              },
-            ),
-            const SizedBox(height: 20),
           ],
         ),
       ),

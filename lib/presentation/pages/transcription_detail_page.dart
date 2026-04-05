@@ -571,9 +571,13 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
     final displayName = _transcription?.getSpeakerDisplayName(speakerId) ?? 'Voz ${index + 1}';
     final timeStr = _formatDuration(segment.startTime);
     
-    // Allow editing speaker name on tap
+    // Allow editing speaker name on tap (only for voice 2)
     void Function()? onSpeakerTap;
-    if (index == 0 || index == 1) {
+    if (index == 0) {
+      // Voice 1 is locked - tap to seek
+      onSpeakerTap = () => _seekToSegment(segment);
+    } else if (index == 1) {
+      // Voice 2 can be edited
       onSpeakerTap = () => _showSpeakerEditDialog(speakerId);
     } else {
       onSpeakerTap = () => _seekToSegment(segment);
@@ -611,15 +615,18 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                   ),
                   child: Center(
                     child: Text(
-                      displayName,
+                      // Limit to 5 chars max to stay inside round avatar
+                      displayName.length > 5 ? '${displayName.substring(0, 5)}' : displayName,
                       style: TextStyle(
                         color: color,
                         fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                        fontSize: 11,
                         shadows: isActive
                             ? [Shadow(color: color, blurRadius: 8)]
                             : null,
                       ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                 ),

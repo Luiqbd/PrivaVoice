@@ -39,12 +39,19 @@ class WhisperBridge private constructor() {
      * Unifies all pt-br files into a single 200-word initial_prompt
      */
     private fun loadPortuguesePrompt(): String {
+        // HARDCODE: Force Portuguese context before processing audio
+        // This forces the Whisper model to load PT-BR dictionary before hearing
+        val hardcodedPrompt = "Olá, meu nome é Luis Fernando Camargo. Sou de Tatuí, São Paulo, Brasil. Esta é uma transcrição formal em português brasileiro."
+        
         if (appContext == null) {
             println("WhisperBridge: No app context, using default prompt")
-            return "Transcrição em português brasileiro. Olá, bom dia, como vai, tudo bem, obrigado, por favor."
+            return hardcodedPrompt + " Transcrição em português brasileiro. Olá, bom dia, como vai, tudo bem, obrigado, por favor."
         }
         
         val builder = StringBuilder()
+        builder.append(hardcodedPrompt)
+        builder.append(" ")
+        
         try {
             // Load frases_basicas
             val frasesInput = appContext!!.assets.open("pt-br/frases_basicas.txt")
