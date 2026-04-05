@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:just_audio/just_audio.dart';
@@ -635,9 +636,22 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
     // Show bookmarks section if there are any
     Widget? bookmarksSection;
     if (_transcription!.bookmarks != null && _transcription!.bookmarks!.isNotEmpty) {
-      bookmarksSection = Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        child: Column(
+      bookmarksSection = ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.warning.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.warning.withOpacity(0.4), width: 1),
+              boxShadow: [
+                BoxShadow(color: AppColors.warning.withOpacity(0.2), blurRadius: 8, spreadRadius: 0),
+              ],
+            ),
+            child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -700,23 +714,30 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
         if (bookmarksSection != null) bookmarksSection,
         // Keywords Highlight (from Llama)
         if (_transcription!.keywords != null && _transcription!.keywords!.isNotEmpty)
-          Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.primaryAccent.withOpacity(0.2),
-                  AppColors.primaryAccent.withOpacity(0.05),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.primaryAccent.withOpacity(0.3),
-                width: 1,
-              ),
-            ),
-            child: Column(
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  // Glassmorphism - thin neon border
+                  color: AppColors.primaryAccent.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.primaryAccent.withOpacity(0.4),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primaryAccent.withOpacity(0.3),
+                      blurRadius: 8,
+                      spreadRadius: 0,
+                    ),
+                  ],
+                ),
+                child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
@@ -769,6 +790,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
               ],
             ),
           ),
+        ),
         
         const Text(
           'Linha do Tempo',
@@ -1259,26 +1281,32 @@ Responda em português brasileiro de forma clara e útil.
           Expanded(
             child: GestureDetector(
               onTap: () => _seekToSegment(segment),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  // Glassmorphism com contraste alto
-                  color: Colors.black.withOpacity(0.7),
-                  border: Border.all(
-                    color: isActive ? color.withOpacity(0.9) : color.withOpacity(0.4),
-                    width: isActive ? 2.5 : 1,
-                  ),
-                  boxShadow: isActive
-                      ? [
-                          BoxShadow(color: color.withOpacity(0.4), blurRadius: 16, spreadRadius: 2),
-                          BoxShadow(color: color.withOpacity(0.2), blurRadius: 32, spreadRadius: 4),
-                        ]
-                      : null,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      // Glassmorphism - semi-transparent with thin neon border
+                      color: Colors.black.withOpacity(0.5),
+                      border: Border.all(
+                        color: isActive ? color.withOpacity(0.9) : color.withOpacity(0.4),
+                        width: 1, // Thin 1px border
+                      ),
+                      boxShadow: isActive
+                          ? [
+                              BoxShadow(color: color.withOpacity(0.6), blurRadius: 12, spreadRadius: 1),
+                              BoxShadow(color: color.withOpacity(0.3), blurRadius: 24, spreadRadius: 2),
+                            ]
+                          : [
+                              BoxShadow(color: color.withOpacity(0.2), blurRadius: 6, spreadRadius: 0),
+                            ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
