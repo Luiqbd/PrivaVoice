@@ -91,9 +91,9 @@ class WhisperBridge private constructor() {
                 val audioFile = java.io.File(audioPath)
                 println("WhisperBridge: Audio file exists: ${audioFile.exists()}")
 
-                // Language is passed from Flutter
-                println("WhisperBridge: Calling ctx.transcribe() with language: $language...")
-                val fullText = ctx.transcribe(audioFile, language) ?: ""
+                // Language is set at initialization (mx.valdora forces "pt")
+                println("WhisperBridge: Calling ctx.transcribe()...")
+                val fullText = ctx.transcribe(audioFile) ?: ""
                 println("WhisperBridge: Raw result: $fullText")
                 
                 // Apply Portuguese filter to remove Spanish remnants
