@@ -784,7 +784,6 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                             ),
                           ))
                       .toList(),
-                  ),
                 ],
               ),
             ),
