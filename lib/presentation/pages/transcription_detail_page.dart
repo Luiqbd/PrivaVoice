@@ -40,6 +40,11 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
   
   // Timer for auto-refreshing transcription while AI processes
   Timer? _refreshTimer;
+  
+  // PrivaChat functionality
+  final TextEditingController _chatController = TextEditingController();
+  bool _isChatLoading = false;
+  final List<_ChatMessage> _chatMessages = [];
 
   @override
   void initState() {
@@ -725,8 +730,273 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
         // Notas Section
         const SizedBox(height: 24),
         _buildNotesSection(),
+        
+        // PrivaChat Section
+        const SizedBox(height: 24),
+        _buildPrivaChatSection(),
       ],
     );
+  }
+  
+  Widget _buildPrivaChatSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.primaryAccent.withOpacity(0.15),
+            AppColors.primaryAccent.withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.primaryAccent.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.psychology, color: AppColors.primaryAccent, size: 20),
+              const SizedBox(width: 8),
+              const Text(
+                'PrivaChat',
+                style: TextStyle(
+                  color: AppColors.primaryAccent,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              if (_isChatLoading)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.primaryAccent,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          
+          // Quick suggestion buttons
+          if (_chatMessages.isEmpty) ...[
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _buildQuickButton('Resuma para mim', () => _sendToLlama('Resuma o conteúdo desta reunião em parágrafo')),
+                _buildQuickButton('Quais as decisões?', () => _sendToLlama('Liste as decisões tomadas nesta reunião')),
+                _buildQuickButton('Crie um e-mail', () => _sendToLlama('Crie um e-mail profissional resumindo esta reunião')),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
+          
+          // Chat messages
+          ..._chatMessages.map((msg) => _buildChatBubble(msg)),
+          
+          // Input field
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _chatController,
+                  style: const TextStyle(color: AppColors.textSecondary),
+                  decoration: InputDecoration(
+                    hintText: 'Pergunte algo sobre esta nota...',
+                    hintStyle: TextStyle(color: AppColors.textTertiary),
+                    filled: true,
+                    fillColor: AppColors.backgroundPrimary,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                  onSubmitted: (_) => _sendChatMessage(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: _isChatLoading ? null : _sendChatMessage,
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: _isChatLoading 
+                        ? AppColors.primaryAccent.withOpacity(0.3)
+                        : AppColors.primaryAccent,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.send,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildQuickButton(String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.primaryAccent.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: AppColors.primaryAccent.withOpacity(0.3),
+            width: 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.primaryAccent,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildChatBubble(_ChatMessage msg) {
+    final isUser = msg.isUser;
+    return Align(
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.75,
+        ),
+        decoration: BoxDecoration(
+          color: isUser 
+              ? AppColors.primaryAccent.withOpacity(0.2)
+              : AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isUser 
+                ? AppColors.primaryAccent.withOpacity(0.4)
+                : AppColors.primaryAccent.withOpacity(0.2),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: (isUser ? AppColors.primaryAccent : AppColors.primaryAccent.withOpacity(0.1)).withOpacity(0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isUser ? Icons.person : Icons.auto_awesome,
+                  size: 14,
+                  color: isUser ? AppColors.primaryAccent : AppColors.secondaryAccent,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  isUser ? 'Você' : 'PrivaChat',
+                  style: TextStyle(
+                    color: isUser ? AppColors.primaryAccent : AppColors.secondaryAccent,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              msg.text,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Future<void> _sendChatMessage() async {
+    final text = _chatController.text.trim();
+    if (text.isEmpty || _isChatLoading) return;
+    
+    await _sendToLlama(text);
+  }
+  
+  Future<void> _sendToLlama(String question) async {
+    if (_transcription == null) return;
+    
+    // Add user message
+    setState(() {
+      _chatMessages.add(_ChatMessage(text: question, isUser: true));
+      _chatController.clear();
+      _isChatLoading = true;
+    });
+    
+    try {
+      // Build context: transcription text + question
+      final context = '''
+Transcrição:
+${_transcription!.text}
+
+Pergunta do usuário: $question
+
+Responda em português brasileiro de forma clara e útil.
+''';
+      
+      // Call Llama to get answer
+      final result = await AIService.generateChatResponse(
+        transcriptionId: _transcription!.id,
+        context: context,
+      );
+      
+      if (result != null) {
+        setState(() {
+          _chatMessages.add(_ChatMessage(text: result, isUser: false));
+          _isChatLoading = false;
+        });
+      } else {
+        setState(() {
+          _chatMessages.add(_ChatMessage(
+            text: 'Desculpe, não consegui gerar uma resposta. Tente novamente.',
+            isUser: false,
+          ));
+          _isChatLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _chatMessages.add(_ChatMessage(
+          text: 'Erro: ${e.toString()}',
+          isUser: false,
+        ));
+        _isChatLoading = false;
+      });
+    }
   }
   
   Widget _buildNotesSection() {
@@ -1433,4 +1703,12 @@ class _NeonRingPainter extends CustomPainter {
   bool shouldRepaint(covariant _NeonRingPainter oldDelegate) {
     return oldDelegate.progress != progress;
   }
+}
+
+/// Chat message model for PrivaChat
+class _ChatMessage {
+  final String text;
+  final bool isUser;
+  
+  _ChatMessage({required this.text, required this.isUser});
 }

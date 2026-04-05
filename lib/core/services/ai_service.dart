@@ -971,4 +971,76 @@ $_diagnosticLog
     
     return sorted.take(5).map((e) => e.key).toList();
   }
+  
+  /// Generate chat response using Llama
+  static Future<String?> generateChatResponse({
+    required String transcriptionId,
+    required String context,
+  }) async {
+    _log('=== GENERATE CHAT RESPONSE ===');
+    AIManager.setState(AIState.processing, message: 'PrivaChat pensando...');
+    
+    final rootToken = ServicesBinding.rootIsolateToken!;
+    
+    try {
+      final result = await Isolate.run(() async {
+        BackgroundIsolateBinaryMessenger.ensureInitialized(rootToken);
+        
+        _log('🔥[Isolate] Loading Llama for chat...');
+        
+        final modelPath = _modelPath;
+        if (modelPath == null) {
+          _log('🔥[Isolate] Model path not set');
+          return null;
+        }
+        
+        final llamaPath = modelPath.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
+        
+        if (!File(llamaPath).existsSync()) {
+          _log('🔥[Isolate] Llama model not found');
+          return null;
+        }
+        
+        if (!LlamaBindings.load()) {
+          _log('🔥[Isolate] Llama load failed');
+          return null;
+        }
+        
+        final llamaCtx = LlamaBindings.initFromFile(llamaPath);
+        if (llamaCtx == null) {
+          _log('🔥[Isolate] Llama ctx init failed');
+          return null;
+        }
+        
+        _log('🔥[Isolate] Llama ready, generating chat response...');
+        
+        // Chat prompt
+        final prompt = '''
+Você é um assistente útil chamado PrivaChat. Use a transcrição abaixo para responder às perguntas do usuário de forma clara e em português brasileiro.
+
+$context
+
+Resposta:''';
+        
+        final llmResult = LlamaBindings.generate(ctx: llamaCtx, prompt: prompt);
+        
+        // Dispose immediately
+        LlamaBindings.dispose();
+        _log('🔥[Isolate] Llama disposed');
+        
+        if (llmResult == null) {
+          return null;
+        }
+        
+        return llmResult['response'] ?? llmResult['summary'] ?? '';
+      });
+      
+      AIManager.setState(AIState.ready, message: 'Pronto');
+      return result;
+    } catch (e) {
+      _log('Generate chat response failed: $e');
+      AIManager.setError('Chat falhou: $e');
+      return null;
+    }
+  }
 }
