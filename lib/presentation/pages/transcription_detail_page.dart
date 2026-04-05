@@ -847,28 +847,28 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                       fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               ..._transcription!.actionItems!.map(
-            (item) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  Container(
-                    width: 20,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.secondaryAccent),
-                    ),
-                    child: const Icon(Icons.check,
-                        size: 14, color: AppColors.secondaryAccent),
+                (item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppColors.secondaryAccent),
+                        ),
+                        child: const Icon(Icons.check,
+                            size: 14, color: AppColors.secondaryAccent),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                          child: Text(item,
+                              style: const TextStyle(color: AppColors.textSecondary))),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                      child: Text(item,
-                          style: const TextStyle(color: AppColors.textSecondary))),
-                ],
-              ),
-            ),
-          ),
+                ),
+              ).toList(),
         ],
         
         // Notas Section
@@ -1392,14 +1392,13 @@ Responda em português brasileiro de forma clara e útil.
                   color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
             ),
             if (_isProcessing)
-              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: AppColors.primaryAccent.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     SizedBox(
@@ -1419,7 +1418,7 @@ Responda em português brasileiro de forma clara e útil.
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                  ,
+                  ],
                 ),
               ),
             ],
