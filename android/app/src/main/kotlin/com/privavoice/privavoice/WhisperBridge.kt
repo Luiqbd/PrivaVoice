@@ -121,7 +121,7 @@ class WhisperBridge private constructor() {
                 }
 
                 val json = mapOf("segments" to segmentsList, "text" to fullText)
-                println("WhisperBridge: Returning ${segmentsList.size()} segments")
+                println("WhisperBridge: Returning ${segmentsList.size} segments")
                 org.json.JSONObject(json).toString()
             } catch (e: Exception) {
                 println("WhisperBridge: transcribe() EXCEPTION: ${e.message}")
