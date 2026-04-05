@@ -142,11 +142,14 @@ class LibraryPageState extends State<LibraryPage> {
                       return _buildEmptyState();
                     }
 
-                    // Filter by search query
+                    // Filter by search query (title OR text content)
                     final filteredTranscriptions = _searchQuery.isEmpty
                         ? state.transcriptions
                         : state.transcriptions.where((t) {
-                            return t.title.toLowerCase().contains(_searchQuery);
+                            final query = _searchQuery.toLowerCase();
+                            return t.title.toLowerCase().contains(query) ||
+                                   t.text.toLowerCase().contains(query) ||
+                                   (t.summary?.toLowerCase().contains(query) ?? false);
                           }).toList();
 
                     if (filteredTranscriptions.isEmpty) {

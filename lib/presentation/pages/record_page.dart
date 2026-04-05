@@ -378,6 +378,29 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
           isLarge: true,
         ),
         const SizedBox(width: 32),
+        // Star button for bookmark
+        _buildControlButton(
+          icon: Icons.star,
+          onTap: () {
+            // Add bookmark at current position
+            HapticUtils.mediumImpact();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    Icon(Icons.star, color: AppColors.warning, size: 20),
+                    const SizedBox(width: 8),
+                    const Text('Marcador adicionado!'),
+                  ],
+                ),
+                backgroundColor: AppColors.surface,
+                duration: const Duration(seconds: 1),
+              ),
+            );
+          },
+          color: AppColors.warning,
+        ),
+        const SizedBox(width: 32),
         _buildControlButton(
           icon: Icons.stop,
           onTap: _stopRecording,

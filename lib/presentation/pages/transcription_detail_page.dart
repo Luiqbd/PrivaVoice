@@ -8,6 +8,7 @@ import '../../core/ai/ai_state.dart';
 import '../../core/theme/app_colors.dart';
 import '../../domain/entities/transcription.dart';
 import '../../domain/repositories/transcription_repository.dart';
+import '../../core/utils/pdf_exporter.dart';
 
 class TranscriptionDetailPage extends StatefulWidget {
   final String transcriptionId;
@@ -533,6 +534,13 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
           _transcription?.title ?? 'Transcricao',
           style: const TextStyle(color: AppColors.textPrimary),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf, color: AppColors.primaryAccent),
+            onPressed: _exportToPdf,
+            tooltip: 'Exportar PDF',
+          ),
+        ],
       ),
       body: _buildBody(),
     );
@@ -566,15 +574,73 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
     if (_transcription!.text.isEmpty) {
       return _buildEmptyState();
     }
-
+    
+    // Show bookmarks section if there are any
+    Widget? bookmarksSection;
+    if (_transcription!.bookmarks != null && _transcription!.bookmarks!.isNotEmpty) {
+      bookmarksSection = Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.star, size: 16, color: AppColors.warning),
+                const SizedBox(width: 6),
+                const Text(
+                  'Marcadores',
+                  style: TextStyle(
+                    color: AppColors.warning,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _transcription!.bookmarks!.map((ts) {
+                final timeStr = _formatDuration(ts);
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.warning.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.warning.withOpacity(0.5), width: 1),
+                  ),
+                  child: Text(
+                    timeStr,
+                    style: TextStyle(
+                      color: AppColors.warning,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      );
+    }
+    
     if (_transcription!.speakerSegments == null ||
         _transcription!.speakerSegments!.isEmpty) {
-      return _buildPlainTextView();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (bookmarksSection != null) bookmarksSection,
+          _buildPlainTextView(),
+        ],
+      );
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (bookmarksSection != null) bookmarksSection,
         // Keywords Highlight (from Llama)
         if (_transcription!.keywords != null && _transcription!.keywords!.isNotEmpty)
           Container(
@@ -1644,6 +1710,56 @@ Responda em português brasileiro de forma clara e útil.
       if (mounted) {
         setState(() => _isProcessing = false);
       }
+    }
+  }
+  
+  /// Export transcription to PDF
+  Future<void> _exportToPdf() async {
+    if (_transcription == null) return;
+    
+    setState(() => _isProcessing = true);
+    
+    try {
+      final path = await PdfExporter.export(_transcription!);
+      
+      if (path != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.check_circle, color: AppColors.success, size: 20),
+                  const SizedBox(width: 8),
+                  Text('PDF exportado: ${path.split('/').last}'),
+                ],
+              ),
+              backgroundColor: AppColors.surface,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Erro ao exportar PDF'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error exporting PDF: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
     }
   }
 }

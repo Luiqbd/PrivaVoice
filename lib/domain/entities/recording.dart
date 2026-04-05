@@ -9,6 +9,7 @@ class Recording extends Equatable {
   final Duration? duration;
   final DateTime? startedAt;
   final double? amplitude;
+  final List<Duration>? bookmarks;
   
   const Recording({
     required this.id,
@@ -17,6 +18,7 @@ class Recording extends Equatable {
     this.duration,
     this.startedAt,
     this.amplitude,
+    this.bookmarks,
   });
   
   Recording copyWith({
