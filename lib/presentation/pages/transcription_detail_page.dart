@@ -714,6 +714,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
       children: [
         if (bookmarksSection != null) bookmarksSection,
         // Keywords Highlight (from Llama)
+
         if (_transcription!.keywords != null && _transcription!.keywords!.isNotEmpty)
           Container(
             margin: const EdgeInsets.only(bottom: 16),
@@ -782,11 +783,9 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                               ),
                             ),
                           ))
-              ],
-            ),
-          ),
-        ),
-        
+                      .toList(),
+                ),
+
         const Text(
           'Linha do Tempo',
           style: TextStyle(
@@ -807,6 +806,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
         const SizedBox(height: 24),
         
         // Show "Generate Summary" button if no summary yet
+
         if (_transcription!.summary == null || _transcription!.summary!.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -829,43 +829,46 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
           ),
         
         // Show summary if available
-        if (_transcription!.summary != null && _transcription!.summary!.isNotEmpty) ...[
+
+        if (_transcription!.summary != null && _transcription!.summary!.isNotEmpty)
           _buildSection(
               'Resumo', Icons.summarize, AppColors.secondaryAccent, _transcription!.summary!),
-          const SizedBox(height: 16),
-        ],
+
         if (_transcription!.actionItems != null &&
-            _transcription!.actionItems!.isNotEmpty) ...[
-          const Text('Action Items',
-              style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          ..._transcription!.actionItems!.map(
-            (item) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  Container(
-                    width: 20,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.secondaryAccent),
-                    ),
-                    child: const Icon(Icons.check,
-                        size: 14, color: AppColors.secondaryAccent),
+            _transcription!.actionItems!.isNotEmpty)
+          Column(
+            children: [
+              const Text('Action Items',
+                  style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              ..._transcription!.actionItems!.map(
+                (item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppColors.secondaryAccent),
+                        ),
+                        child: const Icon(Icons.check,
+                            size: 14, color: AppColors.secondaryAccent),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                          child: Text(item,
+                              style: const TextStyle(color: AppColors.textSecondary))),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                      child: Text(item,
-                          style: const TextStyle(color: AppColors.textSecondary))),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
-        ],
         
         // Notas Section
         const SizedBox(height: 24),
