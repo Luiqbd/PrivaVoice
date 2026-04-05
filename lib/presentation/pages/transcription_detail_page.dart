@@ -229,24 +229,19 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
     debugPrint('xxx STARTING AI PROCESSING xxx');
     debugPrint('xxx Audio: ${_transcription!.audioPath}');
     debugPrint('xxx BEFORE setState');
-    setState(() => _isProcessing = true);
+    setState(() {
+      _isProcessing = true;
+      _currentStage = 'Iniciando...';
+    });
     debugPrint('xxx AFTER setState');
+    
+    // Start real-time progress tracking
+    _startProgressTracking();
 
     // Wrap AI call in try-catch to prevent UI crash
     // Player will stay visible even if AI fails
     try {
       debugPrint('xxx CALLING AIService.processAudio');
-      
-      // Real-time progress callback - update UI as AI processes
-      String currentProgress = 'Iniciando...';
-      final progressController = Stream.periodic(const Duration(milliseconds: 500)).listen((_) {
-        if (mounted && _isProcessing) {
-          setState(() {
-            // Show partial text from AI state
-            currentProgress = AIManager.statusMessage;
-          });
-        }
-      });
       
       final result = await AIService.processAudio(
         audioPath: _transcription!.audioPath,
@@ -255,13 +250,11 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
           // Real-time callback - update partial text while processing
           if (mounted) {
             setState(() {
-              currentProgress = status;
+              _currentStage = status;
             });
           }
         },
       );
-      
-      progressController.cancel();
 
       if (result == null) {
         // AI returned null - show error but keep player visible
@@ -306,6 +299,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
           _transcription = updated;
           _isProcessing = false;
         });
+        _progressTimer?.cancel(); // Stop progress tracking
         debugPrint('TranscriptionDetailPage: UI updated!');
       }
     } catch (e) {
@@ -317,6 +311,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
           _error = 'Erro na IA: ${e.toString()}';
           _isProcessing = false;
         });
+        _progressTimer?.cancel(); // Stop progress tracking
       }
     }
   }
@@ -324,10 +319,73 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _progressTimer?.cancel();
     _notesSaveTimer?.cancel();
     _notesController.dispose();
     _audioPlayer.dispose();
     super.dispose();
+  }
+
+  // Real-time progress tracking
+  Timer? _progressTimer;
+  double _currentProgress = 0.0;
+  DateTime? _startTime;
+  String _currentStage = 'Iniciando...';
+
+  void _startProgressTracking() {
+    _startTime = DateTime.now();
+    _currentProgress = 0.0;
+    
+    _progressTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      if (!mounted || !_isProcessing) {
+        _progressTimer?.cancel();
+        return;
+      }
+      
+      // Update progress from AIManager
+      setState(() {
+        _currentProgress = AIManager.progress;
+        
+        // Map status to stage messages
+        final status = AIManager.statusMessage.toLowerCase();
+        if (status.contains('carregando')) {
+          _currentStage = 'Carregando modelo...';
+        } else if (status.contains('preparando')) {
+          _currentStage = 'Preparando IA...';
+        } else if (status.contains('processando') || status.contains('transcrevendo')) {
+          _currentStage = 'Transcrevendo áudio...';
+        } else if (status.contains('voz') || status.contains('speaker')) {
+          _currentStage = 'Identificando vozes...';
+        } else if (status.contains('sincroniz') || status.contains('texto')) {
+          _currentStage = 'Sincronizando texto...';
+        } else if (status.contains('pronto') || status.contains('completo')) {
+          _currentStage = 'Finalizando...';
+        } else {
+          _currentStage = AIManager.statusMessage.isNotEmpty 
+              ? AIManager.statusMessage 
+              : 'Processando...';
+        }
+      });
+    });
+  }
+
+  String _formatRemainingTime() {
+    if (_startTime == null || _currentProgress <= 0) return '--:--';
+    
+    // Estimate remaining time based on progress
+    final elapsed = DateTime.now().difference(_startTime!).inSeconds;
+    if (elapsed < 5) return 'Calculando...';
+    
+    final totalEstimated = elapsed / _currentProgress;
+    final remaining = (totalEstimated - elapsed).round();
+    
+    if (remaining < 60) {
+      return '0:${remaining.toString().padLeft(2, '0')}';
+    } else {
+      final minutes = remaining ~/ 60;
+      final seconds = remaining % 60;
+      return '$minutes:${seconds.toString().padLeft(2, '0')}';
+    }
   }
 
   /// Build processing status indicator (real-time UX)
@@ -336,41 +394,105 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
     
     return Container(
       margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primaryAccent.withOpacity(0.5), width: 2),
+        color: AppColors.surface.withOpacity(0.95),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primaryAccent.withOpacity(0.6), width: 2),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primaryAccent.withOpacity(0.3),
-            blurRadius: 12,
-            spreadRadius: 2,
+            color: AppColors.primaryAccent.withOpacity(0.4),
+            blurRadius: 20,
+            spreadRadius: 3,
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: AppColors.primaryAccent,
+          // Stage message
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.primaryAccent,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                _currentStage,
+                style: const TextStyle(
+                  color: AppColors.primaryAccent,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          
+          // Linear Progress with Cyan Glow
+          Container(
+            height: 12,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(6),
+              color: AppColors.surface,
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primaryAccent.withOpacity(0.3),
+                  blurRadius: 8,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: _currentProgress.clamp(0.0, 1.0),
+                backgroundColor: AppColors.surface,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  AppColors.primaryAccent,
+                ),
+              ),
             ),
           ),
-          const SizedBox(width: 12),
-          // Show real-time status from AI
-          Text(
-            AIManager.statusMessage.isNotEmpty 
-                ? AIManager.statusMessage 
-                : 'IA processando áudio...',
-            style: TextStyle(
-              color: AppColors.primaryAccent,
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-            ),
+          const SizedBox(height: 12),
+          
+          // Progress percentage and countdown
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${(_currentProgress * 100).toInt()}%',
+                style: TextStyle(
+                  color: AppColors.primaryAccent.withOpacity(0.8),
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                ),
+              ),
+              Row(
+                children: [
+                  Icon(
+                    Icons.timer_outlined,
+                    size: 16,
+                    color: AppColors.primaryAccent.withOpacity(0.8),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Finalizando em ${_formatRemainingTime()}',
+                    style: TextStyle(
+                      color: AppColors.primaryAccent.withOpacity(0.8),
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ],
       ),
