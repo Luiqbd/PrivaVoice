@@ -9,6 +9,7 @@ import '../ai/native/whisper_bindings.dart';
 import '../ai/native/whisper_platform_service.dart';
 import '../ai/native/llama_bindings.dart';
 import '../ai/ai_state.dart';
+import '../utils/audio_normalizer.dart';
 
 /// Stream controller for real-time transcription updates
 class TranscriptionProgress {
@@ -474,6 +475,12 @@ class AIService {
         throw Exception('Whisper model not found: $safePath');
       }
 
+      // Normalize audio for better transcription quality
+      _log('processAudio: Normalizing audio for optimal clarity...');
+      final normalizedPath = await AudioNormalizer.normalize(audioPath, '${audioPath}_normalized.wav');
+      final finalAudioPath = normalizedPath ?? audioPath;
+      _log('processAudio: Audio normalized: ${normalizedPath != null ? "OK" : "using original"}');
+
       // Initialize WhisperPlatformService on MAIN THREAD before isolate
       _log('processAudio: Initializing platform service on main thread...');
       final platformInitResult = await WhisperPlatformService.initialize(safePath);
@@ -490,7 +497,7 @@ class AIService {
           
           _log('🔥[Isolate] Starting pipeline...');
           return await _processPipeline(
-            audioPath: audioPath,
+            audioPath: finalAudioPath,
             title: title,
             modelPath: safePath,
           );
