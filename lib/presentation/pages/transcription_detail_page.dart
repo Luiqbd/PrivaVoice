@@ -760,30 +760,31 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                 Wrap(
                   spacing: 8,
                   runSpacing: 6,
-                  children: _transcription!.keywords!
-                      .map((kw) => Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryAccent.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: AppColors.primaryAccent.withOpacity(0.3),
-                                width: 1,
+                  children: [
+                    ..._transcription!.keywords!
+                        .map((kw) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
                               ),
-                            ),
-                            child: Text(
-                              kw,
-                              style: const TextStyle(
-                                color: AppColors.primaryAccent,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
+                              decoration: BoxDecoration(
+                                color: AppColors.primaryAccent.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: AppColors.primaryAccent.withOpacity(0.3),
+                                  width: 1,
+                                ),
                               ),
-                            ),
-                          ))
-                      .toList(),
+                              child: Text(
+                                kw,
+                                style: const TextStyle(
+                                  color: AppColors.primaryAccent,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ))
+                        .toList(),
                   ],
                 ),
               ),
