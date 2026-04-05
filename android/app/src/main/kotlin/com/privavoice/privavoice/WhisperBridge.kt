@@ -197,10 +197,10 @@ class WhisperBridge private constructor() {
 
                 // Build segments from lines (for karaoke effect)
                 // Use real audio duration to calculate timestamps more accurately
-                val audioFile = java.io.File(audioPath)
-                val audioLengthMs = if (audioFile.exists()) {
+                val audioDurationFile = java.io.File(audioPath)
+                val audioLengthMs = if (audioDurationFile.exists()) {
                     try {
-                        val fis = java.io.FileInputStream(audioFile)
+                        val fis = java.io.FileInputStream(audioDurationFile)
                         val len = fis.available()
                         // Assume WAV: 16kHz mono 16-bit = 32KB/second
                         (len / 32000.0 * 1000).toLong()
@@ -426,51 +426,6 @@ class WhisperBridge private constructor() {
             "pienso" to "penso",
             "piensas" to "pensa",
             "pensamos" to "pensamos",
-        )
-            "entender" to "entender",
-            "pensar" to "pensar",
-            "creer" to "crer",
-            "ayudar" to "ajudar",
-            "buscar" to "buscar",
-            "encontrar" to "encontrar",
-            "necesitar" to "necessitar",
-            "utilizar" to "utilizar",
-            "existir" to "existir",
-            "parecer" to "parecer",
-            "resultar" to "resultar",
-            "suceder" to "acontecer",
-            "importar" to "importar",
-            "jugar" to "jogar",
-            "terminar" to "terminar",
-            "comenzar" to "começar",
-            "continuar" to "continuar",
-            "levantar" to "levantar",
-            "mantener" to "manter",
-            "perder" to "perder",
-            "entrar" to "entrar",
-            "salir" to "sair",
-            "mostrar" to "mostrar",
-            "deber" to "dever",
-            "acabar" to "acabar",
-            "grande" to "grande",
-            "poder" to "poder",
-            "querer" to "querer",
-            "saber" to "saber",
-            "decir" to "dizer",
-            "venir" to "vir",
-            "tener" to "ter",
-            "hacer" to "fazer",
-            "ir" to "ir",
-            "dar" to "dar",
-            "ver" to "ver",
-            "conocer" to "conhecer",
-            "pensar" to "pensar",
-            "querer" to "querer",
-            "llegar" to "chegar",
-            "pasar" to "passar",
-            "entender" to "entender",
-            "sentir" to "sentir",
-            "decir" to "dizer"
         )
         
         for ((spanish, portuguese) in formalCorrections) {
