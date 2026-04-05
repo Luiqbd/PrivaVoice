@@ -91,8 +91,6 @@ class TranscriptionBloc extends Bloc<TranscriptionEvent, TranscriptionState> {
         status: TranscriptionStatus.error,
         errorMessage: e.toString(),
       ));
-    } finally {
-      _progressSubscription?.cancel();
     }
   }
 
