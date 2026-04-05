@@ -784,7 +784,8 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                             ),
                           ))
                       .toList(),
-                ),
+            ],
+          ),
         ),
         const Text(
           'Linha do Tempo',
