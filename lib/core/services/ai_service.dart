@@ -714,7 +714,7 @@ class AIService {
     // Get actual audio duration (default to 2 min if not provided)
     final totalDuration = audioDuration ?? const Duration(minutes: 2);
     var time = 0;
-    var voiceCount = 0;
+    var voiceCount = 0; // Start from 0 to alternate Voz 1 and Voz 2
     final uniqueVoices = <String>{}; // Track unique voices found
     
     // Calculate timing based on actual audio duration
@@ -743,13 +743,13 @@ class AIService {
       } else if (i > 0 && paragraphs[i-1].trim().isEmpty) {
         // Empty line before this paragraph = new speaker
         voiceCount++;
-        voiceName = 'Voz ${voiceCount + 1}';
+        voiceName = 'Voz ${(voiceCount % 2) + 1}'; // Alternate Voz 1 and Voz 2
       } else if (i > 0 && voiceCount < 10) {
         // Alternate every paragraph if no clear pattern
         voiceCount++;
         voiceName = 'Voz ${(voiceCount % 2) + 1}'; // Alternate between Voz 1 and Voz 2
       } else {
-        // Default
+        // Default to Voz 1
         voiceName = 'Voz 1';
       }
       

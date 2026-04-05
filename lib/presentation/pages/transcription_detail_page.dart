@@ -51,7 +51,25 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
 
   void _startRefreshTimer() {
     // Refresh transcription more frequently while AI is processing (every 1 second)
+    // Also add timeout to stop after 5 minutes
+    var refreshCount = 0;
+    const maxRefreshes = 300; // 5 minutes max
+    
     _refreshTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+      refreshCount++;
+      
+      // Timeout after 5 minutes - stop processing indicator
+      if (refreshCount > maxRefreshes) {
+        debugPrint('TranscriptionDetailPage: TIMEOUT - stopping processing indicator');
+        if (mounted) {
+          setState(() {
+            _isProcessing = false;
+          });
+        }
+        timer.cancel();
+        return;
+      }
+      
       if (_isProcessing && _transcription != null) {
         debugPrint('TranscriptionDetailPage: Auto-refresh...');
         try {
@@ -790,9 +808,11 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
         children: [
           const Icon(Icons.auto_awesome, color: AppColors.primaryAccent, size: 48),
           const SizedBox(height: 16),
-          const Text(
-            'Toque para processar com IA',
-            style: TextStyle(color: AppColors.textPrimary, fontSize: 16),
+          Text(
+            _isProcessing 
+                ? 'Transcrevendo...'
+                : 'Toque para transcrever com IA',
+            style: const TextStyle(color: AppColors.textPrimary, fontSize: 16),
           ),
           const SizedBox(height: 16),
           if (_isProcessing)
@@ -801,7 +821,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
             ElevatedButton(
               onPressed: _processWithAI,
               style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryAccent),
-              child: const Text('Iniciar Processamento'),
+              child: const Text('Transcrever'),
             ),
         ],
       ),

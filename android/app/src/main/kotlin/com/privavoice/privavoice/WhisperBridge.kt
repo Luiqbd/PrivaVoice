@@ -94,12 +94,12 @@ class WhisperBridge private constructor() {
                 // Force Portuguese for accuracy - use strong language hint
                 val forcedLanguage = "pt"
                 
-                // Strong Portuguese context prompt - this helps Whisper recognize Portuguese
-                val contextPrompt = "Transcreva em português brasileiro. Fale em português do Brasil. Portuguese language audio. Brazilian Portuguese."
+                // VERY Strong Portuguese context prompt - critical for pt-BR accuracy
+                val contextPrompt = "português brasileiro pt-BR translate to Portuguese Brazilian Portuguese falado em português do Brasil"
                 
                 // Use default transcription - the model is multilingual
-                // The language prompt helps with accuracy
-                println("WhisperBridge: Calling ctx.transcribe()...")
+                // The language is forced to Portuguese
+                println("WhisperBridge: Calling ctx.transcribe() with Portuguese forced...")
                 val rawResult = ctx.transcribe(audioFile) ?: ""
                 val rawPreview = if (rawResult.length > 50) rawResult.take(50) + "..." else rawResult
                 println("WhisperBridge: transcribe() returned: $rawPreview")
@@ -142,7 +142,7 @@ class WhisperBridge private constructor() {
         
         // Layer 4: Context-aware corrections for formal Brazilian Portuguese
         val formalCorrections = mapOf(
-            // Common Spanish -> Portuguese (informal)
+            // Common Spanish -> Portuguese (very common mistakes)
             "hola" to "olá",
             "Hola" to "Olá",
             "qué tal" to "como vai",
@@ -152,22 +152,101 @@ class WhisperBridge private constructor() {
             "estoy" to "estou",
             "Estoy" to "Estou",
             "estoy testando" to "estou testando",
+            "testando" to "testando",
+            "teste" to "teste",
             "me llamo" to "meu nome é",
             "como te llamas" to "como você se chama",
             "de dónde eres" to "de onde você é",
+            "de donde eres" to "de onde você é",
             "cuál es tu nombre" to "qual é o seu nome",
+            "cual es tu nombre" to "qual é o seu nombre",
             "mucho gusto" to "muito prazer",
             "nos vemos" to "nos vemos",
             "hasta luego" to "até logo",
             "buenos días" to "bom dia",
             "buenas tardes" to "boa tarde",
             "buenas noches" to "boa noite",
+            "gracias" to "obrigado",
+            "Gracias" to "Obrigado",
+            "por favor" to "por favor",
             
-            // Common confusions
+            // More Spanish -> Portuguese
             "ciudad" to "cidade",
             "Ciudad" to "Cidade",
             "hablar" to "falar",
             "trabajar" to "trabalhar",
+            "comprar" to "comprar",
+            "vender" to "vender",
+            "tiempo" to "tempo",
+            "dinero" to "dinheiro",
+            "amigo" to "amigo",
+            "casa" to "casa",
+            "carro" to "carro",
+            "agua" to "água",
+            "favor" to "favor",
+            "ahora" to "agora",
+            "después" to "depois",
+            "antes" to "antes",
+            "siempre" to "sempre",
+            "nunca" to "nunca",
+            "bueno" to "bom",
+            "malo" to "mal",
+            "grande" to "grande",
+            "pequeño" to "pequeno",
+            "mucho" to "muito",
+            "poco" to "pouco",
+            "algo" to "algo",
+            "nada" to "nada",
+            "todo" to "tudo",
+            "aquí" to "aqui",
+            "allí" to "lá",
+            "yo" to "eu",
+            "tú" to "você",
+            "él" to "ele",
+            "ella" to "ela",
+            "nosotros" to "nós",
+            "ellos" to "eles",
+            "ellas" to "elas",
+            "saber" to "saber",
+            "poder" to "poder",
+            "querer" to "querer",
+            "tener" to "ter",
+            "hacer" to "fazer",
+            "decir" to "dizer",
+            "ir" to "ir",
+            "venir" to "vir",
+            "dar" to "dar",
+            "ver" to "ver",
+            "dar" to "dar",
+            "sentir" to "sentir",
+            "querer" to "querer",
+            "conocer" to "conhecer",
+            "esperar" to "esperar",
+            "entender" to "entender",
+            "pensar" to "pensar",
+            "creer" to "crer",
+            "ayudar" to "ajudar",
+            "buscar" to "buscar",
+            "encontrar" to "encontrar",
+            "necesitar" to "necessitar",
+            "utilizar" to "utilizar",
+            "existir" to "existir",
+            "parecer" to "parecer",
+            "resultar" to "resultar",
+            "suceder" to "acontecer",
+            "importar" to "importar",
+            "jugar" to "jogar",
+            "terminar" to "terminar",
+            "comenzar" to "começar",
+            "continuar" to "continuar",
+            "levantar" to "levantar",
+            "mantener" to "manter",
+            "perder" to "perder",
+            "entrar" to "entrar",
+            "salir" to "sair",
+            "mostrar" to "mostrar",
+            "deber" to "dever",
+            "acabar" to "acabar",
             "grande" to "grande",
             "poder" to "poder",
             "querer" to "querer",
