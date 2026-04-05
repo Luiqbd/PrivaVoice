@@ -742,17 +742,25 @@ class AIService {
     
     for (var i = 0; i < segments.length; i++) {
       final seg = segments[i];
-      final startMs = seg['start'] as int? ?? 0;
-      final endMs = seg['end'] as int? ?? 0;
+      final startMs = (seg['start'] as num?)?.toInt() ?? 0;
+      final endMs = (seg['end'] as num?)?.toInt() ?? 0;
       final text = seg['text'] as String? ?? '';
+      // Use speaker from Kotlin if available, otherwise calculate
+      final kotlinSpeaker = seg['speaker'] as String?;
       
       if (text.trim().isEmpty) continue;
       
-      // Check pause: > 1500ms gap = new speaker
-      final gap = startMs - lastEndMs;
-      if (gap > 1500) {
-        currentVoice = currentVoice == 'Voz 1' ? 'Voz 2' : 'Voz 1';
-        _log('🔊 Voice change! Gap: ${gap}ms -> $currentVoice');
+      // Use Kotlin's speaker if provided, otherwise calculate from pause
+      if (kotlinSpeaker != null) {
+        currentVoice = kotlinSpeaker;
+        _log('🔊 Using Kotlin speaker: $currentVoice');
+      } else {
+        // Check pause: > 1500ms gap = new speaker
+        final gap = startMs - lastEndMs;
+        if (gap > 1500) {
+          currentVoice = currentVoice == 'Voz 1' ? 'Voz 2' : 'Voz 1';
+          _log('🔊 Voice change! Gap: ${gap}ms -> $currentVoice');
+        }
       }
       
       speakers.add(SpeakerSegment(

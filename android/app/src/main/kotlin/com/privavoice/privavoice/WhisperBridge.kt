@@ -101,13 +101,32 @@ class WhisperBridge private constructor() {
                 println("WhisperBridge: Filtered result: $filteredText")
 
                 // Build segments from lines (for karaoke effect)
+                // Use real audio duration to calculate timestamps more accurately
+                val audioFile = java.io.File(audioPath)
+                val audioLengthMs = if (audioFile.exists()) {
+                    try {
+                        val fis = java.io.FileInputStream(audioFile)
+                        val len = fis.available()
+                        // Assume WAV: 16kHz mono 16-bit = 32KB/second
+                        (len / 32000.0 * 1000).toLong()
+                    } catch (e: Exception) {
+                        60000L // Default 60s if can't calculate
+                    }
+                } else {
+                    60000L
+                }
+                
                 val lines = filteredText.split("\n").filter { it.trim().isNotEmpty() }
                 val segmentsList = mutableListOf<Map<String, Any>>()
-
-                var currentTime = 0
+                val totalChars = filteredText.length.coerceAtLeast(1)
+                
+                // Estimate time per character based on audio length
+                val msPerChar = audioLengthMs.toFloat() / totalChars.toFloat()
+                
+                var currentTime = 0L
                 for (line in lines) {
-                    val wordCount = line.split(" ").size
-                    val duration = wordCount * 200
+                    val charCount = line.length
+                    val duration = (charCount * msPerChar).toLong().coerceAtLeast(200)
                     segmentsList.add(mapOf(
                         "start" to currentTime,
                         "end" to (currentTime + duration),
@@ -118,14 +137,38 @@ class WhisperBridge private constructor() {
 
                 if (segmentsList.isEmpty()) {
                     segmentsList.add(mapOf(
-                        "start" to 0,
-                        "end" to fullText.split(" ").size * 200,
-                        "text" to fullText
+                        "start" to 0L,
+                        "end" to audioLengthMs,
+                        "text" to filteredText
                     ))
                 }
+                
+                // Add speaker diarization based on pause (>1.5s gap)
+                val segmentsWithSpeaker = segmentsList.mapIndexed { index, seg ->
+                    val start = seg["start"] as Long
+                    val end = seg["end"] as Long
+                    val text = seg["text"] as String
+                    
+                    // Check gap from previous segment
+                    var speaker = "Voz 1"
+                    if (index > 0) {
+                        val prevEnd = segmentsList[index - 1]["end"] as Long
+                        val gap = start - prevEnd
+                        if (gap > 1500) {
+                            speaker = "Voz 2"
+                        }
+                    }
+                    
+                    mapOf(
+                        "start" to start,
+                        "end" to end,
+                        "text" to text,
+                        "speaker" to speaker
+                    )
+                }
 
-                val json = mapOf("segments" to segmentsList, "text" to filteredText)
-                println("WhisperBridge: Returning ${segmentsList.size} segments")
+                val json = mapOf("segments" to segmentsWithSpeaker, "text" to filteredText)
+                println("WhisperBridge: Returning ${segmentsWithSpeaker.size} segments with speaker diarization")
                 org.json.JSONObject(json).toString()
             } catch (e: Exception) {
                 println("WhisperBridge: transcribe() EXCEPTION: ${e.message}")
