@@ -788,7 +788,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
             ),
           ),
         ),
-
+        
         const Text(
           'Linha do Tempo',
           style: TextStyle(
@@ -832,13 +832,10 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
         
         // Show summary if available
         if (_transcription!.summary != null && _transcription!.summary!.isNotEmpty)
-          Column(
-            children: [
-              _buildSection(
-                  'Resumo', Icons.summarize, AppColors.secondaryAccent, _transcription!.summary!),
-              const SizedBox(height: 16),
-            ],
-          ),
+          _buildSection(
+              'Resumo', Icons.summarize, AppColors.secondaryAccent, _transcription!.summary!),
+        if (_transcription!.summary != null && _transcription!.summary!.isNotEmpty)
+          const SizedBox(height: 16),
         if (_transcription!.actionItems != null &&
             _transcription!.actionItems!.isNotEmpty)
           Column(
@@ -850,30 +847,29 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                       fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               ..._transcription!.actionItems!.map(
-                (item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 20,
-                        height: 20,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.secondaryAccent),
-                        ),
-                        child: const Icon(Icons.check,
-                            size: 14, color: AppColors.secondaryAccent),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                          child: Text(item,
-                              style: const TextStyle(color: AppColors.textSecondary))),
-                    ],
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  Container(
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.secondaryAccent),
+                    ),
+                    child: const Icon(Icons.check,
+                        size: 14, color: AppColors.secondaryAccent),
                   ),
-                ),
-              ).toList(),
-            ],
+                  const SizedBox(width: 8),
+                  Expanded(
+                      child: Text(item,
+                          style: const TextStyle(color: AppColors.textSecondary))),
+                ],
+              ),
+            ),
           ),
+        ],
         
         // Notas Section
         const SizedBox(height: 24),
@@ -934,7 +930,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
           const SizedBox(height: 12),
           
           // Quick suggestion buttons
-          if (_chatMessages.isEmpty) ...[
+          if (_chatMessages.isEmpty)
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -944,8 +940,8 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                 _buildQuickButton('Crie um e-mail', () => _sendToLlama('Crie um e-mail profissional resumindo esta reunião')),
               ],
             ),
+          if (_chatMessages.isEmpty)
             const SizedBox(height: 12),
-          ],
           
           // Chat messages
           ..._chatMessages.map((msg) => _buildChatBubble(msg)),
