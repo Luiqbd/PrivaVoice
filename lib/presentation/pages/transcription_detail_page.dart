@@ -1304,32 +1304,34 @@ Responda em português brasileiro de forma clara e útil.
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.25),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: color.withOpacity(0.5)),
-                      ),
-                      child: Text(
-                        displayName,
-                        style: TextStyle(
-                          color: color,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: color.withOpacity(0.25),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: color.withOpacity(0.5)),
+                          ),
+                          child: Text(
+                            displayName,
+                            style: TextStyle(
+                              color: color,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1,
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 10),
+                        // Texto com efeito karaoke - destaca palavras conforme reproduz
+                        _buildKaraokeText(segment, isActive),
+                      ],
                     ),
-                    const SizedBox(height: 10),
-                    // Texto com efeito karaoke - destaca palavras conforme reproduz
-                    _buildKaraokeText(segment, isActive),
-                  ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

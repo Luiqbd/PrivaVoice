@@ -40,7 +40,7 @@ class MediaImporter {
       final whisperService = GetIt.instance<WhisperService>();
       final result = await whisperService.transcribe(destPath);
       
-      if (result == null || result.isEmpty) {
+      if (result == null || result.text.isEmpty) {
         debugPrint('MediaImporter: Transcription failed');
         return null;
       }
@@ -50,10 +50,10 @@ class MediaImporter {
         id: _uuid.v4(),
         title: title,
         audioPath: destPath,
-        text: result,
-        wordTimestamps: [],
+        text: result.text,
+        wordTimestamps: result.wordTimestamps,
         createdAt: DateTime.now(),
-        duration: duration,
+        duration: result.duration,
         isEncrypted: true,
       );
       
