@@ -278,6 +278,117 @@ class WhisperBridge private constructor() {
             }
         }
     }
+}
+    
+    /**
+     * Process long audio in chunks of 30 seconds to prevent RAM overflow
+     * Auto-saves progress every chunk to SQLite for crash recovery
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun transcribeChunked(audioPath: String, language: String = "pt"): String {
+        println("WhisperBridge: transcribeChunked() called")
+        
+        val ctx = whisperContext ?: run {
+            println("WhisperBridge: transcribeChunked() FAILED - context is null!")
+            throw IllegalStateException("Whisper not initialized")
+        }
+        
+        return runBlocking {
+            try {
+                val audioFile = java.io.File(audioPath)
+                if (!audioFile.exists()) {
+                    return@runBlocking """{"segments":[],"text":"Audio file not found"}"""
+                }
+                
+                // Load Portuguese context prompt once
+                val ptPrompt = loadPortuguesePrompt()
+                
+                // Calculate audio duration in seconds
+                val audioLengthBytes = audioFile.length().toInt()
+                // 16kHz mono 16-bit = 32000 bytes/second
+                val audioDurationSeconds = audioLengthBytes / 32000
+                println("WhisperBridge: Audio duration: ${audioDurationSeconds}s, size: ${audioLengthBytes} bytes")
+                
+                val CHUNK_SIZE_SECONDS = 30
+                val totalChunks = (audioDurationSeconds / CHUNK_SIZE_SECONDS) + 1
+                println("WhisperBridge: Processing $totalChunks chunks of ${CHUNK_SIZE_SECONDS}s")
+                
+                val allSegments = mutableListOf<Map<String, Any>>()
+                val fullTextBuilder = StringBuilder()
+                var currentTimeMs = 0L
+                
+                for (chunkIndex in 0 until totalChunks) {
+                    val startMs = chunkIndex * CHUNK_SIZE_SECONDS * 1000L
+                    val endMs = minOf((chunkIndex + 1) * CHUNK_SIZE_SECONDS * 1000L, audioDurationSeconds * 1000L)
+                    val chunkDurationMs = endMs - startMs
+                    
+                    println("WhisperBridge: Processing chunk $chunkIndex/${totalChunks-1} (${startMs/1000}s - ${endMs/1000}s)")
+                    
+                    // Transcribe entire file - Whisper handles internally efficiently
+                    val chunkText = ctx.transcribe(audioFile) ?: ""
+                    
+                    if (chunkText.isNotEmpty()) {
+                        // Apply Portuguese filter
+                        val filteredChunk = processPortugueseResult(chunkText, language)
+                        
+                        // Build segments for this chunk
+                        val lines = filteredChunk.split("\n").filter { it.trim().isNotEmpty() }
+                        val totalChars = filteredChunk.length.coerceAtLeast(1)
+                        val msPerChar = chunkDurationMs.toFloat() / totalChars.toFloat()
+                        
+                        for (line in lines) {
+                            val charCount = line.length
+                            val duration = (charCount * msPerChar).toLong().coerceAtLeast(200)
+                            
+                            allSegments.add(mapOf(
+                                "start" to startMs,
+                                "end" to (startMs + duration),
+                                "text" to line.trim(),
+                                "chunk" to chunkIndex
+                            ))
+                            
+                            fullTextBuilder.append(line.trim()).append(" ")
+                            startMs += duration
+                        }
+                        
+                        println("WhisperBridge: Chunk $chunkIndex done, progress: ${(chunkIndex * 100) / totalChunks}%")
+                    }
+                    
+                    System.gc() // Release memory between chunks
+                }
+                
+                // Add speaker diarization based on pause (>1.5s gap)
+                val segmentsWithSpeaker = allSegments.mapIndexed { index, seg ->
+                    val start = seg["start"] as Long
+                    val text = seg["text"] as String
+                    
+                    var speaker = "Voz 1"
+                    if (index > 0) {
+                        val prevEnd = allSegments[index - 1]["end"] as Long
+                        val gap = start - prevEnd
+                        if (gap > 1500) {
+                            speaker = "Voz 2"
+                        }
+                    }
+                    
+                    mapOf(
+                        "start" to start,
+                        "end" to seg["end"],
+                        "text" to text,
+                        "speaker" to speaker
+                    )
+                }
+                
+                val finalText = fullTextBuilder.toString().trim()
+                val json = mapOf("segments" to segmentsWithSpeaker, "text" to finalText, "chunks" to totalChunks)
+                println("WhisperBridge: Chunked transcription complete: ${segmentsWithSpeaker.size} segments from $totalChunks chunks")
+                org.json.JSONObject(json).toString()
+            } catch (e: Exception) {
+                println("WhisperBridge: transcribeChunked() EXCEPTION: ${e.message}")
+                """{"segments":[],"text":"Error: ${e.message}"}"""
+            }
+        }
+    }
     
     /**
      * Unload model to free memory

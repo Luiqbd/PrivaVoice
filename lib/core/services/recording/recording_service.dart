@@ -70,8 +70,8 @@ class RecordingService {
         }
       });
       
-      // Start auto-save timer (every 30 seconds)
-      _autoSaveTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      // Start auto-save timer (every 5 minutes for long audio)
+      _autoSaveTimer = Timer.periodic(const Duration(minutes: 5), (_) {
         _performAutoSave();
       });
       
