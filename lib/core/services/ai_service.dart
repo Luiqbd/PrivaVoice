@@ -645,8 +645,9 @@ class AIService {
 
       // Use segment-based diarization if available (from Kotlin JSON)
       // Otherwise fall back to simple Voz 1 assignment
-      final speakers = segments != null && segments.isNotEmpty
-          ? _diarizeWithSegments(segments, audioDuration: audioDuration)
+      final hasSegments = segments != null && (segments as List).isNotEmpty;
+      final speakers = hasSegments
+          ? _diarizeWithSegments(List<Map<String, dynamic>>.from(segments), audioDuration: audioDuration)
           : _simpleDiarize(text);
       
       // Stream each segment for real-time UI effect
