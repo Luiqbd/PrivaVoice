@@ -714,7 +714,6 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
       children: [
         if (bookmarksSection != null) bookmarksSection,
         // Keywords Highlight (from Llama)
-
         if (_transcription!.keywords != null && _transcription!.keywords!.isNotEmpty)
           Container(
             margin: const EdgeInsets.only(bottom: 16),
@@ -760,37 +759,36 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                 Wrap(
                   spacing: 8,
                   runSpacing: 6,
-                  children: [
-                    ..._transcription!.keywords!
-                        .map((kw) => Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
+                  children: _transcription!.keywords!
+                      .map((kw) => Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryAccent.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: AppColors.primaryAccent.withOpacity(0.3),
+                                width: 1,
                               ),
-                              decoration: BoxDecoration(
-                                color: AppColors.primaryAccent.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: AppColors.primaryAccent.withOpacity(0.3),
-                                  width: 1,
-                                ),
+                            ),
+                            child: Text(
+                              kw,
+                              style: const TextStyle(
+                                color: AppColors.primaryAccent,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
                               ),
-                              child: Text(
-                                kw,
-                                style: const TextStyle(
-                                  color: AppColors.primaryAccent,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ))
-                        .toList(),
-                  ],
+                            ),
+                          ))
+                      .toList(),
                 ),
-              ),
+              ],
             ),
           ),
         ),
+        
         const Text(
           'Linha do Tempo',
           style: TextStyle(
@@ -811,7 +809,6 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
         const SizedBox(height: 24),
         
         // Show "Generate Summary" button if no summary yet
-
         if (_transcription!.summary == null || _transcription!.summary!.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -834,46 +831,43 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
           ),
         
         // Show summary if available
-
-        if (_transcription!.summary != null && _transcription!.summary!.isNotEmpty)
+        if (_transcription!.summary != null && _transcription!.summary!.isNotEmpty) ...[
           _buildSection(
               'Resumo', Icons.summarize, AppColors.secondaryAccent, _transcription!.summary!),
-
+          const SizedBox(height: 16),
+        ],
         if (_transcription!.actionItems != null &&
-            _transcription!.actionItems!.isNotEmpty)
-          Column(
-            children: [
-              const Text('Action Items',
-                  style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              ..._transcription!.actionItems!.map(
-                (item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 20,
-                        height: 20,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.secondaryAccent),
-                        ),
-                        child: const Icon(Icons.check,
-                            size: 14, color: AppColors.secondaryAccent),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                          child: Text(item,
-                              style: const TextStyle(color: AppColors.textSecondary))),
-                    ],
+            _transcription!.actionItems!.isNotEmpty) ...[
+          const Text('Action Items',
+              style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          ..._transcription!.actionItems!.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  Container(
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.secondaryAccent),
+                    ),
+                    child: const Icon(Icons.check,
+                        size: 14, color: AppColors.secondaryAccent),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                      child: Text(item,
+                          style: const TextStyle(color: AppColors.textSecondary))),
+                ],
               ),
-            ],
+            ),
           ),
+        ],
         
         // Notas Section
         const SizedBox(height: 24),
@@ -1281,37 +1275,35 @@ Responda em português brasileiro de forma clara e útil.
             ],
           ),
           const SizedBox(width: 12),
-        ],
-      ),
-      Expanded(
-        child: GestureDetector(
-          onTap: () => _seekToSegment(segment),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  // Glassmorphism - semi-transparent with thin neon border
-                  color: Colors.black.withOpacity(0.5),
-                  border: Border.all(
-                    color: isActive ? color.withOpacity(0.9) : color.withOpacity(0.4),
-                    width: 1, // Thin 1px border
-                  ),
-                  boxShadow: isActive
-                      ? [
-                          BoxShadow(color: color.withOpacity(0.6), blurRadius: 12, spreadRadius: 1),
-                          BoxShadow(color: color.withOpacity(0.3), blurRadius: 24, spreadRadius: 2),
-                        ]
-                      : [
-                          BoxShadow(color: color.withOpacity(0.2), blurRadius: 6, spreadRadius: 0),
-                        ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _seekToSegment(segment),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      // Glassmorphism - semi-transparent with thin neon border
+                      color: Colors.black.withOpacity(0.5),
+                      border: Border.all(
+                        color: isActive ? color.withOpacity(0.9) : color.withOpacity(0.4),
+                        width: 1, // Thin 1px border
+                      ),
+                      boxShadow: isActive
+                          ? [
+                              BoxShadow(color: color.withOpacity(0.6), blurRadius: 12, spreadRadius: 1),
+                              BoxShadow(color: color.withOpacity(0.3), blurRadius: 24, spreadRadius: 2),
+                            ]
+                          : [
+                              BoxShadow(color: color.withOpacity(0.2), blurRadius: 6, spreadRadius: 0),
+                            ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
@@ -1336,8 +1328,8 @@ Responda em português brasileiro de forma clara e útil.
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
