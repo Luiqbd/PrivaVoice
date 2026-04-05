@@ -1,0 +1,22 @@
+{
+  "verbos": [
+    "ser", "estar", "ter", "haver", "fazer", "poder", "dizer", "ver", "saber", "quer",
+    "ir", "dar", "saber", "chegar", "passar", "ficar", "continuar", "tomar", "trazer",
+    "falar", "ouvir", "escutar", "entender", "compreender", "perceber", "sentir", "pensar",
+    "gostar", "querer", "desejar", "esperar", "precisar", "dever", "poder", "conseguir",
+    "trabalhar", "estudar", "viver", "morar", "nascer", "morrer", "crescer", "casar",
+    "comer", "beber", "dormir", "acordar", "levantar", "sentar", "caminhar", "correr",
+    "ler", "escrever", "ligar", "desligar", "abrir", "fechar", "começar", "terminar",
+    "ajudar", "pedir", "responder", "perguntar", "agradecer", "desculpar", "pedir",
+    "comprar", "vender", "gastar", "economizar", "pagar", "receber", "emprestar",
+    " amar", "odiar", "temer", "confiar", "acreditar", "duvidar", "lembrar", "esquecer"
+  ],
+  "conjugacoes": {
+    "presente": {
+      "eu": "o", "tu": "as", "ele/ela": "a", "nós": "amos", "vós": "ais", "eles/elas": "am"
+    },
+    "futuro": {
+      "eu": "ei", "tu": "ás", "ele/ela": "á", "nós": "emos", "vós": "eis", "eles/elas": "ão"
+    }
+  }
+}

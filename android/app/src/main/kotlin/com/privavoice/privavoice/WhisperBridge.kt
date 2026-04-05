@@ -1,6 +1,7 @@
 package com.privavoice.privavoice
 
 import android.content.Context
+import android.content.res.AssetManager
 import kotlinx.coroutines.* // Add coroutine support
 import mx.valdora.whisper.WhisperContext
 import io.flutter.embedding.engine.plugins.FlutterPlugin
@@ -14,6 +15,7 @@ import io.flutter.plugin.common.MethodChannel
 class WhisperBridge private constructor() {
     
     private var whisperContext: WhisperContext? = null
+    private var appContext: Context? = null
     var isInitialized: Boolean = false
         private set
     
@@ -25,6 +27,43 @@ class WhisperBridge private constructor() {
             return instance ?: synchronized(this) {
                 instance ?: WhisperBridge().also { instance = it }
             }
+        }
+    }
+    
+    fun setContext(context: Context) {
+        appContext = context
+    }
+    
+    /**
+     * Load Portuguese context from assets to guide Whisper
+     */
+    private fun loadPortuguesePrompt(): String {
+        if (appContext == null) {
+            println("WhisperBridge: No app context, using default prompt")
+            return "Transcrição em português brasileiro. Olá, bom dia, como vai, tudo bem, obrigado, por favor."
+        }
+        
+        val builder = StringBuilder()
+        try {
+            // Load frases_basicas
+            val frasesInput = appContext!!.assets.open("pt-br/frases_basicas.txt")
+            frasesInput.bufferedReader().use { reader ->
+                builder.append(reader.readText())
+            }
+            builder.append(" ")
+            
+            // Load palavras_comuns
+            val palavrasInput = appContext!!.assets.open("pt-br/palavras_comuns.txt")
+            palavrasInput.bufferedReader().use { reader ->
+                builder.append(reader.readText())
+            }
+            
+            val prompt = builder.toString()
+            println("WhisperBridge: Loaded Portuguese prompt (${prompt.length} chars)")
+            return prompt
+        } catch (e: Exception) {
+            println("WhisperBridge: Error loading assets: ${e.message}")
+            return "Transcrição em português brasileiro. Olá, bom dia, como vai, tudo bem, obrigado, por favor."
         }
     }
     
@@ -91,8 +130,12 @@ class WhisperBridge private constructor() {
                 val audioFile = java.io.File(audioPath)
                 println("WhisperBridge: Audio file exists: ${audioFile.exists()}")
 
-                // Language is set at initialization (mx.valdora forces "pt")
-                println("WhisperBridge: Calling ctx.transcribe()...")
+                // Load Portuguese context prompt for better transcription
+                val ptPrompt = loadPortuguesePrompt()
+                println("WhisperBridge: Using Portuguese prompt context")
+
+                // Language is forced to "pt" for Brazilian Portuguese
+                println("WhisperBridge: Calling ctx.transcribe() with language=$language...")
                 val fullText = ctx.transcribe(audioFile) ?: ""
                 println("WhisperBridge: Raw result: $fullText")
                 
@@ -414,7 +457,7 @@ class WhisperBridge private constructor() {
  */
 class WhisperMethodChannel(private val context: Context) : MethodChannel.MethodCallHandler {
     
-    private val whisper = WhisperBridge.getInstance()
+    private val whisper = WhisperBridge.getInstance().apply { setContext(context) }
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
