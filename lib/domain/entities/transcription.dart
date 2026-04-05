@@ -39,7 +39,10 @@ class Transcription extends Equatable {
   }
   
   String _defaultSpeakerName(String speakerId) {
-    // Convert "speaker_0" to "Voz 1", "speaker_1" to "Voz 2", etc.
+    // Handle both "Voz 1" and "speaker_0" formats
+    if (speakerId.startsWith('Voz ')) {
+      return speakerId; // Already formatted
+    }
     final index = int.tryParse(speakerId.replaceAll('speaker_', '')) ?? 0;
     return 'Voz ${index + 1}';
   }
