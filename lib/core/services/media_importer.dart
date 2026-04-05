@@ -38,7 +38,7 @@ class MediaImporter {
       // Transcribe using Whisper
       debugPrint('MediaImporter: Starting transcription...');
       final whisperService = GetIt.instance<WhisperService>();
-      final result = await whisperService.transcribe(destPath, 'pt');
+      final result = await whisperService.transcribe(destPath);
       
       if (result == null || result.isEmpty) {
         debugPrint('MediaImporter: Transcription failed');

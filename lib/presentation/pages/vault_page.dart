@@ -185,14 +185,6 @@ class _VaultPageState extends State<VaultPage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (!_isUnlocked) {
-      return _buildLockedState();
-    }
-    return _buildUnlockedState();
-  }
-
   Widget _buildLockedState() {
     return Scaffold(
       backgroundColor: AppColors.backgroundPrimary,

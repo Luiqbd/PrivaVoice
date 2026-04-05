@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../core/services/ai_service.dart';
 import '../../core/ai/ai_state.dart';
 import '../../core/theme/app_colors.dart';
@@ -636,22 +637,22 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
     // Show bookmarks section if there are any
     Widget? bookmarksSection;
     if (_transcription!.bookmarks != null && _transcription!.bookmarks!.isNotEmpty) {
-      bookmarksSection = ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.warning.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.warning.withOpacity(0.4), width: 1),
-              boxShadow: [
-                BoxShadow(color: AppColors.warning.withOpacity(0.2), blurRadius: 8, spreadRadius: 0),
-              ],
+      bookmarksSection = Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.warning.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.warning.withOpacity(0.4), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.warning.withOpacity(0.2),
+              blurRadius: 8,
+              spreadRadius: 0,
             ),
-            child: Column(
+          ],
+        ),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -714,30 +715,26 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
         if (bookmarksSection != null) bookmarksSection,
         // Keywords Highlight (from Llama)
         if (_transcription!.keywords != null && _transcription!.keywords!.isNotEmpty)
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  // Glassmorphism - thin neon border
-                  color: AppColors.primaryAccent.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: AppColors.primaryAccent.withOpacity(0.4),
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primaryAccent.withOpacity(0.3),
-                      blurRadius: 8,
-                      spreadRadius: 0,
-                    ),
-                  ],
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              // Glassmorphism - thin neon border
+              color: AppColors.primaryAccent.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.primaryAccent.withOpacity(0.4),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primaryAccent.withOpacity(0.3),
+                  blurRadius: 8,
+                  spreadRadius: 0,
                 ),
-                child: Column(
+              ],
+            ),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
