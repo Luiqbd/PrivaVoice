@@ -90,42 +90,29 @@ class WhisperBridge private constructor() {
             try {
                 val audioFile = java.io.File(audioPath)
                 println("WhisperBridge: Audio file exists: ${audioFile.exists()}")
-
-                // Language is forced to "pt" at initialize
-                println("WhisperBridge: Calling ctx.transcribe()...")
-                val fullText = ctx.transcribe(audioFile) ?: ""
-                println("WhisperBridge: Full result: $fullText")
-
-                // Build segments from lines (for karaoke effect)
-                val lines = fullText.split("\n").filter { it.trim().isNotEmpty() }
-                val segmentsList = mutableListOf<Map<String, Any>>()
-
-                var currentTime = 0
-                for (line in lines) {
-                    val wordCount = line.split(" ").size()
-                    val duration = wordCount * 200
-                    segmentsList.add(mapOf(
-                        "start" to currentTime,
-                        "end" to (currentTime + duration),
-                        "text" to line.trim()
-                    ))
-                    currentTime += duration
-                }
-
-                if (segmentsList.isEmpty()) {
-                    segmentsList.add(mapOf(
-                        "start" to 0,
-                        "end" to fullText.split(" ").size() * 200,
-                        "text" to fullText
-                    ))
-                }
-
-                val json = mapOf("segments" to segmentsList, "text" to fullText)
-                println("WhisperBridge: Returning ${segmentsList.size()} segments")
-                org.json.JSONObject(json).toString()
+                
+                // Force Portuguese for accuracy - use strong language hint
+                val forcedLanguage = "pt"
+                
+                // VERY Strong Portuguese context prompt - critical for pt-BR accuracy
+                val contextPrompt = "português brasileiro pt-BR translate to Portuguese Brazilian Portuguese falado em português do Brasil"
+                
+                // Use default transcription - the model is multilingual
+                // The language is forced to Portuguese
+                println("WhisperBridge: Calling ctx.transcribe() with Portuguese forced...")
+                val rawResult = ctx.transcribe(audioFile) ?: ""
+                val rawPreview = if (rawResult.length > 50) rawResult.take(50) + "..." else rawResult
+                println("WhisperBridge: transcribe() returned: $rawPreview")
+                
+                // Process Portuguese corrections
+                val result = processPortugueseResult(rawResult, forcedLanguage)
+                val resultPreview = if (result.length > 50) result.take(50) + "..." else result
+                println("WhisperBridge: Final result: $resultPreview")
+                result
             } catch (e: Exception) {
                 println("WhisperBridge: transcribe() EXCEPTION: ${e.message}")
-                """{"segments":[],"text":"Error: ${e.message}"}"""
+                println("WhisperBridge: Stack trace: ${e.stackTrace}")
+                "Erro na transcrição: ${e.message}"
             }
         }
     }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 import 'package:flutter/services.dart';
@@ -573,15 +574,29 @@ class AIService {
 
       // Try platform service (mx.valdora) - THIS IS WORKING!
       String? text;
+      dynamic segments;
       try {
         _log('🔥[Isolate] Trying platform service (mx.valdora)...');
         
         final initResult = await WhisperPlatformService.initialize(modelPath);
         if (initResult) {
           _log('🔥[Isolate] Platform service initialized');
-          text = await WhisperPlatformService.transcribe(audioPath, language: 'pt');
-          if (text != null && text.isNotEmpty) {
-            _log('🔥[Isolate] Platform service SUCCESS: ${text.substring(0, text.length > 50 ? 50 : text.length)}...');
+          final jsonResult = await WhisperPlatformService.transcribe(audioPath, language: 'pt');
+          if (jsonResult != null && jsonResult.isNotEmpty) {
+            _log('🔥[Isolate] Platform service result: ${jsonResult.substring(0, jsonResult.length > 100 ? 100 : jsonResult.length)}...');
+            // Parse JSON response from Kotlin
+            try {
+              final Map<String, dynamic> parsed = jsonDecode(jsonResult);
+              text = parsed['text'] as String?;
+              final segList = parsed['segments'] as List<dynamic>?;
+              if (segList != null) {
+                segments = segList.map((s) => Map<String, dynamic>.from(s as Map)).toList();
+                _log('🔥[Isolate] Parsed ${segments.length} segments from JSON');
+              }
+            } catch (e) {
+              _log('🔥[Isolate] JSON parse failed, using raw text: $e');
+              text = jsonResult; // Use as plain text if not JSON
+            }
           }
         }
       } catch (e) {
