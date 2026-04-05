@@ -19,6 +19,10 @@ class TranscriptionData {
   final String? actionItemsJson;
   final String? keywordsJson; // Keywords from Llama
   final String? notes; // Notas do usuário
+  final String? bookmarksJson; // Star timestamps
+  final String? manualNote; // Manual note attachment
+  final String? attachedImagePath; // Image attachment path
+  final bool isHidden; // Vault hidden flag
   final String? speakerNamesJson; // Custom speaker names (Map<String, String>)
 
   TranscriptionData({
@@ -35,6 +39,10 @@ class TranscriptionData {
     this.actionItemsJson,
     this.keywordsJson,
     this.notes,
+    this.bookmarksJson,
+    this.manualNote,
+    this.attachedImagePath,
+    this.isHidden = false,
     this.speakerNamesJson,
   });
 
@@ -52,6 +60,10 @@ class TranscriptionData {
     'actionItemsJson': actionItemsJson,
     'keywordsJson': keywordsJson,
     'notes': notes,
+    'bookmarksJson': bookmarksJson,
+    'manualNote': manualNote,
+    'attachedImagePath': attachedImagePath,
+    'isHidden': isHidden ? 1 : 0,
     'speakerNamesJson': speakerNamesJson,
   };
 
@@ -69,6 +81,10 @@ class TranscriptionData {
     actionItemsJson: map['actionItemsJson'] as String?,
     keywordsJson: map['keywordsJson'] as String?,
     notes: map['notes'] as String?,
+    bookmarksJson: map['bookmarksJson'] as String?,
+    manualNote: map['manualNote'] as String?,
+    attachedImagePath: map['attachedImagePath'] as String?,
+    isHidden: map['isHidden'] == 1,
     speakerNamesJson: map['speakerNamesJson'] as String?,
   );
 }

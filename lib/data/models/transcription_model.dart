@@ -19,6 +19,10 @@ class TranscriptionModel {
       actionItems: _parseActionItems(dbModel.actionItemsJson),
       keywords: _parseKeywords(dbModel.keywordsJson),
       notes: dbModel.notes,
+      bookmarks: _parseBookmarks(dbModel.bookmarksJson),
+      manualNote: dbModel.manualNote,
+      attachedImagePath: dbModel.attachedImagePath,
+      isHidden: dbModel.isHidden,
       speakerNames: _parseSpeakerNames(dbModel.speakerNamesJson),
     );
   }
@@ -52,6 +56,12 @@ class TranscriptionModel {
       actionItemsJson: entity.actionItems != null ? jsonEncode(entity.actionItems) : null,
       keywordsJson: entity.keywords != null ? jsonEncode(entity.keywords) : null,
       notes: entity.notes,
+      bookmarksJson: entity.bookmarks != null 
+        ? jsonEncode(entity.bookmarks!.map((d) => d.inMilliseconds).toList()) 
+        : null,
+      manualNote: entity.manualNote,
+      attachedImagePath: entity.attachedImagePath,
+      isHidden: entity.isHidden,
       speakerNamesJson: entity.speakerNames != null ? jsonEncode(entity.speakerNames) : null,
     );
   }
@@ -65,6 +75,19 @@ class TranscriptionModel {
       }
     } catch (e) {
       debugPrint('Error parsing keywords: $e');
+    }
+    return null;
+  }
+  
+  static List<Duration>? _parseBookmarks(String? json) {
+    if (json == null || json.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(json);
+      if (decoded is List) {
+        return decoded.map((ms) => Duration(milliseconds: ms as int)).toList();
+      }
+    } catch (e) {
+      debugPrint('Error parsing bookmarks: $e');
     }
     return null;
   }

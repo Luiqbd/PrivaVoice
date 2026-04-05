@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import '../../core/utils/haptic_utils.dart';
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:get_it/get_it.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/haptic_utils.dart';
+import '../../domain/repositories/transcription_repository.dart';
 
 class VaultPage extends StatefulWidget {
   const VaultPage({super.key});
@@ -17,6 +19,10 @@ class _VaultPageState extends State<VaultPage> {
   bool _deviceAuthAvailable = false;
   bool _isAuthenticating = false;
   final LocalAuthentication _auth = LocalAuthentication();
+  
+  // Hidden transcriptions list
+  List<dynamic> _hiddenTranscriptions = [];
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -82,6 +88,7 @@ class _VaultPageState extends State<VaultPage> {
         setState(() => _isUnlocked = true);
         HapticUtils.mediumImpact();
         _showSuccessSnackBar('Cofre desbloqueado!');
+        _loadHiddenTranscriptions();
       } else {
         _showAuthFailedSnackBar();
       }
@@ -117,6 +124,7 @@ class _VaultPageState extends State<VaultPage> {
         setState(() => _isUnlocked = true);
         HapticUtils.mediumImpact();
         _showSuccessSnackBar('Cofre desbloqueado!');
+        _loadHiddenTranscriptions();
       } else {
         _showAuthFailedSnackBar();
       }
@@ -158,6 +166,23 @@ class _VaultPageState extends State<VaultPage> {
   Future<void> _lockVault() async {
     setState(() => _isUnlocked = false);
     HapticUtils.lightImpact();
+  }
+  
+  Future<void> _loadHiddenTranscriptions() async {
+    setState(() => _isLoading = true);
+    try {
+      final repository = GetIt.instance<TranscriptionRepository>();
+      final all = await repository.getAllTranscriptions();
+      final hidden = all.where((t) => t.isHidden == true).toList();
+      setState(() {
+        _hiddenTranscriptions = hidden;
+        _isLoading = false;
+      });
+      debugPrint('Vault: Loaded ${hidden.length} hidden transcriptions');
+    } catch (e) {
+      debugPrint('Error loading hidden transcriptions: $e');
+      setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -315,96 +340,79 @@ class _VaultPageState extends State<VaultPage> {
             
             // Unlocked content
             Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppColors.success.withOpacity(0.2),
-                      ),
-                      child: const Icon(
-                        Icons.lock_open,
-                        size: 40,
-                        color: AppColors.success,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Cofre Desbloqueado',
-                      style: TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Suas gravações estão protegidas',
-                      style: TextStyle(
-                        color: AppColors.textTertiary,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    // Show encrypted files count
-                    Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 24),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryAccent.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(
-                              Icons.folder_special,
-                              color: AppColors.primaryAccent,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '0 gravações protegidas',
-                                  style: TextStyle(
-                                    color: AppColors.textPrimary,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                SizedBox(height: 4),
-                                Text(
-                                  'Criptografadas com AES-256',
-                                  style: TextStyle(
-                                    color: AppColors.textTertiary,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _hiddenTranscriptions.isEmpty
+                      ? _buildEmptyVault()
+                      : _buildHiddenList(),
             ),
           ],
         ),
       ),
     );
+  }
+  
+  Widget _buildEmptyVault() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.success.withOpacity(0.2),
+            ),
+            child: const Icon(
+              Icons.lock_open,
+              size: 40,
+              color: AppColors.success,
+            ),
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            'Cofre Desbloqueado',
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Nenhuma gravação protegida',
+            style: TextStyle(
+              color: AppColors.textTertiary,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildHiddenList() {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _hiddenTranscriptions.length,
+      itemBuilder: (context, index) {
+        final t = _hiddenTranscriptions[index];
+        return ListTile(
+          title: Text(t.title, style: const TextStyle(color: AppColors.textPrimary)),
+          subtitle: Text(t.text.substring(0, t.text.length > 50 ? 50 : t.text.length), 
+            style: const TextStyle(color: AppColors.textTertiary, fontSize: 12)),
+          leading: const Icon(Icons.lock, color: AppColors.warning),
+        );
+      },
+    );
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    if (!_isUnlocked) {
+      return _buildLockedState();
+    }
+    return _buildUnlockedState();
   }
 }

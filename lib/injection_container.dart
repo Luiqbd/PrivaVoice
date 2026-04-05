@@ -4,6 +4,8 @@ import 'domain/repositories/transcription_repository.dart';
 import 'core/services/ai_service.dart';
 import 'core/services/recording/recording_service.dart';
 import 'core/services/permission_service.dart';
+import 'core/services/media_importer.dart';
+import 'core/ai/whisper/whisper_service.dart';
 import 'presentation/blocs/recording/recording_bloc.dart';
 import 'presentation/blocs/transcription/transcription_bloc.dart';
 
@@ -14,6 +16,8 @@ Future<void> setupDependencies() async {
   getIt.registerLazySingleton<AIService>(() => AIService());
   getIt.registerLazySingleton<RecordingService>(() => RecordingService());
   getIt.registerLazySingleton<PermissionService>(() => PermissionService());
+  getIt.registerLazySingleton<WhisperService>(() => WhisperService());
+  getIt.registerLazySingleton<MediaImporter>(() => MediaImporter());
 
   // Register BLoCs - using factory with NO parameters (they use default constructors)
   getIt.registerFactory<RecordingBloc>(() => RecordingBloc());

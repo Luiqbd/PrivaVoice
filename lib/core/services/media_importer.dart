@@ -5,7 +5,7 @@ import 'package:uuid/uuid.dart';
 import 'package:get_it/get_it.dart';
 import '../../domain/entities/transcription.dart';
 import '../../domain/repositories/transcription_repository.dart';
-import '../../data/datasources/whisper_service.dart';
+import '../../core/ai/whisper/whisper_service.dart';
 
 /// Service to import external media files for transcription
 class MediaImporter {
