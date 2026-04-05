@@ -1,16 +1,26 @@
 empresa, negócio, trabalho, emprego, escritório, projeto, contrato, cliente, fornecedor, pagamento
 salário, boleto, invoice, nota fiscal, recibo, orçamento, proposta, contrato, jurídico, advogado
 conta, banco, transferência, pix, ted, doc, cartão, crédito, débito, investimento
-estoque, produto, venda, compra, estoque, logística, entrega,.frete,运输,armazém
-supermercado, farmácia, restaurante, lanchonete, café, padaria, mercado, loja,shopping, loja online
-médico, hospital, clínica, exame, receita, farmácia, convênio,SUS,consulta,atendimento
-escola, universidade, curso, aula, professor,aluno, prova,trabalho, diploma,certificado
-governo,prefeitura,câmara,vereador,deputado,senador,ministro,prefeito,governador,presidente
-igreja,missa,culto,pastor,padre,diocese,paróquia,catequese,batismo,crisma
-esporte,futebol,vôlei,basquete,atletismo,natação,corrida,musculação,yoga,pilates
-música,show,show,show,rock,pop,sertanejo,forró,samba,MPB,jazz,clássica
-arte,museu,galeria,exposição,pintura,escultura,teatro,cinema,série,filme
-viagem,voo,passagem,hotel,reserva,passeio,turismo,guia,mala,passaporte
-tecnologia,computador,celular,internet,Wi-Fi,5G,app,software, IA, inteligencia artificial
-energia,luz,água,gás,rede,montante,conta,medidor,relatório, consumo
-seguro,vida,saúde,carro,casa,previdência,apólice,sinistro,indenização,cobertura
+estoque, produto, venda, compra, logística, entrega, frete, armazém, transportadora
+supermercado, farmácia, restaurante, lanchonete, café, padaria, mercado, loja, shopping
+
+// Termos de reunião
+ata de reunião, pauta, ordem do dia, pauta do dia, convocação,.edital, processo, votação
+budget, orçamento, previsão,.meta, meta de vendas, meta financeira, meta de receita
+stakeholder, acionista, investidor, conselho, diretoria, gestores, colaboradores
+compliance, regulação, auditoria, controle interno, risco, política, norme, padrão
+agenda, cronograma, timeline, roadmap, roadmap de projeto, Planejamento, planejamento estratégico
+decisão,deliberação, resolução, aprovacão, rejeição, consenso, alinhamento, consenso
+reunião de alinhamento, reunião de equipe, reunião de planejamento, reunião semanal, reunião mensal
+presentes, ausentes, faltantes, justificativa, ausencia, presença, chamada, lista de presença
+treinamento, workshop, seminário, palestra, apresentação, pitch, demo, demonstração
+relatório, relatório de gestão, relatório trimestral, relatório anual, prestação de contas
+indicador, kpi, métrica, desempenho, produtividade, eficiência, eficácia
+proposta comercial, proposta técnica, termos de referência, TOR, escopo, escopo do projeto
+cronograma de execução, plano de ação, plano de trabalho, entregável, milestone, marco
+follow-up, próximos passos, ação, tarefa, responsabilidade, ownership, responsável
+tomada de decisão,brainstorm, brainstorming, brainwriting, quadro kanban,看板
+sprint, backlog, feature, bug, demanda, solicitação, requerimento, requisito
+dashboard, painel de gestão, tabela de acompanhamento, planilha, планilha, планilha
+balanço, demonstração de resultado, DRE, fluxo de caixa, capital de giro
+contrapartida, partnership, parceria,joint venture, aliança,cooperação,acordo, convênio
