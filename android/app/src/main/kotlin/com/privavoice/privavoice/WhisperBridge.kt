@@ -30,7 +30,7 @@ class WhisperBridge private constructor() {
     
     /**
      * Initialize Whisper model from file
-     * @param modelPath Path to GGML model file (e.g., ggml-base.bin)
+     * @param modelPath Path to GGML model file (whisper-base.bin - Q5_1 ~180MB)
      * Note: mx.valdora whisper-android uses multilingual models and auto-detects language
      * For Portuguese, ensure audio is clear and in pt-BR accent
      * 
