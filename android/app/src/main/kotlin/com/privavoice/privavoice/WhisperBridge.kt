@@ -57,6 +57,27 @@ class WhisperBridge private constructor() {
             palavrasInput.bufferedReader().use { reader ->
                 builder.append(reader.readText())
             }
+            builder.append(" ")
+            
+            // Load dicionario terms as prompt context
+            val dicionarioInput = appContext!!.assets.open("pt-br/dicionario.json")
+            val dicionarioText = dicionarioInput.bufferedReader().readText()
+            val dicionarioJson = org.json.JSONObject(dicionarioText)
+            val termos = dicionarioJson.getJSONObject("termos")
+            
+            // Extract key terms from dictionary for prompt
+            val promptTerms = mutableListOf<String>()
+            val categories = listOf("conectores", "pronomes", "palavras_cotidianas", "expressoes_comuns")
+            for (category in categories) {
+                if (termos.has(category)) {
+                    val catObj = termos.getJSONObject(category)
+                    val keys = catObj.keys()
+                    while (keys.hasNext()) {
+                        promptTerms.add(keys.next())
+                    }
+                }
+            }
+            builder.append(promptTerms.take(50).joinToString(", "))
             
             val prompt = builder.toString()
             println("WhisperBridge: Loaded Portuguese prompt (${prompt.length} chars)")
@@ -434,6 +455,57 @@ class WhisperBridge private constructor() {
         result = result.replace("à", "à")
         result = result.replace("á", "á")
         result = result.replace("ã", "ã")
+        
+        // Layer 5: Final dictionary sweep - remove any Spanish remnants
+        result = applyDicionarioFilter(result)
+        
+        return result
+    }
+    
+    /**
+     * Load dictionary and apply final Portuguese filter
+     */
+    private fun applyDicionarioFilter(text: String): String {
+        if (appContext == null) return text
+        
+        var result = text
+        try {
+            // Load dictionary
+            val inputStream = appContext!!.assets.open("pt-br/dicionario.json")
+            val jsonText = inputStream.bufferedReader().readText()
+            val jsonObject = org.json.JSONObject(jsonText)
+            val termos = jsonObject.getJSONObject("termos")
+            
+            // Build correction map from dictionary
+            val corrections = mutableMapOf<String, String>()
+            
+            // Process each category
+            val categories = listOf("conectores", "pronomes", "verbos_frequentes", 
+                "palavras_cotidianas", "adjetivos", "expressoes_comuns", "falsos_amigos")
+            
+            for (category in categories) {
+                if (termos.has(category)) {
+                    val categoryObj = termos.getJSONObject(category)
+                    val keys = categoryObj.keys()
+                    while (keys.hasNext()) {
+                        val spanish = keys.next()
+                        val portuguese = categoryObj.getString(spanish)
+                        corrections[spanish] = portuguese
+                    }
+                }
+            }
+            
+            // Apply all corrections (case insensitive)
+            for ((spanish, portuguese) in corrections) {
+                result = result.replace(spanish, portuguese, ignoreCase = true)
+                result = result.replace(spanish.replaceFirstChar { it.uppercase() }, 
+                    portuguese.replaceFirstChar { it.uppercase() }, ignoreCase = true)
+            }
+            
+            println("WhisperBridge: Dictionary filter applied with ${corrections.size} corrections")
+        } catch (e: Exception) {
+            println("WhisperBridge: Dictionary filter error: ${e.message}")
+        }
         
         return result
     }
