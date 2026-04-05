@@ -7,6 +7,8 @@ import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.MediaRecorder
+import android.media.AudioRecord
+import android.media.AudioFormat
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
