@@ -784,7 +784,9 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                             ),
                           ))
                       .toList(),
-            ],
+                ],
+              ),
+            ),
           ),
         ),
         const Text(
@@ -1277,58 +1279,58 @@ Responda em português brasileiro de forma clara e útil.
             ],
           ),
           const SizedBox(width: 12),
-          Expanded(
-            child: GestureDetector(
-              onTap: () => _seekToSegment(segment),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      // Glassmorphism - semi-transparent with thin neon border
-                      color: Colors.black.withOpacity(0.5),
-                      border: Border.all(
-                        color: isActive ? color.withOpacity(0.9) : color.withOpacity(0.4),
-                        width: 1, // Thin 1px border
-                      ),
-                      boxShadow: isActive
-                          ? [
-                              BoxShadow(color: color.withOpacity(0.6), blurRadius: 12, spreadRadius: 1),
-                              BoxShadow(color: color.withOpacity(0.3), blurRadius: 24, spreadRadius: 2),
-                            ]
-                          : [
-                              BoxShadow(color: color.withOpacity(0.2), blurRadius: 6, spreadRadius: 0),
-                            ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: color.withOpacity(0.25),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: color.withOpacity(0.5)),
-                          ),
-                          child: Text(
-                            displayName,
-                            style: TextStyle(
-                              color: color,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        // Texto com efeito karaoke - destaca palavras conforme reproduz
-                        _buildKaraokeText(segment, isActive),
-                      ],
-                    ),
+        ],
+      ),
+      Expanded(
+        child: GestureDetector(
+          onTap: () => _seekToSegment(segment),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  // Glassmorphism - semi-transparent with thin neon border
+                  color: Colors.black.withOpacity(0.5),
+                  border: Border.all(
+                    color: isActive ? color.withOpacity(0.9) : color.withOpacity(0.4),
+                    width: 1, // Thin 1px border
                   ),
+                  boxShadow: isActive
+                      ? [
+                          BoxShadow(color: color.withOpacity(0.6), blurRadius: 12, spreadRadius: 1),
+                          BoxShadow(color: color.withOpacity(0.3), blurRadius: 24, spreadRadius: 2),
+                        ]
+                      : [
+                          BoxShadow(color: color.withOpacity(0.2), blurRadius: 6, spreadRadius: 0),
+                        ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.25),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: color.withOpacity(0.5)),
+                      ),
+                      child: Text(
+                        displayName,
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    // Texto com efeito karaoke - destaca palavras conforme reproduz
+                    _buildKaraokeText(segment, isActive),
+                  ],
                 ),
               ),
             ),
