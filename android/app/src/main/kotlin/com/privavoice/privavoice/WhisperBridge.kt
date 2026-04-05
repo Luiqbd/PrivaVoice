@@ -91,13 +91,17 @@ class WhisperBridge private constructor() {
                 val audioFile = java.io.File(audioPath)
                 println("WhisperBridge: Audio file exists: ${audioFile.exists()}")
 
-                // Language is forced to "pt" at initialize
-                println("WhisperBridge: Calling ctx.transcribe()...")
-                val fullText = ctx.transcribe(audioFile) ?: ""
-                println("WhisperBridge: Full result: $fullText")
+                // Language is passed from Flutter
+                println("WhisperBridge: Calling ctx.transcribe() with language: $language...")
+                val fullText = ctx.transcribe(audioFile, language) ?: ""
+                println("WhisperBridge: Raw result: $fullText")
+                
+                // Apply Portuguese filter to remove Spanish remnants
+                val filteredText = processPortugueseResult(fullText, language)
+                println("WhisperBridge: Filtered result: $filteredText")
 
                 // Build segments from lines (for karaoke effect)
-                val lines = fullText.split("\n").filter { it.trim().isNotEmpty() }
+                val lines = filteredText.split("\n").filter { it.trim().isNotEmpty() }
                 val segmentsList = mutableListOf<Map<String, Any>>()
 
                 var currentTime = 0
@@ -120,7 +124,7 @@ class WhisperBridge private constructor() {
                     ))
                 }
 
-                val json = mapOf("segments" to segmentsList, "text" to fullText)
+                val json = mapOf("segments" to segmentsList, "text" to filteredText)
                 println("WhisperBridge: Returning ${segmentsList.size} segments")
                 org.json.JSONObject(json).toString()
             } catch (e: Exception) {
