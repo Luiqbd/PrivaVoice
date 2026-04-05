@@ -72,6 +72,19 @@ class WhisperBridge private constructor() {
             val negociosInput = appContext!!.assets.open("pt-br/negocios.txt")
             val negocios = negociosInput.bufferedReader().readText().split(",").map { it.trim() }.take(30)
             builder.append(negocios.joinToString(", "))
+            builder.append(" ")
+            
+            // Load juridico (legal terms)
+            val juridicoInput = appContext!!.assets.open("pt-br/juridico.txt")
+            val juridicoText = juridicoInput.bufferedReader().readText()
+            // Extract first 50 terms (skip comments)
+            val juridicoTerms = juridicoText.lines()
+                .filter { !it.startsWith("//") && it.isNotBlank() }
+                .flatMap { it.split(",").map { t -> t.trim() } }
+                .filter { it.isNotBlank() }
+                .take(50)
+            builder.append(juridicoTerms.joinToString(", "))
+            builder.append(" ")
             
             // Load dicionario terms as prompt context
             val dicionarioInput = appContext!!.assets.open("pt-br/dicionario.json")

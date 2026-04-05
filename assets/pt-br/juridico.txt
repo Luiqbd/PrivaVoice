@@ -1,0 +1,175 @@
+// Termos Jurídicos Brasileiros
+habeas corpus, data vênia, jurisprudência, acórdão, petição inicial, liminar, trânsito em julgado
+réu, autor, meritíssimo, magistrado, ministério público, defensoria, OAB
+código civil, processo penal, audiência de instrução, intimação, citação
+agravo de instrumento, recurso extraordinário, embargos de declaração
+constituição federal, STF, STJ, TJRJ, TJSP, comarca, foro, vara cível
+vara criminal, vara federal, vara do trabalho, vara da infância e juventude
+tribunal de justiça, tribunal regional federal, tribunal superior do trabalho
+supremo tribunal federal, superior tribunal de justiça, tribunal regional do trabalho
+desembargador, juiz titular, juiz substituto, promotor, defensor público
+advogado constituído, advogado dativo, advogado público
+partes processuais, polo ativo, polo passivo, litisconsórcio
+apelação, recurso inominado, agravo de instrumento, embargos infringentes
+mandado de segurança, ação civil pública, ação popular, ação direta de inconstitucionalidade
+ação de indenização, ação de obrigação de fazer, ação de execução
+ação de divórcio, ação de alimentos, ação de guarda, ação de visitação
+ação de interdição, ação de suprimento de consentimento
+ato processual, petição, peça processual, substabelecimento
+procuração, substabelecimento com reserva, substabelecimento sem reserva
+prazo processual, prazo legal, prazo judicial, prazo prescricional
+prescrição intercorrente, prescrição quinquenal, prescrição vintenária
+decadência, perempção, litispendência, coisa julgada
+estados da causa, natureza jurídica, mérito da causa, pressuposto processual
+pressuposto específico, pressuposto genérico, condição da ação
+legitimidade ativa, legitimidade passiva, interesse processual
+capacidade processual, capacidade postulatória, capacidade de ser parte
+representação legal, representação processual, domicilio processual
+competência absoluta, competência relativa, competência originária
+competência recursal, preventiva, distributiva, funcional
+foro competente,Juízo competente,vara competente
+número do processo, código de acesso, classe processual
+assunto principal, assunto secundário, valor da causa
+custas processuais, honorários advocatícios, honorários sucumbenciais
+perícia, laudo pericial, exame de corpo de delito, exame grafotécnico
+prova testemunhal, prova documental, prova pericial, prova indiciária
+prova oral, prova técnica, prova emprestada, prova atípica
+depoimento pessoal, interrogatório, oitiva de testemunhas
+instrução processual, audiência inaugural, audiência de instrução e julgamento
+sentinença, sentença terminativa, sentença definitiva, sentença absolutória
+sentença condenatória, sentença extinitiva, execução de sentença
+titulo executivo, título judicial, título extrajudicial, título extrajudicial
+execução forçada, execução por quantia certa, execução por obrigação de fazer
+execução de alimentos, execução de honorários, execução fiscal
+penhora, avaliação, hasta pública, praça,.leilão
+arrematação, adjudicação, remição, satisfação da dívida
+crédito trabalhista, crédito privilegiado, crédito quirografário
+crédito tributário, crédito fiscal, dívida ativa, certidão de dívida ativa
+ação rescisória, ação anulatória, ação declaratória, ação constitutiva
+ação mandamental, ação executiva, ação de conhecimento
+reclamação constitucional, recurso especial, recurso extraordinário
+recurso de revista, recurso adesivo, recurso voluntário
+embargos de divergência, embargos infringentes, embargos de declaração
+agravo interno, agravo regimental, agravo em execução
+medida cautelar, tutela de urgência, tutela antecipada, tutela cautelar
+tutela específica, tutela mandamental, tutela executiva
+tutela repressiva, tutela preventiva, tutela declaratória
+tutela constitutiva, tutela desconstitutiva, tutela reparatória
+ação direta de inconstitucionalidade, ADI, ADPF, ADC
+arguição de descumprimento de preceito fundamental, ADO
+inconstitucionalidade por omissão, omissão legislativa, omissão administrativa
+controle concentrado, controle difuso, controle abstrato
+controle concreto, controle incidental, controle difuso de constitucionalidade
+súmula vinculante, súmula editada, súmula impugnada
+repercussão geral, recurso repetitivo, Tema de repercussão geral
+precedente vinculante, precedente horizontal, precedente vertical
+stare decisis, ratio decidendi, obiter dictum, binding precedent
+tese jurídica, tese vencedora, tese derrotada
+revelia, confissão ficta, confissão real, confissão judicial
+confissão extrajudicial, confissão espontânea, confissão induced
+confissão qualified, confissão simple, confissão partial
+confissão total, confissão partial, confissão tácita
+confissão expressa, confissão implícita, confissão por silêncio
+confissão factual, confissão jurídica, confissão processual
+presunção de veracidade, presunção iuris tantum, presunção iuris et de iure
+presunção absoluta, presunção relativa, presunção legal
+presunção hominis, presunção de inocência, presunção de culpa
+indicação processual, indiciamento, indício, suspeita
+prova indiciária, prova direta, prova indireta, prova circumstantial
+prova negativa, provapositiva, prova confessional, prova testemunhal
+prova documental, prova pericial, prova técnico-científica
+prova digital, prova eletrônica, prova informatizada, prova cibernética
+laudo pericial, laudo técnico, laudo médico-legal, laudo grafotécnico
+perito judicial, perito do juízo, assistente técnico, perito ad hoc
+qualificação técnica, habilitação profissional, credenciamento
+vínculo processual, vínculo contractual, vínculo obrigacional
+relação processual, relação jurídica processual, relação material
+relação de direito material, relação de direito processual
+direito subjetivo, direito objetivo, direito positivo, direito negativo
+direito público, direito privado, direito subjetivo, direito potestativo
+poder/dever, poder-dever, direito/dever, direito potestativo
+faculdade processual, ônus processual,-duty processual, incumbência processual
+onus probandi, ônus da prova, inversão do ônus da prova
+distribuição dinâmica da prova, produção antecipada de prova
+dilação probatória, instrução probatória, valoração da prova
+apreciação da prova, livre convicção, motivação da sentença
+motivação, fundamentação, ratio decidendi, motivação suficiente
+motivação idônea, motivação adequada, motivação suficiente
+motivação congruente, motivação lúcida, motivação implícita
+motivação expressa, motivação ostensiva, motivação por amostragem
+
+// Latim Jurídico
+habeas corpus, data venia, in litteris, in verbis, in faciendo, in omittendo
+ipso facto, ipso jure, ex nunc, ex tunc, pro tempore, pro rata
+ad argumentandum tantum, ad abundantiam, ad argumentum, ad validitatem
+ab initio, a fortiori, a pari, a contrario, a priori, a posteriori
+in dubio pro reo, in dubio pro societate, in dubio mitius
+in extremis, in fine, in initio, in meio, in totum, in parte
+inter partes, inter vires, intra vires, ultra vires, ultra petitum
+mutatis mutandis, mutatio mutationis, novatio, novação
+pacta sunt servanda, pacta convicta, pacta vana
+bona fide, bona fides, mala fide, error in procedendo
+error in iudicando, erro de direito, erro de fato
+nulla poena sine lege, nullum crimen sine lege, nullum sine lege
+nulla/nullum, principia, principles, elementa, requisitos
+corpus delicti, corpus iuris, corpus juris, corpus delicti
+corpus veritatis, corpus probatio, corpus emendationis
+prima facie, prima vista, prima impression, prima face
+res judicata, coisa julgada, coisa soberanamente julgada
+res inter alios, res inter alias, res inter alios acta
+lis pendens, litis pendência, lide pendente
+stare decisis, stare rationibus, stare juri
+nemo iudex in causa sua, nemo judex in causa sua
+nemo condemnatur, nemo punitur sine accusatore
+nemo tenetur se ipsum accusare, nemo tenetur edere
+contra factum non valet argumentum, contra proferentem
+ex adverso, ex officio, ex parte, ex profeso
+in voce, in fraganti, in continuum, in praeteritum
+in futurum, in presenti, in infinito, in perpetuum
+prout jus, prout lex, prout natura, prout causa
+quatenus, quantum, quando, qua, quaeso
+sibi, sibi et, suo, sponte, spontaneamente
+sua sponte, motu proprio, de motu proprio
+de jure, de facto, de lege ferenda, de lege lata
+vice versa, visiva, verbum, vade, vel, videlicet
+voz, via, videre, vide, volens, volens nolens
+voluntarium, voluntas, volitio, volitum
+animus, animus possidendi, animus domini, animus furandi
+animus lucrandi, animus revertendi, animus abandonandi
+corpus, corpus delicti, corpus possessionis, corpus rei
+dominus, dominus litis, dominus negotii, dominus rei
+proinduzida, procedência, procedência parcial, improcedência
+procedência total, procedência parcial, parcial procedência
+extinto sem resolução, extinto sem mérito, extinto por perda
+extinto porkarência, extinto por abandono, extinto por transação
+extinto por conciliação, extinto por acordo, extinto por homologação
+extinto por prescrição, extinto por decadência, extinto por perempção
+extinto por litispendência, extinto por coisa julgada, extinto por ilegitimidade
+extinto por falta de interesse, extinto por falta de pressuposto
+extinto por impossibilidade jurídica do pedido, extinto por недостат
+desistencia, desistencia do recurso, desistencia do pedido
+desistencia da ação, desistencia do processo, desistencia parcial
+renúncia,renúncia ao direito,renúncia à pretensão,renúncia à ação
+transação, conciliação, mediação, acordo, composição
+ajuizamento, distribuição, redistribuição, prevenção
+conexão, continência, cumulação, acumulation
+litisconsórcio ativo, litisconsórcio passivo, litisconsórcio necessário
+litisconsórcio facultativo, litisconsórcio simples, litisconsórcio unitário
+litisconsórcio unitário, litisconsórcio plurality
+intervenção de terceiros, denunciação da lide, chamamento ao processo
+assistência, assistência simples, assistência litisconsorcial
+assistente simples, assistente litisconsorcial, assistente qualificado
+embargos de terceiros, embargos de devedor, embargos de fiel depositário
+exceção de，官,官,官,官,官,官,官
+exceção de incompetência, exceção de suspeição, exceção de parcialidade
+exceção de ilegitimidade,exceção de falta de pressuposto,exceção de coisa julgada
+exceção de litispendência,exceção de perempção,exceção de decadência
+impugank, opposição, recurso, agravo, apelação, embargos
+reclamação,correição, revisão, embargos infringentes, embargos de divergência
+recurso especial,recurso extraordinário,recurso de revista, agravo de instrumento
+agravo interno,agravo regimental, agravo em execução, agravo retido
+ação rescisória, ação anulatória, ação declaratória, ação constitutiva
+ação mandamental, ação executiva,ação de conhecimento, tutela
+medida cautelar, tutela de urgência, tutela antecipada
+tutela específica, tutela mandamental, tutela executiva
+stare decisis, ratio decidendi, obiter dictum, binding precedent
