@@ -112,7 +112,7 @@ class TranscriptionRepositoryImpl implements TranscriptionRepository {
         summary: existing.summary,
         actionItemsJson: existing.actionItemsJson,
         notes: existing.notes,
-        speakerNamesJson: speakerNames.toString(),
+        speakerNamesJson: jsonEncode(speakerNames),
       );
       await AppDatabase.updateTranscription(updated);
     }
