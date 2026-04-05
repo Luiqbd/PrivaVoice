@@ -102,7 +102,7 @@ class WhisperBridge private constructor() {
 
                 var currentTime = 0
                 for (line in lines) {
-                    val wordCount = line.split(" ").size()
+                    val wordCount = line.split(" ").size
                     val duration = wordCount * 200
                     segmentsList.add(mapOf(
                         "start" to currentTime,
@@ -115,7 +115,7 @@ class WhisperBridge private constructor() {
                 if (segmentsList.isEmpty()) {
                     segmentsList.add(mapOf(
                         "start" to 0,
-                        "end" to fullText.split(" ").size() * 200,
+                        "end" to fullText.split(" ").size * 200,
                         "text" to fullText
                     ))
                 }
