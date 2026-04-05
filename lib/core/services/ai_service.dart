@@ -63,9 +63,9 @@ class AIService {
   static Stream<TranscriptionProgress> get transcriptionStream => _transcriptionController.stream;
 
   // Whisper small Q5_1 (~180MB) - optimized for speed and quality
-  static const int EXPECTED_WHISPER_SIZE = 190000000;
+  static const int EXPECTED_WHISPER_SIZE = 180000000;
   static const int EXPECTED_LLAMA_SIZE = 653000000;
-  static const int WHISPER_MIN_SIZE = 170000000;
+  static const int WHISPER_MIN_SIZE = 160000000;
   static const int LLAMA_MIN_SIZE = 580000000;
   static const int MIN_DISK_SPACE_NEEDED = 1500000000;
   
