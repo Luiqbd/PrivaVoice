@@ -788,7 +788,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
             ),
           ),
         ),
-        
+
         const Text(
           'Linha do Tempo',
           style: TextStyle(
@@ -832,10 +832,13 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
         
         // Show summary if available
         if (_transcription!.summary != null && _transcription!.summary!.isNotEmpty)
-          _buildSection(
-              'Resumo', Icons.summarize, AppColors.secondaryAccent, _transcription!.summary!),
-        if (_transcription!.summary != null && _transcription!.summary!.isNotEmpty)
-          const SizedBox(height: 16),
+          Column(
+            children: [
+              _buildSection(
+                  'Resumo', Icons.summarize, AppColors.secondaryAccent, _transcription!.summary!),
+              const SizedBox(height: 16),
+            ],
+          ),
         if (_transcription!.actionItems != null &&
             _transcription!.actionItems!.isNotEmpty)
           Column(
@@ -869,7 +872,8 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                   ),
                 ),
               ).toList(),
-        ],
+            ],
+          ),
         
         // Notas Section
         const SizedBox(height: 24),
@@ -930,7 +934,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
           const SizedBox(height: 12),
           
           // Quick suggestion buttons
-          if (_chatMessages.isEmpty)
+          if (_chatMessages.isEmpty) ...[
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -940,11 +944,11 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                 _buildQuickButton('Crie um e-mail', () => _sendToLlama('Crie um e-mail profissional resumindo esta reunião')),
               ],
             ),
-          if (_chatMessages.isEmpty)
             const SizedBox(height: 12),
-
+          ],
+          
           // Chat messages
-          ..._chatMessages.map((msg) => _buildChatBubble(msg)).toList(),
+          ..._chatMessages.map((msg) => _buildChatBubble(msg)),
           
           // Input field
           const SizedBox(height: 12),
@@ -1398,7 +1402,7 @@ Responda em português brasileiro de forma clara e útil.
                   color: AppColors.primaryAccent.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Row(
+                child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     SizedBox(
