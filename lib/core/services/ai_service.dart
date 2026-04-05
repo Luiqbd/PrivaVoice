@@ -639,12 +639,17 @@ class AIService {
 
       _log('🔥[Isolate] Text: $text');
 
-      // Get actual audio duration for proper karaoke sync
-      final audioDuration = _getAudioDuration(audioPath);
-      _log('🔥[Isolate] Audio duration: ${audioDuration?.inSeconds ?? 120} seconds');
-
-      // Emit partial progress - text is being processed (STREAMING EFFECT)
-      final speakers = _diarize(text, audioDuration: audioDuration);
+      // Use segment-based diarization if available (from Kotlin JSON)
+      // Otherwise fall back to legacy paragraph-based
+      final speakers = segments != null && segments.isNotEmpty
+          ? _diarizeWithSegments(segments, audioDuration: audioDuration)
+          : _diarize(text, audioDuration: audioDuration);
+      
+      // Stream each segment for real-time UI effect
+      for (final seg in speakers) {
+        streamSegment(seg);
+      }
+      
       _emitProgress(TranscriptionProgress.partial(text, 0.7));
       
       // === SAVE TO DATABASE IMMEDIATELY so UI can show text "nascendo" ===
@@ -718,91 +723,95 @@ class AIService {
     }
   }
 
+  /// Diarization by pause: if interval > 1.5s, assign to Voz 2
+  /// Uses segment timing from Whisper JSON output
+  static List<SpeakerSegment> _diarizeWithSegments(
+    List<Map<String, dynamic>> segments, {
+    Duration? audioDuration,
+  }) {
+    if (segments.isEmpty) return [];
+    
+    final speakers = <SpeakerSegment>[];
+    var currentVoice = 'Voz 1';
+    var lastEndMs = 0;
+    
+    for (var i = 0; i < segments.length; i++) {
+      final seg = segments[i];
+      final startMs = seg['start'] as int? ?? 0;
+      final endMs = seg['end'] as int? ?? 0;
+      final text = seg['text'] as String? ?? '';
+      
+      if (text.trim().isEmpty) continue;
+      
+      // Check pause: > 1500ms gap = new speaker
+      final gap = startMs - lastEndMs;
+      if (gap > 1500) {
+        currentVoice = currentVoice == 'Voz 1' ? 'Voz 2' : 'Voz 1';
+        _log('🔊 Voice change! Gap: ${gap}ms -> $currentVoice');
+      }
+      
+      speakers.add(SpeakerSegment(
+        text: text,
+        speaker: currentVoice,
+        startMs: startMs,
+        endMs: endMs,
+      ));
+      
+      lastEndMs = endMs;
+    }
+    
+    _log('🔊 Diarization done: ${speakers.length} segments, voices: ${speakers.map((s)=>s.speaker).toSet()}');
+    return speakers;
+  }
+
+  /// Legacy diarization (no segments)
   static List<SpeakerSegment> _diarize(String text, {Duration? audioDuration}) {
     if (text.isEmpty) return [];
     
     // Split by paragraphs or double newlines to find speaker changes
-    // Also look for patterns like "Speaker:", "P1:", "Person A:", etc.
     final paragraphs = text.split(RegExp(r'\n\n|\r\n\r\n'));
     final speakers = <SpeakerSegment>[];
     
-    // Get actual audio duration (default to 2 min if not provided)
-    final totalDuration = audioDuration ?? const Duration(minutes: 2);
-    var time = 0;
-    var voiceCount = 0; // Start from 0 to alternate Voz 1 and Voz 2
-    final uniqueVoices = <String>{}; // Track unique voices found
-    
-    // Calculate timing based on actual audio duration
-    // Each paragraph gets time proportional to its length relative to total text
-    final totalTextLength = paragraphs.fold<int>(0, (sum, p) => sum + p.trim().length);
-    var accumulatedTime = 0;
-    
-    // Detect voice changes based on:
-    // 1. Empty lines (new paragraph = potentially new speaker)
-    // 2. Text patterns like "Speaker 1:", "P1:", etc.
-    // 3. If no patterns, alternate every paragraph
+    var voiceCount = 0;
+    final uniqueVoices = <String>{};
     
     for (var i = 0; i < paragraphs.length; i++) {
       final paragraph = paragraphs[i].trim();
       if (paragraph.isEmpty) continue;
       
-      // Check if this paragraph indicates a new speaker
       String voiceName;
       
-      // Look for speaker patterns in the text
       final speakerMatch = RegExp(r'(?:speaker|p\d|person|pessoa)[\s:]*(\d+)?', caseSensitive: false).firstMatch(paragraph.toLowerCase());
       if (speakerMatch != null) {
-        // Found a speaker pattern - use it
         final speakerNum = speakerMatch.group(1) ?? '${voiceCount + 1}';
         voiceName = 'Voz $speakerNum';
       } else if (i > 0 && paragraphs[i-1].trim().isEmpty) {
-        // Empty line before this paragraph = new speaker
+        // Empty line before = new speaker
         voiceCount++;
-        voiceName = 'Voz ${(voiceCount % 2) + 1}'; // Alternate Voz 1 and Voz 2
+        voiceName = 'Voz ${(voiceCount % 2) + 1}';
       } else if (i > 0 && voiceCount < 10) {
-        // Alternate every paragraph if no clear pattern
         voiceCount++;
-        voiceName = 'Voz ${(voiceCount % 2) + 1}'; // Alternate between Voz 1 and Voz 2
+        voiceName = 'Voz ${(voiceCount % 2) + 1}';
       } else {
-        // Default to Voz 1
         voiceName = 'Voz 1';
       }
       
-      // Only add unique voices up to 3
       uniqueVoices.add(voiceName);
       if (uniqueVoices.length > 3) {
-        voiceName = uniqueVoices.toList()[2]; // Cap at 3 voices
+        voiceName = uniqueVoices.toList()[2];
       }
       
-      // Calculate duration proportionally based on actual audio duration
-      final paragraphRatio = totalTextLength > 0 ? paragraph.length / totalTextLength : 0.0;
-      final estimatedDuration = (totalDuration.inSeconds * paragraphRatio).round().clamp(3, totalDuration.inSeconds);
-      
-      // Ensure we don't exceed total duration
-      if (time + estimatedDuration > totalDuration.inSeconds) {
-        time = totalDuration.inSeconds - estimatedDuration;
-      }
+      // Estimate timing
+      final wordCount = paragraph.split(' ').length;
+      final startMs = i * wordCount * 200;
+      final endMs = startMs + wordCount * 200;
       
       speakers.add(SpeakerSegment(
-        speakerId: voiceName,
-        startTime: Duration(seconds: time),
-        endTime: Duration(seconds: time + estimatedDuration),
         text: paragraph,
+        speaker: voiceName,
+        startMs: startMs,
+        endMs: endMs,
       ));
-      time += estimatedDuration;
-    }
-    
-    // If we only have one voice but multiple segments, consolidate
-    if (speakers.isNotEmpty && uniqueVoices.length == 1) {
-      // Merge all segments into one voice
-      for (var i = 0; i < speakers.length; i++) {
-        speakers[i] = SpeakerSegment(
-          speakerId: 'Voz 1',
-          startTime: speakers[i].startTime,
-          endTime: speakers[i].endTime,
-          text: speakers[i].text,
-        );
-      }
     }
     
     return speakers;
