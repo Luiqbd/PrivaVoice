@@ -831,20 +831,22 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
           ),
         
         // Show summary if available
-        if (_transcription!.summary != null && _transcription!.summary!.isNotEmpty) ...[
+        if (_transcription!.summary != null && _transcription!.summary!.isNotEmpty)
           _buildSection(
               'Resumo', Icons.summarize, AppColors.secondaryAccent, _transcription!.summary!),
+        if (_transcription!.summary != null && _transcription!.summary!.isNotEmpty)
           const SizedBox(height: 16),
-        ],
         if (_transcription!.actionItems != null &&
-            _transcription!.actionItems!.isNotEmpty) ...[
-          const Text('Action Items',
-              style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          ..._transcription!.actionItems!.map(
+            _transcription!.actionItems!.isNotEmpty)
+          Column(
+            children: [
+              const Text('Action Items',
+                  style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              ..._transcription!.actionItems!.map(
             (item) => Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Row(
@@ -928,7 +930,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
           const SizedBox(height: 12),
           
           // Quick suggestion buttons
-          if (_chatMessages.isEmpty) ...[
+          if (_chatMessages.isEmpty)
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -938,11 +940,11 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                 _buildQuickButton('Crie um e-mail', () => _sendToLlama('Crie um e-mail profissional resumindo esta reunião')),
               ],
             ),
+          if (_chatMessages.isEmpty)
             const SizedBox(height: 12),
-          ],
-          
+
           // Chat messages
-          ..._chatMessages.map((msg) => _buildChatBubble(msg)),
+          ..._chatMessages.map((msg) => _buildChatBubble(msg)).toList(),
           
           // Input field
           const SizedBox(height: 12),
@@ -1389,7 +1391,7 @@ Responda em português brasileiro de forma clara e útil.
               style: TextStyle(
                   color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            if (_isProcessing) ...[
+            if (_isProcessing)
               const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -1417,7 +1419,7 @@ Responda em português brasileiro de forma clara e útil.
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                  ],
+                  ,
                 ),
               ),
             ],
