@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/services/ai_service.dart';
+import '../../../core/ai/ai_state.dart';
 import '../../../domain/repositories/transcription_repository.dart';
 import '../../../injection_container.dart';
 import 'transcription_event.dart';
@@ -47,7 +48,12 @@ class TranscriptionBloc extends Bloc<TranscriptionEvent, TranscriptionState> {
     emit(state.copyWith(
       status: TranscriptionStatus.processing,
       processingProgress: 0.0,
+      clearSelectedTranscription: true,
+      partialText: '',
     ));
+
+    // Track partial text for real-time updates
+    String partialText = '';
 
     try {
       emit(state.copyWith(processingProgress: 0.2));
@@ -55,6 +61,14 @@ class TranscriptionBloc extends Bloc<TranscriptionEvent, TranscriptionState> {
       final transcription = await AIService.processAudio(
         audioPath: event.audioPath,
         title: event.title,
+        onProgress: (prog, status) {
+          // Real-time progress updates
+          partialText = 'Transcrevendo: $status';
+          emit(state.copyWith(
+            processingProgress: prog,
+            partialText: partialText,
+          ));
+        },
       );
 
       if (transcription == null) {
@@ -77,6 +91,8 @@ class TranscriptionBloc extends Bloc<TranscriptionEvent, TranscriptionState> {
         status: TranscriptionStatus.error,
         errorMessage: e.toString(),
       ));
+    } finally {
+      _progressSubscription?.cancel();
     }
   }
 

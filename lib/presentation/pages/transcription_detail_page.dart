@@ -236,10 +236,32 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
     // Player will stay visible even if AI fails
     try {
       debugPrint('xxx CALLING AIService.processAudio');
+      
+      // Real-time progress callback - update UI as AI processes
+      String currentProgress = 'Iniciando...';
+      final progressController = Stream.periodic(const Duration(milliseconds: 500)).listen((_) {
+        if (mounted && _isProcessing) {
+          setState(() {
+            // Show partial text from AI state
+            currentProgress = AIManager.statusMessage;
+          });
+        }
+      });
+      
       final result = await AIService.processAudio(
         audioPath: _transcription!.audioPath,
         title: _transcription!.title,
+        onProgress: (prog, status) {
+          // Real-time callback - update partial text while processing
+          if (mounted) {
+            setState(() {
+              currentProgress = status;
+            });
+          }
+        },
       );
+      
+      progressController.cancel();
 
       if (result == null) {
         // AI returned null - show error but keep player visible
@@ -339,8 +361,11 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
             ),
           ),
           const SizedBox(width: 12),
-          const Text(
-            'IA processando áudio...',
+          // Show real-time status from AI
+          Text(
+            AIManager.statusMessage.isNotEmpty 
+                ? AIManager.statusMessage 
+                : 'IA processando áudio...',
             style: TextStyle(
               color: AppColors.primaryAccent,
               fontWeight: FontWeight.w600,

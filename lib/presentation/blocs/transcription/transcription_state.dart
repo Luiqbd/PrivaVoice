@@ -15,6 +15,7 @@ class TranscriptionState extends Equatable {
   final Duration currentPosition;
   final String? errorMessage;
   final double processingProgress;
+  final String? partialText;
   
   const TranscriptionState({
     this.status = TranscriptionStatus.initial,
@@ -24,21 +25,24 @@ class TranscriptionState extends Equatable {
     this.currentPosition = Duration.zero,
     this.errorMessage,
     this.processingProgress = 0.0,
+    this.partialText,
   });
   
   TranscriptionState copyWith({
     TranscriptionStatus? status,
     List<Transcription>? transcriptions,
     Transcription? selectedTranscription,
+    bool clearSelectedTranscription = false,
     int? currentWordIndex,
     Duration? currentPosition,
     String? errorMessage,
     double? processingProgress,
+    String? partialText,
   }) {
     return TranscriptionState(
       status: status ?? this.status,
       transcriptions: transcriptions ?? this.transcriptions,
-      selectedTranscription: selectedTranscription ?? this.selectedTranscription,
+      selectedTranscription: clearSelectedTranscription ? null : (selectedTranscription ?? this.selectedTranscription),
       currentWordIndex: currentWordIndex ?? this.currentWordIndex,
       currentPosition: currentPosition ?? this.currentPosition,
       errorMessage: errorMessage,
