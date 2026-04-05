@@ -639,15 +639,19 @@ class AIService {
 
       _log('🔥[Isolate] Text: $text');
 
+      // Get actual audio duration for proper karaoke sync
+      final audioDuration = _getAudioDuration(audioPath);
+      _log('🔥[Isolate] Audio duration: ${audioDuration?.inSeconds ?? 120} seconds');
+
       // Use segment-based diarization if available (from Kotlin JSON)
-      // Otherwise fall back to legacy paragraph-based
+      // Otherwise fall back to simple Voz 1 assignment
       final speakers = segments != null && segments.isNotEmpty
           ? _diarizeWithSegments(segments, audioDuration: audioDuration)
-          : _diarize(text, audioDuration: audioDuration);
+          : _simpleDiarize(text);
       
       // Stream each segment for real-time UI effect
       for (final seg in speakers) {
-        streamSegment(seg);
+        _transcriptionController.add(TranscriptionProgress.partial(seg.text, 0.5));
       }
       
       _emitProgress(TranscriptionProgress.partial(text, 0.7));
@@ -751,66 +755,39 @@ class AIService {
       }
       
       speakers.add(SpeakerSegment(
+        speakerId: currentVoice,
+        startTime: Duration(milliseconds: startMs),
+        endTime: Duration(milliseconds: endMs),
         text: text,
-        speaker: currentVoice,
-        startMs: startMs,
-        endMs: endMs,
       ));
       
       lastEndMs = endMs;
     }
     
-    _log('🔊 Diarization done: ${speakers.length} segments, voices: ${speakers.map((s)=>s.speaker).toSet()}');
+    _log('🔊 Diarization done: ${speakers.length} segments, voices: ${speakers.map((s)=>s.speakerId).toSet()}');
     return speakers;
   }
 
-  /// Legacy diarization (no segments)
-  static List<SpeakerSegment> _diarize(String text, {Duration? audioDuration}) {
+  /// Simple fallback diarization - all text as Voz 1
+  static List<SpeakerSegment> _simpleDiarize(String text) {
     if (text.isEmpty) return [];
     
-    // Split by paragraphs or double newlines to find speaker changes
     final paragraphs = text.split(RegExp(r'\n\n|\r\n\r\n'));
     final speakers = <SpeakerSegment>[];
-    
-    var voiceCount = 0;
-    final uniqueVoices = <String>{};
     
     for (var i = 0; i < paragraphs.length; i++) {
       final paragraph = paragraphs[i].trim();
       if (paragraph.isEmpty) continue;
       
-      String voiceName;
-      
-      final speakerMatch = RegExp(r'(?:speaker|p\d|person|pessoa)[\s:]*(\d+)?', caseSensitive: false).firstMatch(paragraph.toLowerCase());
-      if (speakerMatch != null) {
-        final speakerNum = speakerMatch.group(1) ?? '${voiceCount + 1}';
-        voiceName = 'Voz $speakerNum';
-      } else if (i > 0 && paragraphs[i-1].trim().isEmpty) {
-        // Empty line before = new speaker
-        voiceCount++;
-        voiceName = 'Voz ${(voiceCount % 2) + 1}';
-      } else if (i > 0 && voiceCount < 10) {
-        voiceCount++;
-        voiceName = 'Voz ${(voiceCount % 2) + 1}';
-      } else {
-        voiceName = 'Voz 1';
-      }
-      
-      uniqueVoices.add(voiceName);
-      if (uniqueVoices.length > 3) {
-        voiceName = uniqueVoices.toList()[2];
-      }
-      
-      // Estimate timing
       final wordCount = paragraph.split(' ').length;
       final startMs = i * wordCount * 200;
       final endMs = startMs + wordCount * 200;
       
       speakers.add(SpeakerSegment(
+        speakerId: 'Voz 1',
+        startTime: Duration(milliseconds: startMs),
+        endTime: Duration(milliseconds: endMs),
         text: paragraph,
-        speaker: voiceName,
-        startMs: startMs,
-        endMs: endMs,
       ));
     }
     
