@@ -817,7 +817,7 @@ $_diagnosticLog
     // Return empty text - keeps player visible and audio playable
     final text = "";
     
-    final speakers = _diarize(text);
+    final speakers = _simpleDiarize(text);
     
     return Transcription(
       id: title.hashCode.abs().toString(),
