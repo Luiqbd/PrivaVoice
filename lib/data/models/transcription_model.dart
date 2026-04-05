@@ -17,6 +17,7 @@ class TranscriptionModel {
       speakerSegments: _parseSpeakerSegments(dbModel.speakerSegmentsJson),
       summary: dbModel.summary,
       actionItems: _parseActionItems(dbModel.actionItemsJson),
+      keywords: _parseKeywords(dbModel.keywordsJson),
       notes: dbModel.notes,
       speakerNames: _parseSpeakerNames(dbModel.speakerNamesJson),
     );
@@ -49,9 +50,23 @@ class TranscriptionModel {
         : null,
       summary: entity.summary,
       actionItemsJson: entity.actionItems != null ? jsonEncode(entity.actionItems) : null,
+      keywordsJson: entity.keywords != null ? jsonEncode(entity.keywords) : null,
       notes: entity.notes,
       speakerNamesJson: entity.speakerNames != null ? jsonEncode(entity.speakerNames) : null,
     );
+  }
+  
+  static List<String>? _parseKeywords(String? json) {
+    if (json == null || json.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(json);
+      if (decoded is List) {
+        return decoded.cast<String>();
+      }
+    } catch (e) {
+      debugPrint('Error parsing keywords: $e');
+    }
+    return null;
   }
   
   static Map<String, String>? _parseSpeakerNames(String? json) {

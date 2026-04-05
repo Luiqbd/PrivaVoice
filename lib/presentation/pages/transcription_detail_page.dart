@@ -414,12 +414,15 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              // Neon spinning ring
               SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppColors.primaryAccent,
+                width: 24,
+                height: 24,
+                child: CustomPaint(
+                  painter: _NeonRingPainter(
+                    color: AppColors.primaryAccent,
+                    progress: _currentProgress,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -567,6 +570,78 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Keywords Highlight (from Llama)
+        if (_transcription!.keywords != null && _transcription!.keywords!.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.primaryAccent.withOpacity(0.2),
+                  AppColors.primaryAccent.withOpacity(0.05),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.primaryAccent.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.key,
+                      size: 16,
+                      color: AppColors.primaryAccent,
+                    ),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Palavras-chave',
+                      style: TextStyle(
+                        color: AppColors.primaryAccent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: _transcription!.keywords!
+                      .map((kw) => Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryAccent.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: AppColors.primaryAccent.withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: Text(
+                              kw,
+                              style: const TextStyle(
+                                color: AppColors.primaryAccent,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ))
+                      .toList(),
+                ),
+              ],
+            ),
+          ),
+        
         const Text(
           'Linha do Tempo',
           style: TextStyle(
@@ -1300,5 +1375,62 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
         setState(() => _isProcessing = false);
       }
     }
+  }
+}
+
+/// Custom painter for neon spinning ring progress
+class _NeonRingPainter extends CustomPainter {
+  final Color color;
+  final double progress;
+  
+  _NeonRingPainter({required this.color, required this.progress});
+  
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 2;
+    
+    // Background ring
+    final bgPaint = Paint()
+      ..color = color.withOpacity(0.2)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3;
+    canvas.drawCircle(center, radius, bgPaint);
+    
+    // Progress arc with glow effect
+    final progressPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+    
+    // Add glow
+    final glowPaint = Paint()
+      ..color = color.withOpacity(0.4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+    
+    final sweepAngle = 2 * 3.14159 * progress;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -3.14159 / 2,
+      sweepAngle,
+      false,
+      glowPaint,
+    );
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -3.14159 / 2,
+      sweepAngle,
+      false,
+      progressPaint,
+    );
+  }
+  
+  @override
+  bool shouldRepaint(covariant _NeonRingPainter oldDelegate) {
+    return oldDelegate.progress != progress;
   }
 }

@@ -17,6 +17,7 @@ class TranscriptionData {
   final String? speakerSegmentsJson;
   final String? summary;
   final String? actionItemsJson;
+  final String? keywordsJson; // Keywords from Llama
   final String? notes; // Notas do usuário
   final String? speakerNamesJson; // Custom speaker names (Map<String, String>)
 
@@ -32,6 +33,7 @@ class TranscriptionData {
     this.speakerSegmentsJson,
     this.summary,
     this.actionItemsJson,
+    this.keywordsJson,
     this.notes,
     this.speakerNamesJson,
   });
@@ -48,6 +50,7 @@ class TranscriptionData {
     'speakerSegmentsJson': speakerSegmentsJson,
     'summary': summary,
     'actionItemsJson': actionItemsJson,
+    'keywordsJson': keywordsJson,
     'notes': notes,
     'speakerNamesJson': speakerNamesJson,
   };
@@ -64,6 +67,7 @@ class TranscriptionData {
     speakerSegmentsJson: map['speakerSegmentsJson'] as String?,
     summary: map['summary'] as String?,
     actionItemsJson: map['actionItemsJson'] as String?,
+    keywordsJson: map['keywordsJson'] as String?,
     notes: map['notes'] as String?,
     speakerNamesJson: map['speakerNamesJson'] as String?,
   );
@@ -114,7 +118,7 @@ class AppDatabase {
 
     return await openDatabase(
       dbPath,
-      version: 2,
+      version: 3,
       singleInstance: true,  // Ensure single instance - fixes read-only issue
       onConfigure: (db) async {
         debugPrint("AppDatabase: Enabling WAL mode...");
@@ -136,6 +140,7 @@ class AppDatabase {
             speakerSegmentsJson TEXT,
             summary TEXT,
             actionItemsJson TEXT,
+            keywordsJson TEXT,
             notes TEXT,
             speakerNamesJson TEXT
           )
@@ -151,6 +156,15 @@ class AppDatabase {
             debugPrint('AppDatabase: Added notes column');
           } catch (e) {
             debugPrint('AppDatabase: Notes column already exists');
+          }
+        }
+        // Migration for version 3: add keywords column
+        if (oldVersion < 3) {
+          try {
+            await db.execute('ALTER TABLE transcriptions ADD COLUMN keywordsJson TEXT');
+            debugPrint('AppDatabase: Added keywordsJson column');
+          } catch (e) {
+            debugPrint('AppDatabase: KeywordsJson column already exists');
           }
         }
       },

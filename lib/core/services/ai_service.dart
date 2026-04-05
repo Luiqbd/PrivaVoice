@@ -902,7 +902,11 @@ $_diagnosticLog
         final summary = llmResult['summary'] ?? '';
         final actionItems = List<String>.from(llmResult['actionItems'] ?? []);
         
+        // Extract 5 keywords from text using simple frequency analysis
+        final keywords = _extractKeywords(text);
+        
         _log('🔥[Isolate] Summary generated: $summary');
+        _log('🔥[Isolate] Keywords: $keywords');
         
         // Return a new Transcription with summary
         return Transcription(
@@ -913,10 +917,11 @@ $_diagnosticLog
           wordTimestamps: [],
           createdAt: DateTime.now(),
           duration: const Duration(minutes: 2),
-          /isEncrypted: true,
+          isEncrypted: true,
           speakerSegments: [],
           summary: summary,
           actionItems: actionItems,
+          keywords: keywords,
         );
       });
       
@@ -927,5 +932,43 @@ $_diagnosticLog
       AIManager.setError('Resumo falhou: $e');
       return null;
     }
+  }
+  
+  /// Extract 5 keywords from text using frequency analysis
+  static List<String> _extractKeywords(String text) {
+    // Common words to ignore (Portuguese stopwords)
+    final stopwords = {
+      'de', 'a', 'o', 'que', 'e', 'do', 'da', 'em', 'um', 'para', 'com',
+      'não', 'uma', 'os', 'no', 'se', 'na', 'por', 'mais', 'as', 'dos',
+      'como', 'mas', 'ao', 'ele', 'das', 'à', 'seu', 'sua', 'ou', 'quando',
+      'muito', 'nos', 'já', 'eu', 'também', 'só', 'pelo', 'pela', 'até',
+      'isso', 'ela', 'entre', 'depois', 'sem', 'mesmo', 'aos', 'seus',
+      'me', 'onde', 'havia', 'eram', 'essa', 'nem', 'suas', 'meu', 'às',
+      'tinha', 'foram', 'essa', 'pelo', 'pela', 'tan', 'to', 'é', 'ser',
+      'está', 'tem', 'vai', 'vamos', 'né', 'né', 'ai', 'ah', 'oh', 'olha',
+      'você', 'eu', 'nós', 'eles', 'ela', 'tu', 'yo', 'él', 'las', 'los',
+    };
+    
+    // Clean and split text
+    final words = text
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^\w\s]'), '')
+        .split(RegExp(r'\s+'))
+        .where((w) => w.length > 3)
+        .toList();
+    
+    // Count frequency
+    final frequency = <String, int>{};
+    for (final word in words) {
+      if (!stopwords.contains(word)) {
+        frequency[word] = (frequency[word] ?? 0) + 1;
+      }
+    }
+    
+    // Get top 5 keywords
+    final sorted = frequency.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    
+    return sorted.take(5).map((e) => e.key).toList();
   }
 }

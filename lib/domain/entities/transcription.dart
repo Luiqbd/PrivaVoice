@@ -12,6 +12,7 @@ class Transcription extends Equatable {
   final List<SpeakerSegment>? speakerSegments;
   final String? summary;
   final List<String>? actionItems;
+  final List<String>? keywords; // Keyword highlights from Llama
   final String? notes; // Campo para notas do usuário
   
   // Custom speaker names (e.g., "Dr. Ricardo" instead of "Voz 1")
@@ -29,6 +30,7 @@ class Transcription extends Equatable {
     this.speakerSegments,
     this.summary,
     this.actionItems,
+    this.keywords,
     this.notes,
     this.speakerNames,
   });
@@ -51,7 +53,7 @@ class Transcription extends Equatable {
   List<Object?> get props => [
     id, title, audioPath, text, wordTimestamps, 
     createdAt, duration, isEncrypted, speakerSegments, 
-    summary, actionItems, notes, speakerNames
+    summary, actionItems, keywords, notes, speakerNames
   ];
 }
 

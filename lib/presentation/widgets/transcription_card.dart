@@ -56,10 +56,26 @@ class TranscriptionCard extends StatelessWidget {
                               : AppColors.primaryAccent.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Icon(
-                          isProcessing ? Icons.sync : Icons.mic,
-                          color: AppColors.primaryAccent,
-                          size: 28,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              isProcessing ? Icons.sync : Icons.mic,
+                              color: AppColors.primaryAccent,
+                              size: 24,
+                            ),
+                            if (!isProcessing)
+                              // Mini waveform visualization
+                              SizedBox(
+                                height: 8,
+                                width: 36,
+                                child: CustomPaint(
+                                  painter: _WaveformPainter(
+                                    color: AppColors.primaryAccent.withOpacity(0.5),
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                       if (isProcessing)
@@ -243,4 +259,41 @@ class TranscriptionCard extends StatelessWidget {
       return '${date.day}/${date.month}/${date.year}';
     }
   }
+}
+
+/// Custom painter for mini waveform visualization
+class _WaveformPainter extends CustomPainter {
+  final Color color;
+  
+  _WaveformPainter({required this.color});
+  
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round;
+    
+    final barCount = 5;
+    final barWidth = size.width / (barCount * 2 - 1);
+    
+    // Predefined heights for a nice waveform pattern
+    final heights = [0.4, 0.8, 0.5, 1.0, 0.6];
+    
+    for (var i = 0; i < barCount; i++) {
+      final x = i * barWidth * 2 + barWidth / 2;
+      final height = size.height * heights[i];
+      final y1 = (size.height - height) / 2;
+      final y2 = y1 + height;
+      
+      canvas.drawLine(
+        Offset(x, y1),
+        Offset(x, y2),
+        paint,
+      );
+    }
+  }
+  
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
