@@ -418,7 +418,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        children: [
+            children: [
           // Stage message
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -637,24 +637,24 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
     // Show bookmarks section if there are any
     Widget? bookmarksSection;
     if (_transcription!.bookmarks != null && _transcription!.bookmarks!.isNotEmpty) {
-      bookmarksSection = Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppColors.warning.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.warning.withOpacity(0.4), width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.warning.withOpacity(0.2),
-              blurRadius: 8,
-              spreadRadius: 0,
+      bookmarksSection = ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.warning.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.warning.withOpacity(0.4), width: 1),
+              boxShadow: [
+                BoxShadow(color: AppColors.warning.withOpacity(0.2), blurRadius: 8, spreadRadius: 0),
+              ],
             ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
             Row(
               children: [
                 Icon(Icons.star, size: 16, color: AppColors.warning),
@@ -701,8 +701,8 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
     if (_transcription!.speakerSegments == null ||
         _transcription!.speakerSegments!.isEmpty) {
       return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
           if (bookmarksSection != null) bookmarksSection,
           _buildPlainTextView(),
         ],
@@ -715,26 +715,30 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
         if (bookmarksSection != null) bookmarksSection,
         // Keywords Highlight (from Llama)
         if (_transcription!.keywords != null && _transcription!.keywords!.isNotEmpty)
-          Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              // Glassmorphism - thin neon border
-              color: AppColors.primaryAccent.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.primaryAccent.withOpacity(0.4),
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primaryAccent.withOpacity(0.3),
-                  blurRadius: 8,
-                  spreadRadius: 0,
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  // Glassmorphism - thin neon border
+                  color: AppColors.primaryAccent.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.primaryAccent.withOpacity(0.4),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primaryAccent.withOpacity(0.3),
+                      blurRadius: 8,
+                      spreadRadius: 0,
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Column(
+                child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
@@ -831,43 +835,46 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
           ),
         
         // Show summary if available
-        if (_transcription!.summary != null && _transcription!.summary!.isNotEmpty) ...[
+        if (_transcription!.summary != null && _transcription!.summary!.isNotEmpty)
           _buildSection(
               'Resumo', Icons.summarize, AppColors.secondaryAccent, _transcription!.summary!),
+        if (_transcription!.summary != null && _transcription!.summary!.isNotEmpty)
           const SizedBox(height: 16),
-        ],
         if (_transcription!.actionItems != null &&
-            _transcription!.actionItems!.isNotEmpty) ...[
-          const Text('Action Items',
-              style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          ..._transcription!.actionItems!.map(
-            (item) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  Container(
-                    width: 20,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.secondaryAccent),
-                    ),
-                    child: const Icon(Icons.check,
-                        size: 14, color: AppColors.secondaryAccent),
+            _transcription!.actionItems!.isNotEmpty)
+          Column(
+            children: [
+              const Text('Action Items',
+                  style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              ..._transcription!.actionItems!.map(
+                (item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppColors.secondaryAccent),
+                        ),
+                        child: const Icon(Icons.check,
+                            size: 14, color: AppColors.secondaryAccent),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                          child: Text(item,
+                              style: const TextStyle(color: AppColors.textSecondary))),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                      child: Text(item,
-                          style: const TextStyle(color: AppColors.textSecondary))),
-                ],
-              ),
-            ),
+                ),
+              ).toList(),
+            ],
           ),
-        ],
         
         // Notas Section
         const SizedBox(height: 24),
@@ -899,8 +906,8 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
         ),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
           Row(
             children: [
               Icon(Icons.psychology, color: AppColors.primaryAccent, size: 20),
@@ -928,7 +935,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
           const SizedBox(height: 12),
           
           // Quick suggestion buttons
-          if (_chatMessages.isEmpty) ...[
+          if (_chatMessages.isEmpty)
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -938,8 +945,8 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                 _buildQuickButton('Crie um e-mail', () => _sendToLlama('Crie um e-mail profissional resumindo esta reunião')),
               ],
             ),
+          if (_chatMessages.isEmpty)
             const SizedBox(height: 12),
-          ],
           
           // Chat messages
           ..._chatMessages.map((msg) => _buildChatBubble(msg)),
@@ -1047,8 +1054,8 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
           ],
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1150,8 +1157,8 @@ Responda em português brasileiro de forma clara e útil.
         border: Border.all(color: AppColors.primaryAccent.withOpacity(0.3)),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
           Row(
             children: [
               const Icon(Icons.note_alt, color: AppColors.primaryAccent, size: 20),
@@ -1220,8 +1227,8 @@ Responda em português brasileiro de forma clara e útil.
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
           Column(
             children: [
               // Avatar com Glow Neon pulsante
@@ -1304,27 +1311,29 @@ Responda em português brasileiro de forma clara e útil.
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.25),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: color.withOpacity(0.5)),
-                      ),
-                      child: Text(
-                        displayName,
-                        style: TextStyle(
-                          color: color,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: color.withOpacity(0.25),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: color.withOpacity(0.5)),
+                          ),
+                          child: Text(
+                            displayName,
+                            style: TextStyle(
+                              color: color,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1,
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 10),
+                        // Texto com efeito karaoke - destaca palavras conforme reproduz
+                        _buildKaraokeText(segment, isActive),
+                      ],
                     ),
-                    const SizedBox(height: 10),
-                    // Texto com efeito karaoke - destaca palavras conforme reproduz
-                    _buildKaraokeText(segment, isActive),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -1383,14 +1392,13 @@ Responda em português brasileiro de forma clara e útil.
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          children: [
+              children: [
             const Text(
               'Transcricao',
               style: TextStyle(
                   color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            if (_isProcessing) ...[
-              const SizedBox(width: 8),
+            if (_isProcessing)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
@@ -1421,8 +1429,7 @@ Responda em português brasileiro de forma clara e útil.
                 ),
               ),
             ],
-          ],
-        ),
+          ),
         const SizedBox(height: 12),
         Container(
           width: double.infinity,
@@ -1450,7 +1457,7 @@ Responda em português brasileiro de forma clara e útil.
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
-        children: [
+            children: [
           const Icon(Icons.auto_awesome, color: AppColors.primaryAccent, size: 48),
           const SizedBox(height: 16),
           Text(
@@ -1482,8 +1489,8 @@ Responda em português brasileiro de forma clara e útil.
         border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
           Row(
             children: [
               Icon(icon, color: color),
@@ -1522,7 +1529,7 @@ Responda em português brasileiro de forma clara e útil.
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          children: [
+              children: [
             // Progress slider - thicker and neon cyan
             SliderTheme(
               data: SliderThemeData(
@@ -1682,7 +1689,7 @@ Responda em português brasileiro de forma clara e útil.
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          children: [
+              children: [
             const Text(
               'Digite o nome do locutor:',
               style: TextStyle(color: AppColors.textSecondary),
@@ -1855,7 +1862,7 @@ Responda em português brasileiro de forma clara e útil.
         backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
-          children: [
+              children: [
             Icon(Icons.note_add, color: AppColors.secondaryAccent),
             SizedBox(width: 8),
             Text('Nota Manual', style: TextStyle(color: AppColors.textPrimary)),
@@ -1951,7 +1958,7 @@ Responda em português brasileiro de forma clara e útil.
         padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          children: [
+              children: [
             ListTile(
               leading: const Icon(Icons.camera_alt, color: AppColors.primaryAccent),
               title: const Text('Tirar Foto', style: TextStyle(color: AppColors.textPrimary)),
