@@ -1428,8 +1428,7 @@ Responda em português brasileiro de forma clara e útil.
                 ),
               ),
             ],
-          ],
-        ),
+          ),
         const SizedBox(height: 12),
         Container(
           width: double.infinity,
