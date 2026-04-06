@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../core/services/ai_service.dart';
 import '../../core/ai/ai_state.dart';
 import '../../core/theme/app_colors.dart';
@@ -636,22 +637,22 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
     // Show bookmarks section if there are any
     Widget? bookmarksSection;
     if (_transcription!.bookmarks != null && _transcription!.bookmarks!.isNotEmpty) {
-      bookmarksSection = ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.warning.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.warning.withOpacity(0.4), width: 1),
-              boxShadow: [
-                BoxShadow(color: AppColors.warning.withOpacity(0.2), blurRadius: 8, spreadRadius: 0),
-              ],
+      bookmarksSection = Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.warning.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.warning.withOpacity(0.4), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.warning.withOpacity(0.2),
+              blurRadius: 8,
+              spreadRadius: 0,
             ),
-            child: Column(
+          ],
+        ),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -714,30 +715,26 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
         if (bookmarksSection != null) bookmarksSection,
         // Keywords Highlight (from Llama)
         if (_transcription!.keywords != null && _transcription!.keywords!.isNotEmpty)
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  // Glassmorphism - thin neon border
-                  color: AppColors.primaryAccent.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: AppColors.primaryAccent.withOpacity(0.4),
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primaryAccent.withOpacity(0.3),
-                      blurRadius: 8,
-                      spreadRadius: 0,
-                    ),
-                  ],
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              // Glassmorphism - thin neon border
+              color: AppColors.primaryAccent.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.primaryAccent.withOpacity(0.4),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primaryAccent.withOpacity(0.3),
+                  blurRadius: 8,
+                  spreadRadius: 0,
                 ),
-                child: Column(
+              ],
+            ),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
@@ -834,46 +831,43 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
           ),
         
         // Show summary if available
-        if (_transcription!.summary != null && _transcription!.summary!.isNotEmpty)
+        if (_transcription!.summary != null && _transcription!.summary!.isNotEmpty) ...[
           _buildSection(
               'Resumo', Icons.summarize, AppColors.secondaryAccent, _transcription!.summary!),
-        if (_transcription!.summary != null && _transcription!.summary!.isNotEmpty)
           const SizedBox(height: 16),
+        ],
         if (_transcription!.actionItems != null &&
-            _transcription!.actionItems!.isNotEmpty)
-          Column(
-            children: [
-              const Text('Action Items',
-                  style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              ..._transcription!.actionItems!.map(
-                (item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 20,
-                        height: 20,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.secondaryAccent),
-                        ),
-                        child: const Icon(Icons.check,
-                            size: 14, color: AppColors.secondaryAccent),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                          child: Text(item,
-                              style: const TextStyle(color: AppColors.textSecondary))),
-                    ],
+            _transcription!.actionItems!.isNotEmpty) ...[
+          const Text('Action Items',
+              style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          ..._transcription!.actionItems!.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  Container(
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.secondaryAccent),
+                    ),
+                    child: const Icon(Icons.check,
+                        size: 14, color: AppColors.secondaryAccent),
                   ),
-                ),
-              ).toList(),
-            ],
+                  const SizedBox(width: 8),
+                  Expanded(
+                      child: Text(item,
+                          style: const TextStyle(color: AppColors.textSecondary))),
+                ],
+              ),
+            ),
           ),
+        ],
         
         // Notas Section
         const SizedBox(height: 24),
@@ -934,7 +928,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
           const SizedBox(height: 12),
           
           // Quick suggestion buttons
-          if (_chatMessages.isEmpty)
+          if (_chatMessages.isEmpty) ...[
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -944,8 +938,8 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                 _buildQuickButton('Crie um e-mail', () => _sendToLlama('Crie um e-mail profissional resumindo esta reunião')),
               ],
             ),
-          if (_chatMessages.isEmpty)
             const SizedBox(height: 12),
+          ],
           
           // Chat messages
           ..._chatMessages.map((msg) => _buildChatBubble(msg)),
@@ -1310,29 +1304,27 @@ Responda em português brasileiro de forma clara e útil.
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: color.withOpacity(0.25),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: color.withOpacity(0.5)),
-                          ),
-                          child: Text(
-                            displayName,
-                            style: TextStyle(
-                              color: color,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1,
-                            ),
-                          ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.25),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: color.withOpacity(0.5)),
+                      ),
+                      child: Text(
+                        displayName,
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1,
                         ),
-                        const SizedBox(height: 10),
-                        // Texto com efeito karaoke - destaca palavras conforme reproduz
-                        _buildKaraokeText(segment, isActive),
-                      ],
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 10),
+                    // Texto com efeito karaoke - destaca palavras conforme reproduz
+                    _buildKaraokeText(segment, isActive),
+                  ],
                 ),
               ),
             ),
@@ -1397,7 +1389,8 @@ Responda em português brasileiro de forma clara e útil.
               style: TextStyle(
                   color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            if (_isProcessing)
+            if (_isProcessing) ...[
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
@@ -1428,7 +1421,8 @@ Responda em português brasileiro de forma clara e útil.
                 ),
               ),
             ],
-          ),
+          ],
+        ),
         const SizedBox(height: 12),
         Container(
           width: double.infinity,
