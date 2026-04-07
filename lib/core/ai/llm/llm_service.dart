@@ -18,8 +18,8 @@ class LLMService {
   Future<void> _loadModel() async {
     // Load quantized model from assets
     final directory = await getApplicationDocumentsDirectory();
-    final modelPath = '${directory.path}/models/$_modelName.bin';
     // In production: load actual TinyLlama quantized model
+    // Model path: ${directory.path}/models/$_modelName.bin
   }
   
   /// Generate structured summary from transcription

@@ -54,16 +54,17 @@ android {
         }
     }
 
-    // Native build configuration for Whisper and Llama
-    externalNativeBuild {
-        cmake {
-            path "src/main/cpp/CMakeLists.txt"
-            version "3.18.1"
-        }
-    }
+    // Native build configuration for Whisper and Llama - DISABLED for now
+    // The mx.valdora dependency needs proper configuration
+    // externalNativeBuild {
+    //     cmake {
+    //         path "src/main/cpp/CMakeLists.txt"
+    //         version "3.18.1"
+    //     }
+    // }
 
     buildFeatures {
-        prefab true
+        prefab false
     }
     
     // REMOVIDO: assets.srcDirs duplicava os modelos no APK
@@ -77,6 +78,6 @@ flutter {
 
 // Add dependencies for prefab (if available)
 dependencies {
-    // mx.valdora provides proper C API for whisper
-    implementation("mx.valdora:whisper-android:1.0.0")
+    // TODO: Add proper whisper library when available
+    // Currently using Flutter-based audio recording and processing
 }

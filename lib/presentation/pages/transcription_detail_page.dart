@@ -20,6 +20,71 @@ class TranscriptionDetailPage extends StatefulWidget {
   State<TranscriptionDetailPage> createState() => _TranscriptionDetailPageState();
 }
 
+/// Chat message model for PrivaChat
+class _ChatMessage {
+  final String text;
+  final bool isUser;
+  
+  _ChatMessage({required this.text, required this.isUser});
+}
+
+/// Custom painter for neon spinning ring progress
+class _NeonRingPainter extends CustomPainter {
+  final Color color;
+  final double progress;
+  
+  _NeonRingPainter({required this.color, required this.progress});
+  
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 2;
+    
+    // Background ring
+    final bgPaint = Paint()
+      ..color = color.withOpacity(0.2)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3;
+    canvas.drawCircle(center, radius, bgPaint);
+    
+    // Progress arc with glow effect
+    final progressPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+    
+    // Add glow
+    final glowPaint = Paint()
+      ..color = color.withOpacity(0.4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+    
+    final sweepAngle = 2 * 3.14159 * progress;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -3.14159 / 2,
+      sweepAngle,
+      false,
+      glowPaint,
+    );
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -3.14159 / 2,
+      sweepAngle,
+      false,
+      progressPaint,
+    );
+  }
+  
+  @override
+  bool shouldRepaint(covariant _NeonRingPainter oldDelegate) {
+    return oldDelegate.progress != progress;
+  }
+}
+
 class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
   Transcription? _transcription;
   bool _isLoading = true;
@@ -2067,68 +2132,4 @@ Responda em português brasileiro de forma clara e útil.
       debugPrint('Error toggling hidden: $e');
     }
   }
-
-  /// Custom painter for neon spinning ring progress
-class _NeonRingPainter extends CustomPainter {
-  final Color color;
-  final double progress;
-  
-  _NeonRingPainter({required this.color, required this.progress});
-  
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 2;
-    
-    // Background ring
-    final bgPaint = Paint()
-      ..color = color.withOpacity(0.2)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
-    canvas.drawCircle(center, radius, bgPaint);
-    
-    // Progress arc with glow effect
-    final progressPaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
-    
-    // Add glow
-    final glowPaint = Paint()
-      ..color = color.withOpacity(0.4)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 6
-      ..strokeCap = StrokeCap.round
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
-    
-    final sweepAngle = 2 * 3.14159 * progress;
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      -3.14159 / 2,
-      sweepAngle,
-      false,
-      glowPaint,
-    );
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      -3.14159 / 2,
-      sweepAngle,
-      false,
-      progressPaint,
-    );
-  }
-  
-  @override
-  bool shouldRepaint(covariant _NeonRingPainter oldDelegate) {
-    return oldDelegate.progress != progress;
-  }
-}
-
-/// Chat message model for PrivaChat
-class _ChatMessage {
-  final String text;
-  final bool isUser;
-  
-  _ChatMessage({required this.text, required this.isUser});
 }

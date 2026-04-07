@@ -42,6 +42,8 @@ dependency_overrides:
 
 flutter:
   uses-material-design: true
-  assets:
-    - assets/models/whisper-base.bin
-    - assets/models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf
+  # Assets removidos - modelos devem ser baixados em tempo de execução
+  # ou copingados manualmente para assets/models/
+  # Para bundled models, adicione os arquivos:
+  # - assets/models/whisper-base.bin
+  # - assets/models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf

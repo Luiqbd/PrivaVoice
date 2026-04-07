@@ -5,8 +5,6 @@ import 'core/theme/app_theme.dart';
 import 'core/services/ai_service.dart';
 import 'core/services/permission_service.dart';
 import 'presentation/blocs/onboarding/onboarding_bloc.dart';
-import 'presentation/blocs/recording/recording_bloc.dart';
-import 'presentation/blocs/transcription/transcription_bloc.dart';
 import 'presentation/pages/home_page.dart';
 import 'presentation/pages/onboarding_page.dart';
 
@@ -20,7 +18,6 @@ class PrivaVoiceApp extends StatefulWidget {
 class _PrivaVoiceAppState extends State<PrivaVoiceApp> {
   bool _showOnboarding = true;  // Show onboarding on first launch
   bool _permissionsRequested = false;
-  final AIService _aiService = AIService();
   final PermissionService _permissionService = PermissionService();
 
   @override
