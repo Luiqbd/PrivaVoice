@@ -742,9 +742,9 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                  children: [
-                    Icon(
-                      Icons.key,
+                      children: [
+                        Icon(
+                          Icons.key,
                       size: 16,
                       color: AppColors.primaryAccent,
                     ),
