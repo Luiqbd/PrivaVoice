@@ -413,12 +413,12 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
             color: AppColors.primaryAccent.withOpacity(0.4),
             blurRadius: 20,
             spreadRadius: 3,
-            ),
+          ),
         ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-            children: [
+        children: [
           // Stage message
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -444,7 +444,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                 ),
               ),
             ],
-            ),
+          ),
           const SizedBox(height: 16),
           
           // Linear Progress with Cyan Glow
@@ -471,7 +471,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                 ),
               ),
             ),
-            ),
+          ),
           const SizedBox(height: 12),
           
           // Progress percentage and countdown
@@ -505,7 +505,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                 ],
               ),
             ],
-            ),
+          ),
         ],
       ),
     );
@@ -593,12 +593,12 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                 ),
               ),
             ],
-            ),
+          ),
           IconButton(
             icon: const Icon(Icons.picture_as_pdf, color: AppColors.primaryAccent),
             onPressed: _exportToPdf,
             tooltip: 'Exportar PDF',
-            ),
+          ),
         ],
       ),
       body: _buildBody(),
@@ -622,7 +622,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: _buildTimeline(),
-            ),
+          ),
         ),
         _buildAudioPlayerBar(),
       ],
@@ -637,26 +637,26 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
     // Show bookmarks section if there are any
     Widget? bookmarksSection;
     if (_transcription!.bookmarks != null && _transcription!.bookmarks!.isNotEmpty) {
-      bookmarksSection = ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.warning.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.warning.withOpacity(0.4), width: 1),
-              boxShadow: [
-                BoxShadow(color: AppColors.warning.withOpacity(0.2), blurRadius: 8, spreadRadius: 0),
-              ],
+      bookmarksSection = Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.warning.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.warning.withOpacity(0.4), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.warning.withOpacity(0.2),
+              blurRadius: 8,
+              spreadRadius: 0,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Row(
-            children: [
                 Icon(Icons.star, size: 16, color: AppColors.warning),
                 const SizedBox(width: 6),
                 const Text(
@@ -669,8 +669,8 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                 ),
               ],
             ),
-              const SizedBox(height: 8),
-              Wrap(
+            const SizedBox(height: 8),
+            Wrap(
               spacing: 8,
               runSpacing: 8,
               children: _transcription!.bookmarks!.map((ts) {
@@ -693,7 +693,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                 );
               }).toList(),
             ),
-            ],
+          ],
         ),
       );
     }
@@ -715,36 +715,32 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
         if (bookmarksSection != null) bookmarksSection,
         // Keywords Highlight (from Llama)
         if (_transcription!.keywords != null && _transcription!.keywords!.isNotEmpty)
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  // Glassmorphism - thin neon border
-                  color: AppColors.primaryAccent.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: AppColors.primaryAccent.withOpacity(0.4),
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primaryAccent.withOpacity(0.3),
-                      blurRadius: 8,
-                      spreadRadius: 0,
-                    ),
-                  ],
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              // Glassmorphism - thin neon border
+              color: AppColors.primaryAccent.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.primaryAccent.withOpacity(0.4),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primaryAccent.withOpacity(0.3),
+                  blurRadius: 8,
+                  spreadRadius: 0,
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.key,
+                    Icon(
+                      Icons.key,
                       size: 16,
                       color: AppColors.primaryAccent,
                     ),
@@ -790,7 +786,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                 ),
               ],
             ),
-            ),
+          ),
         ),
         
         const Text(
@@ -799,7 +795,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
             color: AppColors.textPrimary,
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            ),
+          ),
         ),
         const SizedBox(height: 16),
         ...List.generate(
@@ -832,49 +828,46 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
             ),
-            ),
+          ),
         
         // Show summary if available
-        if (_transcription!.summary != null && _transcription!.summary!.isNotEmpty)
+        if (_transcription!.summary != null && _transcription!.summary!.isNotEmpty) ...[
           _buildSection(
               'Resumo', Icons.summarize, AppColors.secondaryAccent, _transcription!.summary!),
-        if (_transcription!.summary != null && _transcription!.summary!.isNotEmpty)
           const SizedBox(height: 16),
+        ],
         if (_transcription!.actionItems != null &&
-            _transcription!.actionItems!.isNotEmpty)
-          Column(
-            children: [
-              const Text('Action Items',
-                  style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              ..._transcription!.actionItems!.map(
-                (item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 20,
-                        height: 20,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.secondaryAccent),
-                        ),
-                        child: const Icon(Icons.check,
-                            size: 14, color: AppColors.secondaryAccent),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                          child: Text(item,
-                              style: const TextStyle(color: AppColors.textSecondary))),
-                    ],
+            _transcription!.actionItems!.isNotEmpty) ...[
+          const Text('Action Items',
+              style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          ..._transcription!.actionItems!.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  Container(
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.secondaryAccent),
+                    ),
+                    child: const Icon(Icons.check,
+                        size: 14, color: AppColors.secondaryAccent),
                   ),
-                ),
-              ).toList(),
-            ],
+                  const SizedBox(width: 8),
+                  Expanded(
+                      child: Text(item,
+                          style: const TextStyle(color: AppColors.textSecondary))),
+                ],
+              ),
             ),
+          ),
+        ],
         
         // Notas Section
         const SizedBox(height: 24),
@@ -897,7 +890,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
           colors: [
             AppColors.primaryAccent.withOpacity(0.15),
             AppColors.primaryAccent.withOpacity(0.05),
-            ],
+          ],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
@@ -906,8 +899,8 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
         ),
       ),
       child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Row(
             children: [
               Icon(Icons.psychology, color: AppColors.primaryAccent, size: 20),
@@ -931,22 +924,22 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                   ),
                 ),
             ],
-            ),
+          ),
           const SizedBox(height: 12),
           
           // Quick suggestion buttons
-          if (_chatMessages.isEmpty)
-              Wrap(
+          if (_chatMessages.isEmpty) ...[
+            Wrap(
               spacing: 8,
               runSpacing: 8,
-            children: [
+              children: [
                 _buildQuickButton('Resuma para mim', () => _sendToLlama('Resuma o conteúdo desta reunião em parágrafo')),
                 _buildQuickButton('Quais as decisões?', () => _sendToLlama('Liste as decisões tomadas nesta reunião')),
                 _buildQuickButton('Crie um e-mail', () => _sendToLlama('Crie um e-mail profissional resumindo esta reunião')),
               ],
             ),
-          if (_chatMessages.isEmpty)
-              const SizedBox(height: 12),
+            const SizedBox(height: 12),
+          ],
           
           // Chat messages
           ..._chatMessages.map((msg) => _buildChatBubble(msg)),
@@ -993,7 +986,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                 ),
               ),
             ],
-            ),
+          ),
         ],
       ),
     );
@@ -1010,7 +1003,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
           border: Border.all(
             color: AppColors.primaryAccent.withOpacity(0.3),
             width: 1,
-            ),
+          ),
         ),
         child: Text(
           label,
@@ -1018,7 +1011,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
             color: AppColors.primaryAccent,
             fontSize: 12,
             fontWeight: FontWeight.w500,
-            ),
+          ),
         ),
       ),
     );
@@ -1044,21 +1037,21 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                 ? AppColors.primaryAccent.withOpacity(0.4)
                 : AppColors.primaryAccent.withOpacity(0.2),
             width: 1,
-            ),
+          ),
           boxShadow: [
             BoxShadow(
               color: (isUser ? AppColors.primaryAccent : AppColors.primaryAccent.withOpacity(0.1)).withOpacity(0.2),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
-            ],
+          ],
         ),
         child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               mainAxisSize: MainAxisSize.min,
-            children: [
+              children: [
                 Icon(
                   isUser ? Icons.person : Icons.auto_awesome,
                   size: 14,
@@ -1075,7 +1068,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                 ),
               ],
             ),
-              const SizedBox(height: 6),
+            const SizedBox(height: 6),
             Text(
               msg.text,
               style: const TextStyle(
@@ -1083,7 +1076,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
                 fontSize: 14,
               ),
             ),
-            ],
+          ],
         ),
       ),
     );
@@ -1157,8 +1150,8 @@ Responda em português brasileiro de forma clara e útil.
         border: Border.all(color: AppColors.primaryAccent.withOpacity(0.3)),
       ),
       child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Row(
             children: [
               const Icon(Icons.note_alt, color: AppColors.primaryAccent, size: 20),
@@ -1182,7 +1175,7 @@ Responda em português brasileiro de forma clara e útil.
                   ),
                 ),
             ],
-            ),
+          ),
           const SizedBox(height: 12),
           TextField(
             controller: _notesController,
@@ -1199,7 +1192,7 @@ Responda em português brasileiro de forma clara e útil.
               ),
             ),
             onChanged: (value) => _saveNotesDebounced(value),
-            ),
+          ),
         ],
       ),
     );
@@ -1227,8 +1220,8 @@ Responda em português brasileiro de forma clara e útil.
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Column(
             children: [
               // Avatar com Glow Neon pulsante
@@ -1280,7 +1273,7 @@ Responda em português brasileiro de forma clara e útil.
                 ),
               ),
             ],
-            ),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: GestureDetector(
@@ -1311,33 +1304,31 @@ Responda em português brasileiro de forma clara e útil.
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: color.withOpacity(0.25),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: color.withOpacity(0.5)),
-                          ),
-                          child: Text(
-                            displayName,
-                            style: TextStyle(
-                              color: color,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1,
-                            ),
-                          ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.25),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: color.withOpacity(0.5)),
+                      ),
+                      child: Text(
+                        displayName,
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1,
                         ),
-                        const SizedBox(height: 10),
-                        // Texto com efeito karaoke - destaca palavras conforme reproduz
-                        _buildKaraokeText(segment, isActive),
-                      ],
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 10),
+                    // Texto com efeito karaoke - destaca palavras conforme reproduz
+                    _buildKaraokeText(segment, isActive),
+                  ],
                 ),
               ),
             ),
-            ),
+          ),
         ],
       ),
     );
@@ -1381,7 +1372,7 @@ Responda em português brasileiro de forma clara e útil.
               fontWeight: isHighlighted ? FontWeight.bold : FontWeight.w400,
               height: 1.5,
             ),
-            ),
+          ),
         );
       }),
     );
@@ -1392,13 +1383,14 @@ Responda em português brasileiro de forma clara e útil.
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-            children: [
+          children: [
             const Text(
               'Transcricao',
               style: TextStyle(
                   color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            if (_isProcessing)
+            if (_isProcessing) ...[
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
@@ -1429,7 +1421,8 @@ Responda em português brasileiro de forma clara e útil.
                 ),
               ),
             ],
-            ),
+          ],
+        ),
         const SizedBox(height: 12),
         Container(
           width: double.infinity,
@@ -1438,11 +1431,11 @@ Responda em português brasileiro de forma clara e útil.
             borderRadius: BorderRadius.circular(16),
             color: AppColors.surface.withOpacity(0.6),
             border: Border.all(color: AppColors.primaryAccent.withOpacity(0.3)),
-            ),
+          ),
           child: Text(
             _transcription!.text,
             style: const TextStyle(color: AppColors.textSecondary, height: 1.5),
-            ),
+          ),
         ),
       ],
     );
@@ -1457,7 +1450,7 @@ Responda em português brasileiro de forma clara e útil.
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
-            children: [
+        children: [
           const Icon(Icons.auto_awesome, color: AppColors.primaryAccent, size: 48),
           const SizedBox(height: 16),
           Text(
@@ -1465,7 +1458,7 @@ Responda em português brasileiro de forma clara e útil.
                 ? 'Transcrevendo...'
                 : 'Toque para transcrever com IA',
             style: const TextStyle(color: AppColors.textPrimary, fontSize: 16),
-            ),
+          ),
           const SizedBox(height: 16),
           if (_isProcessing)
             const CircularProgressIndicator(color: AppColors.primaryAccent)
@@ -1489,15 +1482,15 @@ Responda em português brasileiro de forma clara e útil.
         border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Row(
             children: [
               Icon(icon, color: color),
               const SizedBox(width: 8),
               Text(title, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
             ],
-            ),
+          ),
           const SizedBox(height: 8),
           Text(content, style: const TextStyle(color: AppColors.textSecondary)),
         ],
@@ -1518,18 +1511,18 @@ Responda em português brasileiro de forma clara e útil.
           border: Border.all(
             color: AppColors.primaryAccent.withOpacity(0.3),
             width: 1.5,
-            ),
+          ),
           boxShadow: [
             BoxShadow(
               color: AppColors.primaryAccent.withOpacity(0.2),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
-            ],
+          ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-            children: [
+          children: [
             // Progress slider - thicker and neon cyan
             SliderTheme(
               data: SliderThemeData(
@@ -1554,20 +1547,20 @@ Responda em português brasileiro de forma clara e útil.
               ),
             ),
             // Time labels
-              Row(
+            Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
+              children: [
                 Text(_formatDuration(_currentPosition),
                     style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w500)),
                 Text(_formatDuration(_totalDuration),
                     style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w500)),
               ],
             ),
-              const SizedBox(height: 12),
+            const SizedBox(height: 12),
             // Controls row
-              Row(
+            Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
+              children: [
                 // Replay from start
                 IconButton(
                   icon: const Icon(Icons.replay, color: AppColors.textSecondary, size: 28),
@@ -1662,7 +1655,7 @@ Responda em português brasileiro de forma clara e útil.
                 ),
               ],
             ),
-            ],
+          ],
         ),
       ),
     );
@@ -1689,12 +1682,12 @@ Responda em português brasileiro de forma clara e útil.
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-            children: [
+          children: [
             const Text(
               'Digite o nome do locutor:',
               style: TextStyle(color: AppColors.textSecondary),
             ),
-              const SizedBox(height: 16),
+            const SizedBox(height: 16),
             TextField(
               controller: controller,
               autofocus: true,
@@ -1712,13 +1705,13 @@ Responda em português brasileiro de forma clara e útil.
                 ),
               ),
             ),
-            ],
+          ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancelar', style: TextStyle(color: AppColors.textTertiary)),
-            ),
+          ),
           ElevatedButton(
             onPressed: () {
               final newName = controller.text.trim();
@@ -1732,7 +1725,7 @@ Responda em português brasileiro de forma clara e útil.
               backgroundColor: AppColors.primaryAccent,
             ),
             child: const Text('Salvar'),
-            ),
+          ),
         ],
       ),
     );
@@ -1844,7 +1837,7 @@ Responda em português brasileiro de forma clara e útil.
           SnackBar(
             content: Text('Erro: $e'),
             backgroundColor: AppColors.error,
-            ),
+          ),
         );
       }
     } finally {
@@ -1862,11 +1855,11 @@ Responda em português brasileiro de forma clara e útil.
         backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
-            children: [
+          children: [
             Icon(Icons.note_add, color: AppColors.secondaryAccent),
             SizedBox(width: 8),
             Text('Nota Manual', style: TextStyle(color: AppColors.textPrimary)),
-            ],
+          ],
         ),
         content: TextField(
           controller: controller,
@@ -1883,13 +1876,13 @@ Responda em português brasileiro de forma clara e útil.
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: AppColors.secondaryAccent),
             ),
-            ),
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancelar', style: TextStyle(color: AppColors.textTertiary)),
-            ),
+          ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(dialogContext);
@@ -1899,7 +1892,7 @@ Responda em português brasileiro de forma clara e útil.
               backgroundColor: AppColors.secondaryAccent,
             ),
             child: const Text('Salvar'),
-            ),
+          ),
         ],
       ),
     );
@@ -1936,7 +1929,7 @@ Responda em português brasileiro de forma clara e útil.
           const SnackBar(
             content: Text('Nota salva!'),
             backgroundColor: AppColors.success,
-            ),
+          ),
         );
       }
     } catch (e) {
@@ -1958,7 +1951,7 @@ Responda em português brasileiro de forma clara e útil.
         padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-            children: [
+          children: [
             ListTile(
               leading: const Icon(Icons.camera_alt, color: AppColors.primaryAccent),
               title: const Text('Tirar Foto', style: TextStyle(color: AppColors.textPrimary)),
@@ -1977,7 +1970,7 @@ Responda em português brasileiro de forma clara e útil.
                 if (img != null) await _saveAttachedImage(img.path);
               },
             ),
-            ],
+          ],
         ),
       ),
     );
@@ -2024,7 +2017,7 @@ Responda em português brasileiro de forma clara e útil.
           const SnackBar(
             content: Text('Imagem anexada!'),
             backgroundColor: AppColors.success,
-            ),
+          ),
         );
       }
     } catch (e) {
@@ -2050,7 +2043,7 @@ Responda em português brasileiro de forma clara e útil.
               const SizedBox(width: 8),
               const Text('Movendo para Cofre Seguro...'),
             ],
-            ),
+          ),
           backgroundColor: AppColors.surface,
         ),
       );
@@ -2084,14 +2077,14 @@ Responda em português brasileiro de forma clara e útil.
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
-            children: [
+              children: [
                 Icon(newHidden ? Icons.lock : Icons.lock_open, color: AppColors.warning),
                 const SizedBox(width: 8),
                 Text(newHidden ? 'Salvo no Cofre Seguro' : 'Removido do Cofre'),
               ],
             ),
             backgroundColor: AppColors.surface,
-            ),
+          ),
         );
       }
     } catch (e) {
