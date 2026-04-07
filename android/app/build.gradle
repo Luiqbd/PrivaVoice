@@ -54,14 +54,13 @@ android {
         }
     }
 
-    // Native build configuration for Whisper and Llama - DISABLED for now
-    // The mx.valdora dependency needs proper configuration
-    // externalNativeBuild {
-    //     cmake {
-    //         path "src/main/cpp/CMakeLists.txt"
-    //         version "3.18.1"
-    //     }
-    // }
+    // Native build configuration for Whisper and Llama
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+            version "3.18.1"
+        }
+    }
 
     buildFeatures {
         prefab false
