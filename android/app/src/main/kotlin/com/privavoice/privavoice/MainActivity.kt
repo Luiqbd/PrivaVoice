@@ -11,11 +11,11 @@ class MainActivity : FlutterActivity() {
         // Register Recording Method Channel
         RecordingMethodChannel().registerWith(flutterEngine, this)
         
-        // Register Whisper Method Channel
+        // Register Whisper Method Channel - using stub
         val whisperChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "com.privavoice/whisper"
         )
-        whisperChannel.setMethodCallHandler(WhisperMethodChannel(this))
+        // Whisper stub - não registra handler real
     }
 }
