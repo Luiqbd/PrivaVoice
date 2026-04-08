@@ -77,6 +77,6 @@ flutter {
 
 // Add dependencies for prefab (if available)
 dependencies {
-    // TODO: Add proper whisper library when available
-    // Currently using Flutter-based audio recording and processing
+    // Whisper Android library with pre-built ARM64 native libs
+    implementation("mx.valdora:whisper-android:1.0.0")
 }
