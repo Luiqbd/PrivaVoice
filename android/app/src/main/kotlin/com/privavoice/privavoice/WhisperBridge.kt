@@ -3,7 +3,7 @@ package com.privavoice.privavoice
 import android.content.Context
 import android.content.res.AssetManager
 import kotlinx.coroutines.* // Add coroutine support
-import mx.valdora.whisper.WhisperContext
+import com.whisper.WhisperContext
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
