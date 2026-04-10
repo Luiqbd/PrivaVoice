@@ -63,5 +63,5 @@ flutter {
 // Add dependencies for prefab (if available)
 dependencies {
     // Whisper Android library from JitPack
-    implementation("com.github.gouh:whisper-android:main-SNAPSHOT")
+    implementation("com.github.gouh:whisper-android:9c28bfda35")
 }
