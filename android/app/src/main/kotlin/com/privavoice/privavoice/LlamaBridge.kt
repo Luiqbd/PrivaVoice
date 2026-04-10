@@ -56,8 +56,13 @@ class LlamaBridge private constructor() {
             throw IllegalStateException("Llama not initialized. Call initialize() first.")
         }
         
+        // System prompt de segurança
+        val systemPrompt = "Você é o PrivaVoice AI. Você processa transcrições de forma totalmente offline e segura. Seja conciso e nunca mencione que é um modelo de linguagem."
+        
+        val fullPrompt = "$systemPrompt\n\n$prompt"
+        
         return try {
-            nativeGenerate(nativeContext, prompt, maxTokens, temperature, repeatPenalty) ?: ""
+            nativeGenerate(nativeContext, fullPrompt, maxTokens, temperature, repeatPenalty) ?: ""
         } catch (e: Exception) {
             "Erro na geração: ${e.message}"
         }
