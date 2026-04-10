@@ -148,7 +148,7 @@ class WhisperBridge private constructor() {
             
             // mx.valdora WhisperContext - uses NNAPI automatically
             // Hardware acceleration is enabled by default in mx.valdora
-            whisperContext = WhisperContext(modelPath)
+            whisperContext = WhisperContext.create(modelPath)
             isInitialized = true
             println("WhisperBridge: Initialized with NNAPI/Hardware acceleration!")
             true
@@ -395,7 +395,7 @@ class WhisperBridge private constructor() {
      */
     fun unload() {
         try {
-            whisperContext?.close()
+            whisperContext?.release()
             whisperContext = null
             isInitialized = false
             println("Whisper: Model unloaded, memory freed")
@@ -668,7 +668,7 @@ class WhisperBridge private constructor() {
      */
     fun release() {
         try {
-            whisperContext?.close()
+            whisperContext?.release()
         } catch (e: Exception) {
             // Ignore
         }
