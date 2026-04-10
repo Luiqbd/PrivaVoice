@@ -238,7 +238,7 @@ class AIService {
         } else {
           _modelPath = whisperPath;
           _modelsCopied = true;
-          AIManager.setState(AIState.ready, message: 'Pronto para gravar');
+          AIManager.setState(AIState.readyWhisper, message: 'Pronto para gravar');
           _log('✅ Whisper model ready');
         }
       } else {
@@ -248,7 +248,7 @@ class AIService {
         // IMPORTANT: Set model path to Whisper after copy (not Llama!)
         _modelPath = whisperPath;
         _modelsCopied = true;
-        AIManager.setState(AIState.ready, message: 'Pronto para gravar');
+        AIManager.setState(AIState.readyWhisper, message: 'Pronto para gravar');
       }
       
       // ALSO check and copy Llama model
@@ -291,7 +291,7 @@ class AIService {
       }
 
       _validateModelPath();
-      AIManager.setState(AIState.ready, message: 'Pronto para gravar');
+      AIManager.setState(AIState.readyWhisper, message: 'Pronto para gravar');
       return true;
     } catch (e) {
       _log('Pre-flight FAILED: $e');
@@ -509,7 +509,7 @@ class AIService {
         rethrow;
       }
 
-      AIManager.setState(AIState.ready, message: 'Pronto');
+      AIManager.setState(AIState.readyWhisper, message: 'Pronto');
       onProgress?.call(1.0, 'Completo');
       _log('=== PROCESS COMPLETE ===');
       
@@ -932,7 +932,7 @@ $_diagnosticLog
         );
       });
       
-      AIManager.setState(AIState.ready, message: 'Pronto');
+      AIManager.setState(AIState.readyWhisper, message: 'Pronto');
       return result;
     } catch (e) {
       _log('Generate summary failed: $e');
@@ -1042,7 +1042,7 @@ Resposta:''';
         return llmResult['response'] ?? llmResult['summary'] ?? '';
       });
       
-      AIManager.setState(AIState.ready, message: 'Pronto');
+      AIManager.setState(AIState.readyWhisper, message: 'Pronto');
       return result;
     } catch (e) {
       _log('Generate chat response failed: $e');
