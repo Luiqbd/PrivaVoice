@@ -1,13 +1,15 @@
 package com.privavoice.privavoice
 
+import android.app.ActivityManager
+import android.content.Context
 import io.github.ljcamargo.llamacpp.LlamaContext
 import io.github.ljcamargo.llamacpp.LlamaHelper
+import java.io.File
 
 /**
  * Llama Bridge - Usa io.github.ljcamargo:llamacpp-kotlin:0.2.0
- * IMPORTANTE: Libera Whisper antes de usar Llama (memória limitada)
  */
-class LlamaBridge private constructor() {
+class LlamaBridge(private val context: Context) {
     
     private var llamaContext: LlamaContext? = null
     private var modelPath: String = ""
@@ -21,95 +23,84 @@ class LlamaBridge private constructor() {
         @Volatile
         private var instance: LlamaBridge? = null
         
-        fun getInstance(): LlamaBridge {
+        fun getInstance(ctx: Context): LlamaBridge {
             return instance ?: synchronized(this) {
-                instance ?: LlamaBridge().also { instance = it }
+                instance ?: LlamaBridge(ctx).also { instance = it }
             }
         }
     }
     
-    /**
-     * Initialize Llama model from file
-     * IMPORTANTE: Chame WhisperBridge.release() antes deste método!
-     */
+    private fun logMemory(tag: String) {
+        try {
+            val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+            val memInfo = ActivityManager.MemoryInfo()
+            activityManager.getMemoryInfo(memInfo)
+            println("LlamaBridge [$tag]: Memória livre = ${memInfo.availMem / 1024 / 1024} MB")
+        } catch (e: Exception) {
+            println("LlamaBridge [$tag]: Erro ao obter memória")
+        }
+    }
+    
     fun initialize(modelPath: String, nCtx: Int = 2048, nThreads: Int = 4): Boolean {
+        logMemory("ANTES")
+        
         return try {
             this.modelPath = modelPath
             this.nCtx = nCtx
             this.nThreads = nThreads
             
-            // Carrega modelo usando LlamaHelper
-            llamaContext = LlamaHelper.load(
-                path = modelPath,
-                contextLength = nCtx,
-                nThreads = nThreads
-            )
+            val modelFile = File(modelPath)
+            if (!modelFile.exists()) {
+                println("LlamaBridge: Arquivo não encontrado: $modelPath")
+                return false
+            }
+            println("LlamaBridge: Modelo = ${modelFile.length() / 1024 / 1024} MB")
             
+            llamaContext = LlamaHelper.load(modelPath, nCtx, nThreads)
             isInitialized = llamaContext != null
-            println("LlamaBridge: Modelo carregado de $modelPath")
+            logMemory("DEPOIS")
+            println("LlamaBridge: Carregado = $isInitialized")
             isInitialized
         } catch (e: Exception) {
-            println("LlamaBridge: Erro ao inicializar: ${e.message}")
+            println("LlamaBridge: Erro: ${e.message}")
+            logMemory("ERRO")
             isInitialized = false
             false
         }
     }
     
-    /**
-     * Generate completion/summary
-     * maxTokens padrão 200 para caber com system prompt
-     */
-    fun generate(
-        prompt: String,
-        maxTokens: Int = 200,
-        temperature: Float = 0.7f,
-        repeatPenalty: Float = 1.1f
-    ): String {
-        if (!isInitialized || llamaContext == null) {
-            throw IllegalStateException("Llama not initialized. Call initialize() first.")
-        }
+    fun generate(prompt: String, maxTokens: Int = 200): String {
+        if (!isInitialized) throw IllegalStateException("Not initialized")
         
-        // System prompt de segurança (conciso)
-        val systemPrompt = "Você é o PrivaVoice AI. Offline e seguro. Responda de forma concisa."
-        val fullPrompt = "$systemPrompt\n\n$prompt"
+        val fullPrompt = "Você é o PrivaVoice AI. Offline e seguro.\n\n$prompt"
         
         return try {
-            // Usa LlamaContext para gerar
             llamaContext?.predict(fullPrompt) ?: ""
         } catch (e: Exception) {
-            "Erro na geração: ${e.message}"
+            "Erro: ${e.message}"
         }
     }
     
     fun summarize(transcription: String): String {
-        val prompt = "Resuma: $transcription"
-        return generate(prompt, maxTokens = 200)
+        val prompt = "Resuma os pontos principais desta transcrição de forma profissional e concisa:\n\n$transcription"
+        return generate(prompt, 200)
     }
     
     fun extractActionItems(transcription: String): List<String> {
-        val prompt = "Liste as ações: $transcription"
-        val result = generate(prompt, maxTokens = 100)
-        return result.split("\n").filter { it.isNotBlank() && it.contains("-") }
+        val prompt = "Liste as ações mencionadas:\n\n$transcription"
+        val result = generate(prompt, 100)
+        return result.split("\n").filter { it.isNotBlank() && it.contains("- ") }
     }
     
     fun answerQuestion(transcription: String, question: String): String {
-        val prompt = "Com base em: $transcription\n\nPergunta: $question"
-        return generate(prompt, maxTokens = 150)
+        val prompt = "Com base no texto:\n$transcription\n\nPergunta: $question"
+        return generate(prompt, 150)
     }
     
-    fun getModelInfo(): String {
-        return if (isInitialized) "TinyLlama-1.1B-Q4 (loaded)" else "Not initialized"
-    }
+    fun getModelInfo(): String = if (isInitialized) "TinyLlama-1.1B-Q4" else "Not loaded"
     
-    fun reset() {
-        llamaContext?.stop()
-        println("LlamaBridge: Reset contexto")
-    }
+    fun reset() = llamaContext?.stop()
     
-    /**
-     * Libera memória do modelo
-     * IMPORTANTE: Chamar ao sair do chat para liberar RAM
-     */
     fun release() {
         try {
             llamaContext?.stop()
@@ -119,6 +110,6 @@ class LlamaBridge private constructor() {
         }
         llamaContext = null
         isInitialized = false
-        println("LlamaBridge: Memória liberada")
+        logMemory("APÓS release")
     }
 }
