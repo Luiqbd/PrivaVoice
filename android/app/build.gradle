@@ -68,4 +68,6 @@ flutter {
 dependencies {
     // Whisper Android library from JitPack
     implementation("com.github.gouh:whisper-android:9c28bfda35")
+    // Llama.cpp Kotlin wrapper from JitPack
+    implementation("com.github.ljcamargo:kotlinllamacpp:-SNAPSHOT")
 }
