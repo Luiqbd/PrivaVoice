@@ -391,6 +391,11 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
 
   @override
   void dispose() {
+    // LIMPEZA: Libera Llama e volta para Whisper ao sair
+    if (AIManager.isLlamaReady) {
+      AIManager.switchToTranscribe();
+    }
+    
     _refreshTimer?.cancel();
     _progressTimer?.cancel();
     _notesSaveTimer?.cancel();
@@ -1137,6 +1142,25 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
   }
   
   Future<void> _sendToLlama(String question) async {
+    if (_transcription == null) return;
+
+    // PRIMEIRO: Troca Whisper → Llama (se necessário)
+    if (!AIManager.isLlamaReady) {
+      setState(() { _currentStage = 'Preparando inteligência offline...'; });
+      final modelDir = await getApplicationDocumentsDirectory();
+      final llamaPath = '${modelDir.path}/models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf';
+      await AIManager.switchToChat(llamaPath);
+    }
+
+    // Add user message
+    setState(() {
+      _chatMessages.add(_ChatMessage(text: question, isUser: true));
+      _chatController.clear();
+      _isChatLoading = true;
+      _currentStage = 'Gerando resposta...';
+    });
+
+    try {
     if (_transcription == null) return;
     
     // Add user message
