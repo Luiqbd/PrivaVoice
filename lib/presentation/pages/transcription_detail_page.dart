@@ -1144,9 +1144,9 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
   Future<void> _sendToLlama(String question) async {
     if (_transcription == null) return;
 
-    // PRIMEIRO: Troca Whisper → Llama (se necessário)
+    // PRIMEIRO: Troca Whisper -> Llama (se necessario)
     if (!AIManager.isLlamaReady) {
-      setState(() { _currentStage = 'Preparando inteligência offline...'; });
+      setState(() { _currentStage = 'Preparando inteligencia offline...'; });
       final modelDir = await getApplicationDocumentsDirectory();
       final llamaPath = '${modelDir.path}/models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf';
       await AIManager.switchToChat(llamaPath);
@@ -1161,32 +1161,22 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
     });
 
     try {
-    if (_transcription == null) return;
-    
-    // Add user message
-    setState(() {
-      _chatMessages.add(_ChatMessage(text: question, isUser: true));
-      _chatController.clear();
-      _isChatLoading = true;
-    });
-    
-    try {
       // Build context: transcription text + question
-      final context = '''
-Transcrição:
+      final context = """
+Transcrião:
 ${_transcription!.text}
 
-Pergunta do usuário: $question
+Pergunta do usurio: $question
 
-Responda em português brasileiro de forma clara e útil.
-''';
-      
+Responda em portugus brasileiro de forma clara e til.
+""";
+
       // Call Llama to get answer
       final result = await AIService.generateChatResponse(
         transcriptionId: _transcription!.id,
         context: context,
       );
-      
+
       if (result != null) {
         setState(() {
           _chatMessages.add(_ChatMessage(text: result, isUser: false));
@@ -1195,7 +1185,7 @@ Responda em português brasileiro de forma clara e útil.
       } else {
         setState(() {
           _chatMessages.add(_ChatMessage(
-            text: 'Desculpe, não consegui gerar uma resposta. Tente novamente.',
+            text: 'Desculpe, no consegui gerar uma resposta. Tente novamente.',
             isUser: false,
           ));
           _isChatLoading = false;
