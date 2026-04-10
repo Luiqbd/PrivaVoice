@@ -4,6 +4,7 @@ allprojects {
         mavenCentral()
         maven { url 'https://jitpack.io' }
         maven { url 'https://googleapis.com' }
+        maven { url 'https://google.com' }
     }
 }
 
