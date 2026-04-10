@@ -9,6 +9,10 @@ android {
     compileSdk = 35
     ndkVersion = "26.1.10909125"
 
+    aaptOptions {
+        noCompress 'bin', 'gguf'
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
