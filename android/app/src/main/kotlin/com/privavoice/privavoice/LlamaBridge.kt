@@ -1,17 +1,18 @@
 package com.privavoice.privavoice
 
+import io.github.ljcamargo.llamacpp.LlamaContext
+import io.github.ljcamargo.llamacpp.LlamaHelper
+
 /**
- * Llama Bridge - Offline AI for summarization and NLP
- * Uses kotlinllamacpp from JitPack when available, fallback para modo offline
- * IMPORTANT: Libera Whisper antes de usar Llama (memória limitada)
+ * Llama Bridge - Usa io.github.ljcamargo:llamacpp-kotlin:0.2.0
+ * IMPORTANTE: Libera Whisper antes de usar Llama (memória limitada)
  */
 class LlamaBridge private constructor() {
     
-    // Modelo carregado em memória
+    private var llamaContext: LlamaContext? = null
     private var modelPath: String = ""
     private var nCtx: Int = 2048
     private var nThreads: Int = 4
-    private var isModelLoaded: Boolean = false
     
     var isInitialized: Boolean = false
         private set
@@ -36,10 +37,17 @@ class LlamaBridge private constructor() {
             this.modelPath = modelPath
             this.nCtx = nCtx
             this.nThreads = nThreads
-            isModelLoaded = true
-            isInitialized = true
+            
+            // Carrega modelo usando LlamaHelper
+            llamaContext = LlamaHelper.load(
+                path = modelPath,
+                contextLength = nCtx,
+                nThreads = nThreads
+            )
+            
+            isInitialized = llamaContext != null
             println("LlamaBridge: Modelo carregado de $modelPath")
-            true
+            isInitialized
         } catch (e: Exception) {
             println("LlamaBridge: Erro ao inicializar: ${e.message}")
             isInitialized = false
@@ -57,7 +65,7 @@ class LlamaBridge private constructor() {
         temperature: Float = 0.7f,
         repeatPenalty: Float = 1.1f
     ): String {
-        if (!isInitialized) {
+        if (!isInitialized || llamaContext == null) {
             throw IllegalStateException("Llama not initialized. Call initialize() first.")
         }
         
@@ -65,31 +73,11 @@ class LlamaBridge private constructor() {
         val systemPrompt = "Você é o PrivaVoice AI. Offline e seguro. Responda de forma concisa."
         val fullPrompt = "$systemPrompt\n\n$prompt"
         
-        return generateOfflineResponse(prompt)
-    }
-    
-    /**
-     * Geração offline simulada - resposta baseada em palavras-chave
-     */
-    private fun generateOfflineResponse(prompt: String): String {
-        val lowerPrompt = prompt.lowercase()
-        
-        return when {
-            lowerPrompt.contains("resuma") || lowerPrompt.contains("resumo") -> {
-                val texto = prompt.substringAfter(":").trim()
-                if (texto.isNotEmpty()) {
-                    "📝 RESUMO:\n\n• Tema principal detectado\n• ${texto.take(100)}...\n\nPontos principais:\n- Conteúdo processado offline\n- Transcrição segura"
-                } else "Não foi possível gerar resumo."
-            }
-            lowerPrompt.contains("ação") || lowerPrompt.contains("tarefa") || lowerPrompt.contains("lista") -> {
-                "- Ação 1: revisar transcrição\n- Ação 2: confirmar dados\n- Ação 3: finalizar processo"
-            }
-            lowerPrompt.contains("pergunta") || lowerPrompt.contains("responda") -> {
-                "Baseado na transcrição: as informações necessárias estão presentes no texto."
-            }
-            else -> {
-                "🔄 Processado offline pelo PrivaVoice AI.\n\nTexto: ${prompt.take(80)}..."
-            }
+        return try {
+            // Usa LlamaContext para gerar
+            llamaContext?.predict(fullPrompt) ?: ""
+        } catch (e: Exception) {
+            "Erro na geração: ${e.message}"
         }
     }
     
@@ -110,18 +98,26 @@ class LlamaBridge private constructor() {
     }
     
     fun getModelInfo(): String {
-        return if (isInitialized) "TinyLlama-1.1B-Q4 (offline mode)" else "Not initialized"
+        return if (isInitialized) "TinyLlama-1.1B-Q4 (loaded)" else "Not initialized"
     }
     
     fun reset() {
+        llamaContext?.stop()
         println("LlamaBridge: Reset contexto")
     }
     
     /**
      * Libera memória do modelo
+     * IMPORTANTE: Chamar ao sair do chat para liberar RAM
      */
     fun release() {
-        isModelLoaded = false
+        try {
+            llamaContext?.stop()
+            llamaContext?.release()
+        } catch (e: Exception) {
+            println("LlamaBridge: Erro ao liberar: ${e.message}")
+        }
+        llamaContext = null
         isInitialized = false
         println("LlamaBridge: Memória liberada")
     }
