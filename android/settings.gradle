@@ -27,7 +27,7 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven { url 'https://storage.googleapis.com/flutter_infra_release' }
+        maven { url 'https://dl.google.com/dl/android/maven2' }
         maven { url 'https://jitpack.io' }
     }
 }
