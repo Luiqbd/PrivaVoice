@@ -61,5 +61,5 @@ dependencies {
     // Llama.cpp - NLP
     implementation("io.github.ljcamargo:llamacpp-kotlin:0.2.0")
     
-    // Whisper - stubs locais (AAR completo disponível em libs/)
+    // Whisper - stub local (aguardando AAR disponível)
 }
