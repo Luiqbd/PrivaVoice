@@ -61,6 +61,6 @@ dependencies {
     // Llama.cpp - NLP
     implementation("io.github.ljcamargo:llamacpp-kotlin:0.2.0")
     
-    // Whisper - AAR local (56MB com libwhisper.so)
-    implementation(files("libs/whisper-android.aar"))
+    // Whisper - JitPack (libwhisper.so nativo)
+    implementation("com.github.gouh:whisper-android:-9c28bfda35-1")
 }
