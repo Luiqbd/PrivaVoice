@@ -11,7 +11,39 @@ class MainActivity : FlutterActivity() {
         // Register Recording Method Channel
         RecordingMethodChannel().registerWith(flutterEngine, this)
 
-        // Register Whisper Method Channel
+        // === Llama Channel ===
+        val llamaChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "com.privavoice/llama"
+        )
+        
+        val llamaBridge = LlamaBridge.getInstance(this)
+        
+        llamaChannel.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "loadModel" -> {
+                    val path = call.argument<String>("modelPath") ?: ""
+                    llamaBridge.loadModel(path) { success, message ->
+                        if (success) result.success(mapOf("status" to "ok", "message" to message))
+                        else result.error("LOAD_ERROR", message, null)
+                    }
+                }
+                "predict" -> {
+                    val prompt = call.argument<String>("prompt") ?: ""
+                    llamaBridge.predict(prompt) { text ->
+                        result.success(text)
+                    }
+                }
+                "release" -> {
+                    llamaBridge.release()
+                    result.success(true)
+                }
+                "getModelInfo" -> result.success(llamaBridge.getModelInfo())
+                else -> result.notImplemented()
+            }
+        }
+
+        // === Whisper Channel ===
         val whisperChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "com.privavoice/whisper"
@@ -21,12 +53,6 @@ class MainActivity : FlutterActivity() {
         
         whisperChannel.setMethodCallHandler { call, result ->
             when (call.method) {
-                "initialize" -> {
-                    whisperBridge.initialize(call.argument<String>("language") ?: "pt") { success, message ->
-                        if (success) result.success(mapOf("status" to "ok", "message" to message))
-                        else result.error("INIT_ERROR", message, null)
-                    }
-                }
                 "loadModel" -> {
                     val path = call.argument<String>("modelPath") ?: ""
                     whisperBridge.loadModel(path) { success, message ->
@@ -34,7 +60,6 @@ class MainActivity : FlutterActivity() {
                         else result.error("LOAD_ERROR", message, null)
                     }
                 }
-                "getModelInfo" -> result.success(whisperBridge.getModelInfo())
                 "transcribe" -> {
                     val path = call.argument<String>("audioPath") ?: ""
                     whisperBridge.transcribe(path) { text ->
@@ -45,6 +70,7 @@ class MainActivity : FlutterActivity() {
                     whisperBridge.release()
                     result.success(true)
                 }
+                "getModelInfo" -> result.success(whisperBridge.getModelInfo())
                 else -> result.notImplemented()
             }
         }

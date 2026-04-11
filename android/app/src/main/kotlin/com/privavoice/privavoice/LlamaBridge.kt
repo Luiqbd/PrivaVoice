@@ -14,6 +14,7 @@ class LlamaBridge(private val context: Context) {
     private var llama: LlamaHelper? = null
     private var modelPath: String = ""
     private var nCtx: Int = 2048
+    private var contextId: Long? = null
 
     var isInitialized: Boolean = false
         private set
@@ -46,9 +47,10 @@ class LlamaBridge(private val context: Context) {
                 sharedFlow = sharedFlow
             )
 
-            llama?.load(path, nCtx) { contextId: Long ->
+            llama?.load(path, nCtx) { ctxId: Long ->
+                contextId = ctxId
                 isInitialized = true
-                callback?.invoke(true, "Model loaded: $path (ctx: $contextId)")
+                callback?.invoke(true, "Model loaded: $path (ctx: $ctxId)")
             }
         } catch (e: Exception) {
             isInitialized = false
@@ -61,7 +63,7 @@ class LlamaBridge(private val context: Context) {
      */
     fun predict(prompt: String, callback: (String) -> Unit) {
         val llamaInstance = llama
-        if (llamaInstance == null || llamaInstance.currentContext == null) {
+        if (llamaInstance == null || contextId == null) {
             callback("Error: Model not loaded")
             return
         }
@@ -93,6 +95,7 @@ class LlamaBridge(private val context: Context) {
         try {
             llama?.release()
             llama = null
+            contextId = null
             isInitialized = false
             println("LlamaBridge: Released successfully")
         } catch (e: Exception) {

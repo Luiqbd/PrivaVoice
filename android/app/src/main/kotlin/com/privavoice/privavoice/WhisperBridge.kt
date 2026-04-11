@@ -3,7 +3,7 @@ package com.privavoice.privavoice
 import android.content.Context
 import mx.valdora.whisper.WhisperContext
 import java.io.File
-import java.util.concurrent.Executors
+import kotlinx.coroutines.runBlocking
 
 /**
  * Whisper Bridge - Usa mx.valdora:whisper-android:1.0.0
@@ -18,7 +18,6 @@ class WhisperBridge(private val context: Context) {
         private set
 
     private var modelPath: String = ""
-    private val executor = Executors.newSingleThreadExecutor()
 
     companion object {
         @Volatile
@@ -49,22 +48,23 @@ class WhisperBridge(private val context: Context) {
 
     /**
      * Transcribe audio file (WAV, 16kHz mono PCM)
-     * Note: This is a suspend function, needs coroutine
+     * Uses runBlocking since transcribe is suspend
      */
     fun transcribe(audioPath: String, callback: (String) -> Unit) {
         val wc = whisperContext
         if (wc == null) {
-            callback("Error: Wh Whisper not initialized")
+            callback("Error: Whisper not initialized")
             return
         }
 
-        executor.execute {
-            try {
-                val result = wc.transcribe(File(audioPath))
-                callback(result)
-            } catch (e: Exception) {
-                callback("Error: ${e.message}")
+        try {
+            // transcribe is suspend - use runBlocking
+            val result = runBlocking {
+                wc.transcribe(File(audioPath))
             }
+            callback(result)
+        } catch (e: Exception) {
+            callback("Error: ${e.message}")
         }
     }
 
