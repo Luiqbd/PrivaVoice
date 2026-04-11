@@ -69,5 +69,5 @@ dependencies {
     // Llama.cpp Kotlin wrapper (inclui binários nativos arm64-v8a)
     implementation("io.github.ljcamargo:llamacpp-kotlin:0.2.0")
     // Whisper Android - reconhecimento de voz offline
-    implementation("com.github.gouh:whisper-android:9c28bfda35")
+    implementation("com.github.gouh:whisper-android:v1.0.1")
 }
