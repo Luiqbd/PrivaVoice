@@ -13,7 +13,6 @@ pluginManagement {
         google()
         mavenCentral()
         gradlePluginPortal()
-        maven { url 'https://jitpack.io' }
     }
 }
 
@@ -28,9 +27,7 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        // ESTA URL É OBRIGATÓRIA PARA O MOTOR DO FLUTTER
         maven { url 'https://googleapis.com' }
-        // ESTA URL É OBRIGATÓRIA PARA O WHISPER
         maven { url 'https://jitpack.io' }
     }
 }
