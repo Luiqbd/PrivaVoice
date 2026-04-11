@@ -61,6 +61,6 @@ dependencies {
     // Llama.cpp - NLP
     implementation("io.github.ljcamargo:llamacpp-kotlin:0.2.0")
     
-    // Whisper - JitPack (libwhisper.so nativo)
-    implementation("com.github.gouh:whisper-android:-9c28bfda35-1")
+    // Whisper - stub (aguardo libwhisper.so disponível)
+    // implementation("com.github.gouh:whisper-android:-9c28bfda35-1")
 }
