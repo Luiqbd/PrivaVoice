@@ -590,7 +590,7 @@ class AIService {
           _log('🔥[Isolate] Platform service initialized');
           final jsonResult = await WhisperPlatformService.transcribe(audioPath, language: 'pt');
           if (jsonResult != null && jsonResult.isNotEmpty) {
-            _log('🔥[Isolate] Platform service result: ${jsonResult.substring(0, jsonResult.length > 100 ? 100 : jsonResult.length)}...');
+            _log('🔥[Isolate] Platform service result: ${jsonResult.length > 100 ? jsonResult.substring(0, 100) : jsonResult}...');
             // Parse JSON response from Kotlin
             try {
               final Map<String, dynamic> parsed = jsonDecode(jsonResult);

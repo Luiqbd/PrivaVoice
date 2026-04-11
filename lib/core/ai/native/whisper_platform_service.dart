@@ -69,7 +69,7 @@ class WhisperPlatformService {
         'language': language,  // Pass language parameter
       });
       
-      print('WhisperPlatform: Transcribe result: ${result?.substring(0, 50) ?? "null"}...');
+      print('WhisperPlatform: Transcribe result: ${result != null && result.length > 50 ? result.substring(0, 50) + "..." : result ?? "null"}');
       return result;
     } catch (e) {
       print('WhisperPlatform: Transcribe error: $e');
