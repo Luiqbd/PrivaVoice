@@ -28,7 +28,9 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven { url 'https://googleapis.com' } // <--- ESSENCIAL
+        // ESTA URL É OBRIGATÓRIA PARA O MOTOR DO FLUTTER
+        maven { url 'https://googleapis.com' }
+        // ESTA URL É OBRIGATÓRIA PARA O WHISPER
         maven { url 'https://jitpack.io' }
     }
 }
