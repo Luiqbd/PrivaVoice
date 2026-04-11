@@ -6,10 +6,9 @@ plugins {
 
 android {
     namespace = "com.privavoice.privavoice"
-    compileSdk = 36
+    compileSdk = 35
     ndkVersion = "26.1.10909125"
 
-    // Impede que o Android tente zipar os modelos pesados (essencial para os 1.11 GB)
     aaptOptions {
         noCompress 'bin', 'gguf'
     }
@@ -26,13 +25,10 @@ android {
     defaultConfig {
         applicationId = "com.privavoice.privavoice"
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
-
         multiDexEnabled true
-        
-        // Foca apenas em celulares modernos (64 bits) para reduzir o tamanho do APK
         ndk {
             abiFilters 'arm64-v8a'
         }
@@ -41,7 +37,6 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.debug
-            // Mantido false para garantir que as libs nativas (Whisper/Llama) não sejam removidas
             minifyEnabled = false
             shrinkResources = false
         }
@@ -63,9 +58,6 @@ flutter {
 }
 
 dependencies {
-    // Motor do Llama (Inteligência do Chat)
+    // Llama.cpp - Apenas NLP (sem Whisper por enquanto)
     implementation("io.github.ljcamargo:llamacpp-kotlin:0.2.0")
-    
-    // Motor do Whisper (Transcrição) - CORRIGIDO para o Commit que o JitPack aceita
-    implementation("com.github.gouh:whisper-android:-9c28bfda35-1")
 }
