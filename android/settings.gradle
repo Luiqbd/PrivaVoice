@@ -23,14 +23,14 @@ plugins {
 }
 
 dependencyResolutionManagement {
-    // Mudamos para PREFER_PROJECT para aceitar as bibliotecas locais do SQLite e Whisper
-    repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
+    // FAIL_ON_PROJECT_REPOS garante que o Gradle use exatamente as URLs abaixo
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google()
         mavenCentral()
-        // URL CRÍTICA: Onde o motor do Flutter realmente mora
+        // URL obrigatória para o motor do Flutter
         maven { url 'https://googleapis.com' }
-        // URL CRÍTICA: Onde o motor do Whisper mora
+        // URL obrigatória para o motor Whisper
         maven { url 'https://jitpack.io' }
     }
 }
