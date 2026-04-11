@@ -1,115 +1,151 @@
 package com.privavoice.privavoice
 
-import android.app.ActivityManager
 import android.content.Context
-import io.github.ljcamargo.llamacpp.LlamaContext
+import android.net.Uri
 import io.github.ljcamargo.llamacpp.LlamaHelper
-import java.io.File
+import kotlinx.coroutines.*
 
 /**
  * Llama Bridge - Usa io.github.ljcamargo:llamacpp-kotlin:0.2.0
+ * API: LlamaHelper com load(), predict(), isLoaded, close()
  */
 class LlamaBridge(private val context: Context) {
-    
-    private var llamaContext: LlamaContext? = null
+
+    private var llama: LlamaHelper? = null
     private var modelPath: String = ""
-    private var nCtx: Int = 2048
-    private var nThreads: Int = 4
+    private var currentJob: Job? = null
     
     var isInitialized: Boolean = false
         private set
     
+    var isProcessing: Boolean = false
+        private set
+
     companion object {
         @Volatile
         private var instance: LlamaBridge? = null
-        
+
         fun getInstance(ctx: Context): LlamaBridge {
             return instance ?: synchronized(this) {
                 instance ?: LlamaBridge(ctx).also { instance = it }
             }
         }
     }
-    
-    private fun logMemory(tag: String) {
-        try {
-            val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-            val memInfo = ActivityManager.MemoryInfo()
-            activityManager.getMemoryInfo(memInfo)
-            println("LlamaBridge [$tag]: Memória livre = ${memInfo.availMem / 1024 / 1024} MB")
-        } catch (e: Exception) {
-            println("LlamaBridge [$tag]: Erro ao obter memória")
-        }
-    }
-    
-    fun initialize(modelPath: String, nCtx: Int = 2048, nThreads: Int = 4): Boolean {
-        logMemory("ANTES")
+
+    /**
+     * Initialize and load the model
+     */
+    fun loadModel(path: String, callback: ((Boolean, String) -> Unit)? = null) {
+        modelPath = path
         
-        return try {
-            this.modelPath = modelPath
-            this.nCtx = nCtx
-            this.nThreads = nThreads
+        try {
+            llama = LlamaHelper(context)
             
-            val modelFile = File(modelPath)
-            if (!modelFile.exists()) {
-                println("LlamaBridge: Arquivo não encontrado: $modelPath")
-                return false
-            }
-            println("LlamaBridge: Modelo = ${modelFile.length() / 1024 / 1024} MB")
-            
-            llamaContext = LlamaHelper.load(modelPath, nCtx, nThreads)
-            isInitialized = llamaContext != null
-            logMemory("DEPOIS")
-            println("LlamaBridge: Carregado = $isInitialized")
-            isInitialized
+            llama?.load(
+                path = path,
+                contextLength = 2048,
+                onLoaded = {
+                    isInitialized = true
+                    callback?.invoke(true, "Model loaded successfully")
+                }
+            )
         } catch (e: Exception) {
-            println("LlamaBridge: Erro: ${e.message}")
-            logMemory("ERRO")
             isInitialized = false
-            false
+            callback?.invoke(false, "Error: ${e.message}")
         }
     }
-    
-    fun generate(prompt: String, maxTokens: Int = 200): String {
-        if (!isInitialized) throw IllegalStateException("Not initialized")
+
+    /**
+     * Load model from assets using URI
+     */
+    fun loadModelFromAssets(fileName: String, callback: ((Boolean, String) -> Unit)? = null) {
+        // Try to get file from assets or cache
+        val modelFile = context.cacheDir.resolve(fileName)
         
-        val fullPrompt = "Você é o PrivaVoice AI. Offline e seguro.\n\n$prompt"
-        
-        return try {
-            llamaContext?.predict(fullPrompt) ?: ""
-        } catch (e: Exception) {
-            "Erro: ${e.message}"
+        if (modelFile.exists()) {
+            loadModel(modelFile.absolutePath, callback)
+        } else {
+            // Need to copy from assets first
+            callback?.invoke(false, "Model file not found: $fileName")
         }
     }
-    
-    fun summarize(transcription: String): String {
-        val prompt = "Resuma os pontos principais desta transcrição de forma profissional e concisa:\n\n$transcription"
-        return generate(prompt, 200)
-    }
-    
-    fun extractActionItems(transcription: String): List<String> {
-        val prompt = "Liste as ações mencionadas:\n\n$transcription"
-        val result = generate(prompt, 100)
-        return result.split("\n").filter { it.isNotBlank() && it.contains("- ") }
-    }
-    
-    fun answerQuestion(transcription: String, question: String): String {
-        val prompt = "Com base no texto:\n$transcription\n\nPergunta: $question"
-        return generate(prompt, 150)
-    }
-    
-    fun getModelInfo(): String = if (isInitialized) "TinyLlama-1.1B-Q4" else "Not loaded"
-    
-    fun reset() = llamaContext?.stop()
-    
-    fun release() {
+
+    /**
+     * Synchronous prediction
+     */
+    fun predict(prompt: String, onResult: (String) -> Unit) {
+        val llamaInstance = llama
+        if (llamaInstance == null || !llamaInstance.isLoaded) {
+            onResult("Error: Model not loaded")
+            return
+        }
+
+        isProcessing = true
         try {
-            llamaContext?.stop()
-            llamaContext?.release()
+            val result = llamaInstance.predict(prompt)
+            onResult(result)
         } catch (e: Exception) {
-            println("LlamaBridge: Erro ao liberar: ${e.message}")
+            onResult("Error: ${e.message}")
+        } finally {
+            isProcessing = false
         }
-        llamaContext = null
+    }
+
+    /**
+     * Streaming prediction (real-time tokens)
+     */
+    fun predictStream(prompt: String, onToken: (String) -> Unit, onComplete: () -> Unit) {
+        val llamaInstance = llama
+        if (llamaInstance == null || !llamaInstance.isLoaded) {
+            onComplete()
+            return
+        }
+
+        isProcessing = true
+        currentJob = CoroutineScope(Dispatchers.IO).launch {
+            try {
+                llamaInstance.predictStream(
+                    prompt = prompt,
+                    onToken = { token ->
+                        onToken(token)
+                    }
+                )
+            } catch (e: Exception) {
+                println("predictStream error: ${e.message}")
+            } finally {
+                isProcessing = false
+                onComplete()
+            }
+        }
+    }
+
+    /**
+     * Stop current prediction
+     */
+    fun stop() {
+        currentJob?.cancel()
+        currentJob = null
+        isProcessing = false
+    }
+
+    /**
+     * Release resources
+     */
+    fun release() {
+        stop()
+        llama?.close()
+        llama = null
         isInitialized = false
-        logMemory("APÓS release")
+    }
+
+    /**
+     * Get model info
+     */
+    fun getModelInfo(): Map<String, Any> {
+        return mapOf(
+            "initialized" to isInitialized,
+            "processing" to isProcessing,
+            "modelPath" to modelPath
+        )
     }
 }

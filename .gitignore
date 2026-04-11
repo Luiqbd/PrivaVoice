@@ -50,3 +50,5 @@ flutter_bin/
 !assets/models/*.gguf
 assets/models/
 android/app/src/main/jniLibs/
+android/app/libs/
+*.aar
