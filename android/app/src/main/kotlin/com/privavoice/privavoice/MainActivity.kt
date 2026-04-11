@@ -54,7 +54,6 @@ class MainActivity : FlutterActivity() {
         whisperChannel.setMethodCallHandler { call, result ->
             when (call.method) {
                 "init" -> {
-                    // init(language: String) - loads WhisperContext
                     val language = call.argument<String>("language") ?: "pt"
                     whisperBridge.initialize(language) { success, message ->
                         if (success) result.success(true)
@@ -70,8 +69,22 @@ class MainActivity : FlutterActivity() {
                 }
                 "transcribe" -> {
                     val path = call.argument<String>("audioPath") ?: ""
+                    // Synchronous transcribe - returns directly
+                    var textResponse = ""
+                    val semaphore = java.util.concurrent.CountDownLatch(1)
+                    
                     whisperBridge.transcribe(path) { text ->
-                        result.success(text)
+                        textResponse = text
+                        semaphore.countDown()
+                    }
+                    
+                    // Wait with timeout (60 seconds)
+                    semaphore.await(60, java.util.concurrent.TimeUnit.SECONDS)
+                    
+                    if (textResponse.isNotEmpty()) {
+                        result.success(textResponse)
+                    } else {
+                        result.error("TRANSCRIBE_ERROR", "Empty result or timeout", null)
                     }
                 }
                 "release" -> {
