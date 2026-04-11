@@ -2,9 +2,8 @@ allprojects {
     repositories {
         google()
         mavenCentral()
-        maven { url 'https://jitpack.io' }
         maven { url 'https://googleapis.com' }
-        maven { url 'https://google.com' }
+        maven { url 'https://jitpack.io' }
     }
 }
 

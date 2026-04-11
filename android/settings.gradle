@@ -27,9 +27,8 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven { url 'https://googleapis.com' } // <--- ESSENCIAL
         maven { url 'https://jitpack.io' }
-        maven { url 'https://googleapis.com' }
-        maven { url 'https://google.com' }
     }
 }
 
