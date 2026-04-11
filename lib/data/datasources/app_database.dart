@@ -158,6 +158,10 @@ class AppDatabase {
             actionItemsJson TEXT,
             keywordsJson TEXT,
             notes TEXT,
+            bookmarksJson TEXT,
+            manualNote TEXT,
+            attachedImagePath TEXT,
+            isHidden INTEGER NOT NULL DEFAULT 0,
             speakerNamesJson TEXT
           )
         ''');
