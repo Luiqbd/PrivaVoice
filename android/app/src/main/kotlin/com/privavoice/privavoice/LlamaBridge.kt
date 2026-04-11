@@ -1,19 +1,20 @@
 package com.privavoice.privavoice
 
 import android.content.Context
-import android.net.Uri
-import io.github.ljcamargo.llamacpp.LlamaHelper
-import kotlinx.coroutines.*
 
 /**
- * Llama Bridge - Usa io.github.ljcamargo:llamacpp-kotlin:0.2.0
- * API: LlamaHelper com load(), predict(), isLoaded, close()
+ * Llama Bridge - Stub implementation
+ * 
+ * Para ativar Llama completo:
+ * 1. Use io.github.ljcamargo:llamacpp-kotlin:0.4.0 do Maven Central
+ * 2. O modelo tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf já está em assets/models/
+ * 
+ * A biblioteca está no Maven Central (não JitPack)
  */
 class LlamaBridge(private val context: Context) {
 
-    private var llama: LlamaHelper? = null
+    private var modelLoaded = false
     private var modelPath: String = ""
-    private var currentJob: Job? = null
     
     var isInitialized: Boolean = false
         private set
@@ -33,109 +34,59 @@ class LlamaBridge(private val context: Context) {
     }
 
     /**
-     * Initialize and load the model
+     * Load model - stub
      */
     fun loadModel(path: String, callback: ((Boolean, String) -> Unit)? = null) {
         modelPath = path
-        
-        try {
-            llama = LlamaHelper(context)
-            
-            llama?.load(
-                path = path,
-                contextLength = 2048,
-                onLoaded = {
-                    isInitialized = true
-                    callback?.invoke(true, "Model loaded successfully")
-                }
-            )
-        } catch (e: Exception) {
-            isInitialized = false
-            callback?.invoke(false, "Error: ${e.message}")
-        }
+        isInitialized = true
+        modelLoaded = true
+        callback?.invoke(true, "Llama STUB: Model loaded (stub)")
     }
 
     /**
-     * Load model from assets using URI
+     * Load from assets - stub
      */
     fun loadModelFromAssets(fileName: String, callback: ((Boolean, String) -> Unit)? = null) {
-        // Try to get file from assets or cache
-        val modelFile = context.cacheDir.resolve(fileName)
-        
-        if (modelFile.exists()) {
-            loadModel(modelFile.absolutePath, callback)
-        } else {
-            // Need to copy from assets first
-            callback?.invoke(false, "Model file not found: $fileName")
-        }
+        callback?.invoke(false, "Llama STUB: Copy from assets needed")
     }
 
     /**
-     * Synchronous prediction
+     * Predict - stub
      */
     fun predict(prompt: String, onResult: (String) -> Unit) {
-        val llamaInstance = llama
-        if (llamaInstance == null || !llamaInstance.isLoaded) {
+        if (!modelLoaded) {
             onResult("Error: Model not loaded")
             return
         }
-
-        isProcessing = true
-        try {
-            val result = llamaInstance.predict(prompt)
-            onResult(result)
-        } catch (e: Exception) {
-            onResult("Error: ${e.message}")
-        } finally {
-            isProcessing = false
-        }
+        onResult("Llama STUB: ${prompt.take(50)}...")
     }
 
     /**
-     * Streaming prediction (real-time tokens)
+     * Streaming predict - stub
      */
     fun predictStream(prompt: String, onToken: (String) -> Unit, onComplete: () -> Unit) {
-        val llamaInstance = llama
-        if (llamaInstance == null || !llamaInstance.isLoaded) {
+        if (!modelLoaded) {
             onComplete()
             return
         }
-
-        isProcessing = true
-        currentJob = CoroutineScope(Dispatchers.IO).launch {
-            try {
-                llamaInstance.predictStream(
-                    prompt = prompt,
-                    onToken = { token ->
-                        onToken(token)
-                    }
-                )
-            } catch (e: Exception) {
-                println("predictStream error: ${e.message}")
-            } finally {
-                isProcessing = false
-                onComplete()
-            }
-        }
+        onToken("Llama STUB token: ")
+        onComplete()
     }
 
     /**
-     * Stop current prediction
+     * Stop - stub
      */
     fun stop() {
-        currentJob?.cancel()
-        currentJob = null
         isProcessing = false
     }
 
     /**
-     * Release resources
+     * Release - stub
      */
     fun release() {
         stop()
-        llama?.close()
-        llama = null
         isInitialized = false
+        modelLoaded = false
     }
 
     /**
@@ -145,7 +96,8 @@ class LlamaBridge(private val context: Context) {
         return mapOf(
             "initialized" to isInitialized,
             "processing" to isProcessing,
-            "modelPath" to modelPath
+            "modelPath" to modelPath,
+            "status" to "STUB"
         )
     }
 }

@@ -58,8 +58,8 @@ flutter {
 }
 
 dependencies {
-    // Llama.cpp - NLP
-    implementation("io.github.ljcamargo:llamacpp-kotlin:0.2.0")
+    // Llama.cpp - stub (Maven Central não acessível)
+    // implementation("io.github.ljcamargo:llamacpp-kotlin:0.2.0")
     
     // Whisper - stub (aguardo libwhisper.so disponível)
     // implementation("com.github.gouh:whisper-android:-9c28bfda35-1")
