@@ -23,11 +23,14 @@ plugins {
 }
 
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    // Mudamos para PREFER_PROJECT para aceitar as bibliotecas locais do SQLite e Whisper
+    repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
     repositories {
         google()
         mavenCentral()
+        // URL CRÍTICA: Onde o motor do Flutter realmente mora
         maven { url 'https://googleapis.com' }
+        // URL CRÍTICA: Onde o motor do Whisper mora
         maven { url 'https://jitpack.io' }
     }
 }
