@@ -9,6 +9,7 @@ android {
     compileSdk = 36
     ndkVersion = "26.1.10909125"
 
+    // Impede que o Android tente zipar os modelos pesados (essencial para os 1.11 GB)
     aaptOptions {
         noCompress 'bin', 'gguf'
     }
@@ -29,10 +30,9 @@ android {
         versionCode = 1
         versionName = "1.0.0"
 
-        // Enable multidex for larger apps
         multiDexEnabled true
         
-        // Only build for arm64-v8a (modern phones) - reduces APK size significantly
+        // Foca apenas em celulares modernos (64 bits) para reduzir o tamanho do APK
         ndk {
             abiFilters 'arm64-v8a'
         }
@@ -41,13 +41,12 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.debug
-            // Disable minify and shrink to include native libs
+            // Mantido false para garantir que as libs nativas (Whisper/Llama) não sejam removidas
             minifyEnabled = false
             shrinkResources = false
         }
     }
 
-    // Ensure native libs are packaged
     packagingOptions {
         jniLibs {
             useLegacyPackaging = true
@@ -59,15 +58,13 @@ android {
     }
 }
 
-// IMPORTANT: Keep flutter source pointing to project root
 flutter {
     source = "../.."
 }
 
-// Add dependencies for prefab (if available)
 dependencies {
-    // Llama.cpp Kotlin wrapper (inclui binários nativos arm64-v8a)
+    // Motor do Llama (Inteligência do Chat)
     implementation("io.github.ljcamargo:llamacpp-kotlin:0.2.0")
-    // Whisper Android - reconhecimento de voz offline
-    implementation("com.github.gouh:whisper-android:v1.0.1")
-}
+    
+    // Motor do Whisper (Transcrição) - CORRIGIDO para o Commit que o JitPack aceita
+    implementation("com.github.gouh:whisper-android:9c28bfda35")
