@@ -11,15 +11,34 @@ class MainActivity : FlutterActivity() {
         // Register Recording Method Channel
         RecordingMethodChannel().registerWith(flutterEngine, this)
 
-        // Register Whisper Method Channel (stub)
+        // Register Whisper Method Channel
         val whisperChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "com.privavoice/whisper"
         )
+        
+        val whisperBridge = WhisperBridge.getInstance()
+        whisperBridge.setContext(this)
+        
         whisperChannel.setMethodCallHandler { call, result ->
             when (call.method) {
-                "initialize" -> result.success(true)
-                "getModelInfo" -> result.success(mapOf("status" to "stub"))
+                "initialize" -> {
+                    whisperBridge.initialize(call.argument<String>("language") ?: "pt") { success, message ->
+                        if (success) result.success(mapOf("status" to "ok", "message" to message))
+                        else result.error("INIT_ERROR", message, null)
+                    }
+                }
+                "getModelInfo" -> result.success(whisperBridge.getModelInfo())
+                "transcribe" -> {
+                    val path = call.argument<String>("audioPath") ?: ""
+                    whisperBridge.transcribe(path) { text ->
+                        result.success(text)
+                    }
+                }
+                "release" -> {
+                    whisperBridge.release()
+                    result.success(true)
+                }
                 else -> result.notImplemented()
             }
         }

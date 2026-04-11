@@ -1,20 +1,17 @@
 package com.privavoice.privavoice
 
 import android.content.Context
+import io.github.ljcamargo.llamacpp.LlamaHelper
 
 /**
- * Llama Bridge - Stub implementation
- * 
- * Para ativar Llama completo:
- * 1. Use io.github.ljcamargo:llamacpp-kotlin:0.4.0 do Maven Central
- * 2. O modelo tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf já está em assets/models/
- * 
- * A biblioteca está no Maven Central (não JitPack)
+ * Llama Bridge - Usa io.github.ljcamargo:llamacpp-kotlin:0.4.0 (Maven Central)
+ * Fornece inferência GGUF offline
  */
 class LlamaBridge(private val context: Context) {
 
-    private var modelLoaded = false
+    private var llama: LlamaHelper? = null
     private var modelPath: String = ""
+    private var nCtx: Int = 2048
     
     var isInitialized: Boolean = false
         private set
@@ -34,59 +31,109 @@ class LlamaBridge(private val context: Context) {
     }
 
     /**
-     * Load model - stub
+     * Load GGUF model
      */
     fun loadModel(path: String, callback: ((Boolean, String) -> Unit)? = null) {
         modelPath = path
-        isInitialized = true
-        modelLoaded = true
-        callback?.invoke(true, "Llama STUB: Model loaded (stub)")
+        
+        try {
+            llama = LlamaHelper(context)
+            
+            llama?.load(
+                path = path,
+                contextLength = nCtx,
+                onLoaded = {
+                    isInitialized = true
+                    callback?.invoke(true, "Model loaded: $path")
+                }
+            )
+        } catch (e: Exception) {
+            isInitialized = false
+            callback?.invoke(false, "Error: ${e.message}")
+        }
     }
 
     /**
-     * Load from assets - stub
+     * Load from assets (need to copy first)
      */
     fun loadModelFromAssets(fileName: String, callback: ((Boolean, String) -> Unit)? = null) {
-        callback?.invoke(false, "Llama STUB: Copy from assets needed")
+        val modelFile = context.cacheDir.resolve(fileName)
+        
+        if (modelFile.exists()) {
+            loadModel(modelFile.absolutePath, callback)
+        } else {
+            callback?.invoke(false, "Model not found in cache: $fileName")
+        }
     }
 
     /**
-     * Predict - stub
+     * Synchronous prediction
      */
     fun predict(prompt: String, onResult: (String) -> Unit) {
-        if (!modelLoaded) {
+        val llamaInstance = llama
+        if (llamaInstance == null || !llamaInstance.isLoaded) {
             onResult("Error: Model not loaded")
             return
         }
-        onResult("Llama STUB: ${prompt.take(50)}...")
+
+        isProcessing = true
+        try {
+            val result = llamaInstance.predict(prompt)
+            onResult(result)
+        } catch (e: Exception) {
+            onResult("Error: ${e.message}")
+        } finally {
+            isProcessing = false
+        }
     }
 
     /**
-     * Streaming predict - stub
+     * Streaming prediction
      */
     fun predictStream(prompt: String, onToken: (String) -> Unit, onComplete: () -> Unit) {
-        if (!modelLoaded) {
+        val llamaInstance = llama
+        if (llamaInstance == null || !llamaInstance.isLoaded) {
             onComplete()
             return
         }
-        onToken("Llama STUB token: ")
-        onComplete()
+
+        isProcessing = true
+        try {
+            llamaInstance.predictStream(
+                prompt = prompt,
+                onToken = { token ->
+                    onToken(token)
+                }
+            )
+        } catch (e: Exception) {
+            println("predictStream error: ${e.message}")
+        } finally {
+            isProcessing = false
+            onComplete()
+        }
     }
 
     /**
-     * Stop - stub
+     * Stop current prediction
      */
     fun stop() {
+        // LlamaHelper doesn't have explicit stop, but we mark processing as done
         isProcessing = false
     }
 
     /**
-     * Release - stub
+     * Release resources - CORRECT: called before Whisper starts
      */
     fun release() {
         stop()
-        isInitialized = false
-        modelLoaded = false
+        try {
+            llama?.close()
+            llama = null
+            isInitialized = false
+            println("LlamaBridge: Released successfully")
+        } catch (e: Exception) {
+            println("LlamaBridge: release error: ${e.message}")
+        }
     }
 
     /**
@@ -97,7 +144,7 @@ class LlamaBridge(private val context: Context) {
             "initialized" to isInitialized,
             "processing" to isProcessing,
             "modelPath" to modelPath,
-            "status" to "STUB"
+            "library" to "llamacpp-kotlin:0.4.0"
         )
     }
 }

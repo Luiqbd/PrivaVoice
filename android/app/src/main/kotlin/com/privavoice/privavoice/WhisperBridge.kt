@@ -1,22 +1,16 @@
 package com.privavoice.privavoice
 
 import android.content.Context
-import io.flutter.embedding.engine.plugins.FlutterPlugin
-import io.flutter.plugin.common.MethodCall
-import io.flutter.plugin.common.MethodChannel
+import com.hadtun.whisperlib.WhisperLib
+import com.hadtun.whisperlib.asr.Whisper
 
 /**
- * Whisper Bridge - Stub implementation
- * 
- * Para ativar Whisper completo:
- * 1. Build manual do whisper-android: https://github.com/gouh/whisper-android
- * 2. Ou use alternativa: WhisperKit Android, whisper.cpp direto
- * 
- * O modelo whisper-base.bin já está em assets/models/
- * Precisa do libwhisper.so para funcionar
+ * Whisper Bridge - Usa HadesNull123 Whisper-Android-Lib (TFLite)
+ * Fornece transcrição offline com modelos .tflite
  */
 class WhisperBridge private constructor() {
 
+    private var whisper: Whisper? = null
     private var appContext: Context? = null
     var isInitialized: Boolean = false
         private set
@@ -37,39 +31,105 @@ class WhisperBridge private constructor() {
     }
 
     /**
-     * Initialize - stub
+     * Initialize Whisper with Portuguese language
      */
     fun initialize(language: String = "pt", callback: ((Boolean, String) -> Unit)? = null) {
-        isInitialized = true
-        callback?.invoke(true, "Whisper STUB - precisa libwhisper.so")
+        try {
+            // Initialize WhisperLib
+            val initialized = WhisperLib.initialize()
+            if (!initialized) {
+                callback?.invoke(false, "WhisperLib initialization failed")
+                return
+            }
+            
+            // Create Whisper instance
+            whisper = Whisper.getInstance()
+            
+            // Configure for Portuguese
+            whisper?.setLanguage(language)
+            whisper?.setUseMultilingual(true)
+            
+            isInitialized = true
+            callback?.invoke(true, "Whisper initialized with $language")
+        } catch (e: Exception) {
+            isInitialized = false
+            callback?.invoke(false, "Error: ${e.message}")
+        }
     }
 
     /**
-     * Transcribe - stub
+     * Transcribe audio file
      */
     fun transcribe(audioPath: String, callback: (String) -> Unit) {
-        callback("Whisper STUB: Audio transcribe não disponível")
+        val whisperInstance = whisper
+        if (whisperInstance == null) {
+            callback("Error: Whisper not initialized")
+            return
+        }
+
+        try {
+            whisperInstance.transcribe(
+                audioFilePath = audioPath,
+                onResult = { text ->
+                    callback(text)
+                },
+                onError = { error ->
+                    callback("Error: $error")
+                }
+            )
+        } catch (e: Exception) {
+            callback("Error: ${e.message}")
+        }
     }
 
     /**
-     * Start recording - stub
+     * Start real-time recording and transcription
      */
     fun startRecording(onResult: (String) -> Unit) {
-        onResult("Whisper STUB: Recording não disponível")
+        val whisperInstance = whisper
+        if (whisperInstance == null) {
+            onResult("Error: Whisper not initialized")
+            return
+        }
+
+        try {
+            whisperInstance.startRecording(
+                onResult = { text ->
+                    onResult(text)
+                },
+                onError = { error ->
+                    onResult("Error: $error")
+                }
+            )
+        } catch (e: Exception) {
+            onResult("Error: ${e.message}")
+        }
     }
 
     /**
      * Stop recording
      */
     fun stopRecording() {
-        println("WhisperBridge STUB: stopRecording")
+        try {
+            whisper?.stopRecording()
+        } catch (e: Exception) {
+            println("WhisperBridge: stopRecording error: ${e.message}")
+        }
     }
 
     /**
-     * Release resources
+     * Release resources - CORRECT: releases before Llama starts
      */
     fun release() {
-        isInitialized = false
+        try {
+            whisper?.stopRecording()
+            whisper?.release()
+            whisper = null
+            isInitialized = false
+            println("WhisperBridge: Released successfully")
+        } catch (e: Exception) {
+            println("WhisperBridge: release error: ${e.message}")
+        }
     }
 
     /**
@@ -78,8 +138,7 @@ class WhisperBridge private constructor() {
     fun getModelInfo(): Map<String, Any> {
         return mapOf(
             "initialized" to isInitialized,
-            "model" to "whisper-base.bin (stub)",
-            "status" to "Aguardando libwhisper.so"
+            "engine" to if (whisper != null) "WhisperEngineNative" else "none"
         )
     }
 }
