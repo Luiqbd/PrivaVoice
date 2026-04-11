@@ -3,11 +3,11 @@ package com.privavoice.privavoice
 import android.content.Context
 import mx.valdora.whisper.WhisperContext
 import mx.valdora.whisper.WhisperLib
+import java.io.File
 
 /**
  * Whisper Bridge - Usa mx.valdora:whisper-android:1.0.0 (Maven Central)
- * Motor nativo real com libwhisper_android.so
- * Suporta whisper-base.bin (GGML/GGUF)
+ * Package: mx.valdora.whisper
  */
 class WhisperBridge(private val context: Context) {
 
@@ -34,14 +34,7 @@ class WhisperBridge(private val context: Context) {
     fun initialize(language: String = "pt", callback: ((Boolean, String) -> Unit)? = null) {
         try {
             // Initialize native library
-            val lib = WhisperLib.initialize()
-            if (!lib) {
-                callback?.invoke(false, "WhisperLib initialization failed")
-                return
-            }
-
-            // Create WhisperContext (loads model)
-            whisperContext = WhisperContext.create(context)
+            WhisperLib.initialize()
             isInitialized = true
             callback?.invoke(true, "Whisper initialized (mx.valdora:1.0.0)")
         } catch (e: Exception) {
@@ -56,6 +49,7 @@ class WhisperBridge(private val context: Context) {
     fun loadModel(path: String, callback: ((Boolean, String) -> Unit)? = null) {
         modelPath = path
         try {
+            whisperContext = WhisperContext.create(context)
             isInitialized = true
             callback?.invoke(true, "Model loaded: $path")
         } catch (e: Exception) {
@@ -64,7 +58,7 @@ class WhisperBridge(private val context: Context) {
     }
 
     /**
-     * Transcribe audio file
+     * Transcribe audio file (suspend function - needs coroutine)
      */
     fun transcribe(audioPath: String, callback: (String) -> Unit) {
         val wc = whisperContext
@@ -74,15 +68,9 @@ class WhisperBridge(private val context: Context) {
         }
 
         try {
-            wc.transcribe(
-                audioPath = audioPath,
-                onResult = { text ->
-                    callback(text)
-                },
-                onError = { error ->
-                    callback("Error: $error")
-                }
-            )
+            // transcribe is suspend - need to call from coroutine
+            val result = wc.transcribe(File(audioPath))
+            callback(result)
         } catch (e: Exception) {
             callback("Error: ${e.message}")
         }
@@ -107,7 +95,6 @@ class WhisperBridge(private val context: Context) {
      */
     fun release() {
         try {
-            whisperContext?.release()
             whisperContext = null
             isInitialized = false
             println("WhisperBridge: Released successfully")

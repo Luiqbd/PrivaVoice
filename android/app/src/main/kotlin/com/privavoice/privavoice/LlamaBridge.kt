@@ -1,11 +1,11 @@
 package com.privavoice.privavoice
 
 import android.content.Context
-import io.github.ljcamargo.llamacpp.LlamaHelper
+import org.nehuatl.llamacpp.LlamaHelper
 
 /**
- * Llama Bridge - Usa io.github.ljcamargo:llamacpp-kotlin:0.4.0 (Maven Central)
- * Fornece inferência GGUF offline
+ * Llama Bridge - Usa io.github.ljcamargo:llamacpp-kotlin:0.2.0 (Maven Central)
+ * Package: org.nehuatl.llamacpp
  */
 class LlamaBridge(private val context: Context) {
 
@@ -101,7 +101,7 @@ class LlamaBridge(private val context: Context) {
         try {
             llamaInstance.predictStream(
                 prompt = prompt,
-                onToken = { token ->
+                onToken = { token: String ->
                     onToken(token)
                 }
             )
@@ -117,12 +117,11 @@ class LlamaBridge(private val context: Context) {
      * Stop current prediction
      */
     fun stop() {
-        // LlamaHelper doesn't have explicit stop, but we mark processing as done
         isProcessing = false
     }
 
     /**
-     * Release resources - CORRECT: called before Whisper starts
+     * Release resources - called before Whisper starts
      */
     fun release() {
         stop()
@@ -144,7 +143,7 @@ class LlamaBridge(private val context: Context) {
             "initialized" to isInitialized,
             "processing" to isProcessing,
             "modelPath" to modelPath,
-            "library" to "llamacpp-kotlin:0.4.0"
+            "library" to "llamacpp-kotlin:0.2.0"
         )
     }
 }

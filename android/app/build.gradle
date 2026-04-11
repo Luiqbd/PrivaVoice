@@ -59,7 +59,7 @@ flutter {
 
 dependencies {
     // Llama.cpp - NLP (Maven Central)
-    implementation("io.github.ljcamargo:llamacpp-kotlin:0.4.0")
+    implementation("io.github.ljcamargo:llamacpp-kotlin:0.2.0")
     
     // Whisper - mx.valdora (libwhisper.so nativo)
     implementation("mx.valdora:whisper-android:1.0.0")
