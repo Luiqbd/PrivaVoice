@@ -29,7 +29,7 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         // URL obrigatória para o motor do Flutter
-        maven { url 'https://googleapis.com' }
+        maven { url 'https://dl.google.com/dl/android/maven2' }
         // URL obrigatória para o motor Whisper
         maven { url 'https://jitpack.io' }
     }
