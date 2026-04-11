@@ -61,6 +61,6 @@ dependencies {
     // Llama.cpp - NLP (Maven Central)
     implementation("io.github.ljcamargo:llamacpp-kotlin:0.4.0")
     
-    // Whisper - Local AAR (HadesNull123 - TFLite)
-    implementation(files("libs/whisper-android.aar"))
+    // Whisper - mx.valdora (libwhisper.so nativo)
+    implementation("mx.valdora:whisper-android:1.0.0")
 }

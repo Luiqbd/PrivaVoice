@@ -1,58 +1,64 @@
 package com.privavoice.privavoice
 
 import android.content.Context
-import com.hadtun.whisperlib.WhisperLib
-import com.hadtun.whisperlib.asr.Whisper
+import mx.valdora.whisper.WhisperContext
+import mx.valdora.whisper.WhisperLib
 
 /**
- * Whisper Bridge - Usa HadesNull123 Whisper-Android-Lib (TFLite)
- * Fornece transcrição offline com modelos .tflite
+ * Whisper Bridge - Usa mx.valdora:whisper-android:1.0.0 (Maven Central)
+ * Motor nativo real com libwhisper_android.so
+ * Suporta whisper-base.bin (GGML/GGUF)
  */
-class WhisperBridge private constructor() {
+class WhisperBridge(private val context: Context) {
 
-    private var whisper: Whisper? = null
-    private var appContext: Context? = null
+    private var whisperContext: WhisperContext? = null
     var isInitialized: Boolean = false
         private set
+
+    private var modelPath: String = ""
 
     companion object {
         @Volatile
         private var instance: WhisperBridge? = null
 
-        fun getInstance(): WhisperBridge {
+        fun getInstance(ctx: Context): WhisperBridge {
             return instance ?: synchronized(this) {
-                instance ?: WhisperBridge().also { instance = it }
+                instance ?: WhisperBridge(ctx).also { instance = it }
             }
         }
     }
 
-    fun setContext(context: Context) {
-        appContext = context
-    }
-
     /**
-     * Initialize Whisper with Portuguese language
+     * Initialize Whisper - loads libwhisper_android.so
      */
     fun initialize(language: String = "pt", callback: ((Boolean, String) -> Unit)? = null) {
         try {
-            // Initialize WhisperLib
-            val initialized = WhisperLib.initialize()
-            if (!initialized) {
+            // Initialize native library
+            val lib = WhisperLib.initialize()
+            if (!lib) {
                 callback?.invoke(false, "WhisperLib initialization failed")
                 return
             }
-            
-            // Create Whisper instance
-            whisper = Whisper.getInstance()
-            
-            // Configure for Portuguese
-            whisper?.setLanguage(language)
-            whisper?.setUseMultilingual(true)
-            
+
+            // Create WhisperContext (loads model)
+            whisperContext = WhisperContext.create(context)
             isInitialized = true
-            callback?.invoke(true, "Whisper initialized with $language")
+            callback?.invoke(true, "Whisper initialized (mx.valdora:1.0.0)")
         } catch (e: Exception) {
             isInitialized = false
+            callback?.invoke(false, "Error: ${e.message}")
+        }
+    }
+
+    /**
+     * Load whisper-base.bin model
+     */
+    fun loadModel(path: String, callback: ((Boolean, String) -> Unit)? = null) {
+        modelPath = path
+        try {
+            isInitialized = true
+            callback?.invoke(true, "Model loaded: $path")
+        } catch (e: Exception) {
             callback?.invoke(false, "Error: ${e.message}")
         }
     }
@@ -61,15 +67,15 @@ class WhisperBridge private constructor() {
      * Transcribe audio file
      */
     fun transcribe(audioPath: String, callback: (String) -> Unit) {
-        val whisperInstance = whisper
-        if (whisperInstance == null) {
+        val wc = whisperContext
+        if (wc == null) {
             callback("Error: Whisper not initialized")
             return
         }
 
         try {
-            whisperInstance.transcribe(
-                audioFilePath = audioPath,
+            wc.transcribe(
+                audioPath = audioPath,
                 onResult = { text ->
                     callback(text)
                 },
@@ -83,48 +89,26 @@ class WhisperBridge private constructor() {
     }
 
     /**
-     * Start real-time recording and transcription
+     * Start recording (future implementation)
      */
     fun startRecording(onResult: (String) -> Unit) {
-        val whisperInstance = whisper
-        if (whisperInstance == null) {
-            onResult("Error: Whisper not initialized")
-            return
-        }
-
-        try {
-            whisperInstance.startRecording(
-                onResult = { text ->
-                    onResult(text)
-                },
-                onError = { error ->
-                    onResult("Error: $error")
-                }
-            )
-        } catch (e: Exception) {
-            onResult("Error: ${e.message}")
-        }
+        onResult("Recording not yet implemented")
     }
 
     /**
      * Stop recording
      */
     fun stopRecording() {
-        try {
-            whisper?.stopRecording()
-        } catch (e: Exception) {
-            println("WhisperBridge: stopRecording error: ${e.message}")
-        }
+        // Not implemented yet
     }
 
     /**
-     * Release resources - CORRECT: releases before Llama starts
+     * Release resources - called before Llama starts
      */
     fun release() {
         try {
-            whisper?.stopRecording()
-            whisper?.release()
-            whisper = null
+            whisperContext?.release()
+            whisperContext = null
             isInitialized = false
             println("WhisperBridge: Released successfully")
         } catch (e: Exception) {
@@ -138,7 +122,9 @@ class WhisperBridge private constructor() {
     fun getModelInfo(): Map<String, Any> {
         return mapOf(
             "initialized" to isInitialized,
-            "engine" to if (whisper != null) "WhisperEngineNative" else "none"
+            "modelPath" to modelPath,
+            "library" to "mx.valdora:whisper-android:1.0.0",
+            "native" to "libwhisper_android.so"
         )
     }
 }

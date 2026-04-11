@@ -17,8 +17,7 @@ class MainActivity : FlutterActivity() {
             "com.privavoice/whisper"
         )
         
-        val whisperBridge = WhisperBridge.getInstance()
-        whisperBridge.setContext(this)
+        val whisperBridge = WhisperBridge.getInstance(this)
         
         whisperChannel.setMethodCallHandler { call, result ->
             when (call.method) {
@@ -26,6 +25,13 @@ class MainActivity : FlutterActivity() {
                     whisperBridge.initialize(call.argument<String>("language") ?: "pt") { success, message ->
                         if (success) result.success(mapOf("status" to "ok", "message" to message))
                         else result.error("INIT_ERROR", message, null)
+                    }
+                }
+                "loadModel" -> {
+                    val path = call.argument<String>("modelPath") ?: ""
+                    whisperBridge.loadModel(path) { success, message ->
+                        if (success) result.success(mapOf("status" to "ok", "message" to message))
+                        else result.error("LOAD_ERROR", message, null)
                     }
                 }
                 "getModelInfo" -> result.success(whisperBridge.getModelInfo())
