@@ -1,21 +1,23 @@
 package com.privavoice.privavoice
 
+import android.content.ContentResolver
 import android.content.Context
+import kotlinx.coroutines.flow.MutableSharedFlow
 import org.nehuatl.llamacpp.LlamaHelper
 
 /**
- * Llama Bridge - Usa io.github.ljcamargo:llamacpp-kotlin:0.2.0 (Maven Central)
- * Package: org.nehuatl.llamacpp
+ * Llama Bridge - Usa io.github.ljcamargo:llamacpp-kotlin:0.2.0
+ * API: org.nehuatl.llamacpp.LlamaHelper
  */
 class LlamaBridge(private val context: Context) {
 
     private var llama: LlamaHelper? = null
     private var modelPath: String = ""
     private var nCtx: Int = 2048
-    
+
     var isInitialized: Boolean = false
         private set
-    
+
     var isProcessing: Boolean = false
         private set
 
@@ -31,22 +33,23 @@ class LlamaBridge(private val context: Context) {
     }
 
     /**
-     * Load GGUF model
+     * Load GGUF model using ContentResolver
      */
     fun loadModel(path: String, callback: ((Boolean, String) -> Unit)? = null) {
         modelPath = path
-        
+
         try {
-            llama = LlamaHelper(context)
+            val sharedFlow = MutableSharedFlow<LlamaHelper.LLMEvent>()
             
-            llama?.load(
-                path = path,
-                contextLength = nCtx,
-                onLoaded = {
-                    isInitialized = true
-                    callback?.invoke(true, "Model loaded: $path")
-                }
+            llama = LlamaHelper(
+                contentResolver = context.contentResolver,
+                sharedFlow = sharedFlow
             )
+
+            llama?.load(path, nCtx) { contextId: Long ->
+                isInitialized = true
+                callback?.invoke(true, "Model loaded: $path (ctx: $contextId)")
+            }
         } catch (e: Exception) {
             isInitialized = false
             callback?.invoke(false, "Error: ${e.message}")
@@ -54,79 +57,41 @@ class LlamaBridge(private val context: Context) {
     }
 
     /**
-     * Load from assets (need to copy first)
+     * Predict - uses coroutines internally
      */
-    fun loadModelFromAssets(fileName: String, callback: ((Boolean, String) -> Unit)? = null) {
-        val modelFile = context.cacheDir.resolve(fileName)
-        
-        if (modelFile.exists()) {
-            loadModel(modelFile.absolutePath, callback)
-        } else {
-            callback?.invoke(false, "Model not found in cache: $fileName")
-        }
-    }
-
-    /**
-     * Synchronous prediction
-     */
-    fun predict(prompt: String, onResult: (String) -> Unit) {
+    fun predict(prompt: String, callback: (String) -> Unit) {
         val llamaInstance = llama
-        if (llamaInstance == null || !llamaInstance.isLoaded) {
-            onResult("Error: Model not loaded")
+        if (llamaInstance == null || llamaInstance.currentContext == null) {
+            callback("Error: Model not loaded")
             return
         }
 
         isProcessing = true
         try {
-            val result = llamaInstance.predict(prompt)
-            onResult(result)
+            llamaInstance.predict(prompt)
+            callback("Prediction started")
         } catch (e: Exception) {
-            onResult("Error: ${e.message}")
+            callback("Error: ${e.message}")
         } finally {
             isProcessing = false
         }
     }
 
     /**
-     * Streaming prediction
-     */
-    fun predictStream(prompt: String, onToken: (String) -> Unit, onComplete: () -> Unit) {
-        val llamaInstance = llama
-        if (llamaInstance == null || !llamaInstance.isLoaded) {
-            onComplete()
-            return
-        }
-
-        isProcessing = true
-        try {
-            llamaInstance.predictStream(
-                prompt = prompt,
-                onToken = { token: String ->
-                    onToken(token)
-                }
-            )
-        } catch (e: Exception) {
-            println("predictStream error: ${e.message}")
-        } finally {
-            isProcessing = false
-            onComplete()
-        }
-    }
-
-    /**
-     * Stop current prediction
+     * Stop prediction
      */
     fun stop() {
         isProcessing = false
+        llama?.stopPrediction()
     }
 
     /**
-     * Release resources - called before Whisper starts
+     * Release model resources
      */
     fun release() {
         stop()
         try {
-            llama?.close()
+            llama?.release()
             llama = null
             isInitialized = false
             println("LlamaBridge: Released successfully")
