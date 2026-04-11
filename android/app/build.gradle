@@ -68,3 +68,4 @@ dependencies {
     
     // Motor do Whisper (Transcrição) - CORRIGIDO para o Commit que o JitPack aceita
     implementation("com.github.gouh:whisper-android:9c28bfda35")
+}
