@@ -134,7 +134,7 @@ class AppDatabase {
 
     return await openDatabase(
       dbPath,
-      version: 3,
+      version: 4,
       singleInstance: true,  // Ensure single instance - fixes read-only issue
       onConfigure: (db) async {
         debugPrint("AppDatabase: Enabling WAL mode...");
