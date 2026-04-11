@@ -27,7 +27,7 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven { url 'https://dl.google.com/dl/android/maven2' }
+        maven { url 'https://googleapis.com' }
         maven { url 'https://jitpack.io' }
     }
 }
