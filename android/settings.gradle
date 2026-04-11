@@ -24,7 +24,7 @@ plugins {
 
 dependencyResolutionManagement {
     // FAIL_ON_PROJECT_REPOS garante que o Gradle use exatamente as URLs abaixo
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
         google()
         mavenCentral()
