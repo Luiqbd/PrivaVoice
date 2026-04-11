@@ -6,10 +6,13 @@ import java.io.File
 import kotlinx.coroutines.runBlocking
 
 /**
- * Whisper Bridge - Usa mx.valdora:whisper-android:1.0.0
- * API: mx.valdora.whisper.WhisperContext
+ * Whisper Bridge - mx.valdora:whisper-android:1.0.0
  * 
- * Supported formats: WAV (16kHz, mono, PCM)
+ * API:
+ * 1. initialize(language) - loads libwhisper_android.so
+ * 2. loadModel(path) - creates WhisperContext with model
+ * 3. transcribe(audioPath) - transcribes WAV audio
+ * 4. release() - frees resources
  */
 class WhisperBridge(private val context: Context) {
 
@@ -31,15 +34,13 @@ class WhisperBridge(private val context: Context) {
     }
 
     /**
-     * Load whisper model (whisper-base.bin)
+     * Initialize Whisper library (loads libwhisper_android.so)
      */
-    fun loadModel(path: String, callback: ((Boolean, String) -> Unit)? = null) {
-        modelPath = path
-        
+    fun initialize(language: String = "pt", callback: ((Boolean, String) -> Unit)? = null) {
         try {
-            whisperContext = WhisperContext(path)
+            System.loadLibrary("whisper_android")
             isInitialized = true
-            callback?.invoke(true, "Model loaded: $path")
+            callback?.invoke(true, "Whisper native library loaded")
         } catch (e: Exception) {
             isInitialized = false
             callback?.invoke(false, "Error: ${e.message}")
@@ -47,8 +48,29 @@ class WhisperBridge(private val context: Context) {
     }
 
     /**
+     * Load whisper-base.bin model
+     */
+    fun loadModel(path: String, callback: ((Boolean, String) -> Unit)? = null) {
+        modelPath = path
+        
+        val file = File(path)
+        if (!file.exists() || file.length() < 100_000_000) {
+            callback?.invoke(false, "Invalid model file: $path")
+            return
+        }
+        
+        try {
+            whisperContext = WhisperContext(path)
+            isInitialized = true
+            callback?.invoke(true, "Model loaded: $path")
+        } catch (e: Exception) {
+            isInitialized = false
+            callback?.invoke(false, "Error loading model: ${e.message}")
+        }
+    }
+
+    /**
      * Transcribe audio file (WAV, 16kHz mono PCM)
-     * Uses runBlocking since transcribe is suspend
      */
     fun transcribe(audioPath: String, callback: (String) -> Unit) {
         val wc = whisperContext
@@ -58,7 +80,6 @@ class WhisperBridge(private val context: Context) {
         }
 
         try {
-            // transcribe is suspend - use runBlocking
             val result = runBlocking {
                 wc.transcribe(File(audioPath))
             }

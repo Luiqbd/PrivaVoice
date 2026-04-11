@@ -43,7 +43,7 @@ class MainActivity : FlutterActivity() {
             }
         }
 
-        // === Whisper Channel ===
+        // === Whisper Channel (mx.valdora) ===
         val whisperChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "com.privavoice/whisper"
@@ -53,6 +53,14 @@ class MainActivity : FlutterActivity() {
         
         whisperChannel.setMethodCallHandler { call, result ->
             when (call.method) {
+                "init" -> {
+                    // init(language: String) - loads WhisperContext
+                    val language = call.argument<String>("language") ?: "pt"
+                    whisperBridge.initialize(language) { success, message ->
+                        if (success) result.success(true)
+                        else result.error("INIT_ERROR", message, null)
+                    }
+                }
                 "loadModel" -> {
                     val path = call.argument<String>("modelPath") ?: ""
                     whisperBridge.loadModel(path) { success, message ->
