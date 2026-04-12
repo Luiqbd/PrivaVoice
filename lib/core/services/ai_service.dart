@@ -53,7 +53,9 @@ class TranscriptionProgress {
 }
 
 class AIService {
+  // Track isolate-specific initialization
   static bool _initialized = false;
+  static bool _isolateWhisperReady = false;
   static bool _modelsCopied = false;
   static String? _modelPath;
   static String _diagnosticLog = '';
@@ -627,6 +629,7 @@ class AIService {
         
         final initResult = await WhisperPlatformService.initialize(modelPath);
         if (initResult) {
+          _isolateWhisperReady = true;
           _log('🔥[Isolate] Platform service initialized');
           final jsonResult = await WhisperPlatformService.transcribe(audioPath, language: 'pt');
           if (jsonResult != null && jsonResult.isNotEmpty) {
