@@ -621,88 +621,37 @@ class AIService {
 
       _log('🔥[Isolate] Model: $modelPath');
 
-      // Try platform service (mx.valdora) - THIS IS WORKING!
+      // Skip platform service (mx.valdora) - it's unstable and crashes
+      // Go directly to FFI which is more reliable
+      _log('🔥[Isolate] Using native FFI for transcription...');
+      
+      // Use FFI directly
       String? text;
       dynamic segments;
-      try {
-        _log('🔥[Isolate] Trying platform service (mx.valdora)...');
-        
-        final initResult = await WhisperPlatformService.initialize(modelPath);
-        if (initResult) {
-          _isolateWhisperReady = true;
-          _log('🔥[Isolate] Platform service initialized');
-          
-          // Add timeout to prevent freeze - wait max 30 seconds for transcribe
-          _log('🔥[Isolate] Starting transcribe...');
-          String? jsonResult;
-          try {
-            final completer = Completer<String?>();
-            
-            // Transcribe call
-            WhisperPlatformService.transcribe(audioPath, language: 'pt').then((result) {
-              if (!completer.isCompleted) completer.complete(result);
-            });
-            
-            // Timeout after 30 seconds
-            Future.delayed(const Duration(seconds: 30), () {
-              if (!completer.isCompleted) {
-                _log('🔥[Isolate] Transcribe TIMEOUT - using fallback');
-                completer.complete(null);
-              }
-            });
-            
-            jsonResult = await completer.future;
-          } catch (e) {
-            _log('🔥[Isolate] Transcribe error: $e');
-          }
-          
-          if (jsonResult != null && jsonResult.isNotEmpty) {
-            _log('🔥[Isolate] Platform service result received');
-            // Parse JSON response from Kotlin
-            try {
-              final Map<String, dynamic> parsed = jsonDecode(jsonResult);
-              text = parsed['text'] as String?;
-              final segList = parsed['segments'] as List<dynamic>?;
-              if (segList != null) {
-                segments = segList.map((s) => Map<String, dynamic>.from(s as Map)).toList();
-                _log('🔥[Isolate] Parsed ${segments.length} segments from JSON');
-              }
-            } catch (e) {
-              _log('🔥[Isolate] JSON parse failed, using raw text: $e');
-              text = jsonResult; // Use as plain text if not JSON
-            }
-          }
-        }
-      } catch (e) {
-        _log('🔥[Isolate] Platform service error: $e');
-      }
       
-      // If platform service didn't work, try FFI
-      if (text == null || text.isEmpty) {
-        _log('🔥[Isolate] Trying native FFI...');
-        
-        if (!WhisperBindings.load()) {
-          _log('Whisper: FFI load FAILED - using fallback');
-          return _generateFallbackTranscription(audioPath, title);
-        }
+      _log('🔥[Isolate] Trying native FFI...');
+      
+      if (!WhisperBindings.load()) {
+        _log('Whisper: FFI load FAILED - using fallback');
+        return _generateFallbackTranscription(audioPath, title);
+      }
 
-        _log('🔥[Isolate] Init Whisper...');
-        final whisperCtx = WhisperBindings.initFromFile(modelPath);
-        
-        if (whisperCtx == null) {
-          _log('Whisper: initFromFile returned NULL - using fallback');
-          return _generateFallbackTranscription(audioPath, title);
-        }
+      _log('🔥[Isolate] Init Whisper...');
+      final whisperCtx = WhisperBindings.initFromFile(modelPath);
+      
+      if (whisperCtx == null) {
+        _log('Whisper: initFromFile returned NULL - using fallback');
+        return _generateFallbackTranscription(audioPath, title);
+      }
 
-        _log('🔥[Isolate] ctx = $whisperCtx');
+      _log('🔥[Isolate] ctx = $whisperCtx');
 
-        _log('🔥[Isolate] Transcribing...');
-        try {
-          text = WhisperBindings.full(ctx: whisperCtx, audioPath: audioPath) ?? '';
-        } catch (e) {
-          _log('🔥[Isolate] Whisper EXCEPTION: $e - using fallback');
-          return _generateFallbackTranscription(audioPath, title);
-        }
+      _log('🔥[Isolate] Transcribing...');
+      try {
+        text = WhisperBindings.full(ctx: whisperCtx, audioPath: audioPath) ?? '';
+      } catch (e) {
+        _log('🔥[Isolate] Whisper EXCEPTION: $e - using fallback');
+        return _generateFallbackTranscription(audioPath, title);
       }
       
       // If Whisper returned empty, use fallback instead of failing
