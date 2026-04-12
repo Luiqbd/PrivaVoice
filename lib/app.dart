@@ -1,12 +1,15 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'core/theme/app_theme.dart';
+import 'core/ai/ai_state.dart';
 import 'core/services/ai_service.dart';
 import 'core/services/permission_service.dart';
 import 'presentation/blocs/onboarding/onboarding_bloc.dart';
 import 'presentation/pages/home_page.dart';
 import 'presentation/pages/onboarding_page.dart';
+import 'presentation/pages/setup_initial_page.dart';
 
 class PrivaVoiceApp extends StatefulWidget {
   const PrivaVoiceApp({super.key});
@@ -18,13 +21,21 @@ class PrivaVoiceApp extends StatefulWidget {
 class _PrivaVoiceAppState extends State<PrivaVoiceApp> {
   bool _showOnboarding = true;  // Show onboarding on first launch
   bool _permissionsRequested = false;
+  bool _aiReady = false;
   final PermissionService _permissionService = PermissionService();
+  Timer? _aiReadyTimer;
 
   @override
   void initState() {
     super.initState();
     // Request permissions on first launch BEFORE AI init
     _requestPermissionsOnFirstLaunch();
+  }
+
+  @override
+  void dispose() {
+    _aiReadyTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _requestPermissionsOnFirstLaunch() async {
@@ -39,6 +50,9 @@ class _PrivaVoiceAppState extends State<PrivaVoiceApp> {
     if (granted) {
       debugPrint('AI: Permissions granted, initializing AI...');
       AIService.initializeInBackground();
+      
+      // Start monitoring AI state
+      _startAIStateMonitor();
     }
     
     // Set system UI style
@@ -48,6 +62,19 @@ class _PrivaVoiceAppState extends State<PrivaVoiceApp> {
       systemNavigationBarColor: Color(0xFF0A0A0A),
       systemNavigationBarIconBrightness: Brightness.light,
     ));
+  }
+
+  void _startAIStateMonitor() {
+    _aiReadyTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      if (!mounted) return;
+      
+      final state = AIManager.state;
+      if (state == AIState.readyWhisper && !_aiReady) {
+        setState(() {
+          _aiReady = true;
+        });
+      }
+    });
   }
 
   void _onOnboardingComplete() {
@@ -66,7 +93,13 @@ class _PrivaVoiceAppState extends State<PrivaVoiceApp> {
         theme: AppTheme.darkTheme,
         home: _showOnboarding 
             ? OnboardingPage(onComplete: _onOnboardingComplete)
-            : const HomePage(),
+            : (_aiReady 
+                ? const HomePage() 
+                : SetupInitialPage(onComplete: () {
+                    setState(() {
+                      _aiReady = true;
+                    });
+                  })),
       ),
     );
   }

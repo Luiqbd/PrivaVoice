@@ -331,8 +331,9 @@ class AIService {
   }
 
   static Future<void> _copyModel(String assetName, String destPath) async {
+    final modelName = assetName.contains('Whisper') ? 'Whisper' : 'Llama';
     _log('Loading $assetName from assets...');
-    AIManager.setState(AIState.loading, message: 'Carregando $assetName...');
+    AIManager.setState(AIState.loading, message: 'Extraindo $modelName...', progress: 0.0);
 
     try {
       final hasSpace = await _checkDiskSpace();
@@ -340,16 +341,40 @@ class AIService {
         throw Exception('No disk space available');
       }
 
+      // Load asset data
       final data = await rootBundle.load('assets/models/$assetName');
-      _log('Asset loaded: ${data.lengthInBytes} bytes');
-
+      final totalBytes = data.lengthInBytes;
+      _log('Asset loaded: $totalBytes bytes');
+      
+      AIManager.setState(AIState.loading, message: 'Copiando $modelName...', progress: 0.1);
+      
+      // Start copying with progress updates
       final file = File(destPath);
       final sink = file.openWrite();
-      sink.add(data.buffer.asUint8List());
+      
+      // Copy in chunks for progress reporting
+      const chunkSize = 1024 * 1024; // 1MB chunks
+      final totalChunks = (totalBytes / chunkSize).ceil();
+      final bytes = data.buffer.asUint8List();
+      
+      for (var i = 0; i < totalChunks; i++) {
+        final start = i * chunkSize;
+        final end = (start + chunkSize > totalBytes) ? totalBytes : start + chunkSize;
+        sink.add(bytes.sublist(start, end));
+        
+        // Update progress (10% to 80% during copy)
+        final chunkProgress = 0.1 + (0.7 * i / totalChunks);
+        AIManager.setState(
+          AIState.loading, 
+          message: 'Extraindo $modelName: ${(chunkProgress * 100).round()}%...',
+          progress: chunkProgress,
+        );
+      }
 
       await sink.flush();
       await sink.close();
 
+      AIManager.setState(AIState.loading, message: 'Finalizando...', progress: 0.9);
       _log('Sink closed, waiting for filesystem...');
       await Future.delayed(const Duration(milliseconds: 300));
 
@@ -360,13 +385,12 @@ class AIService {
       final stat = file.statSync();
       _log('Model copied: ${stat.size} bytes');
 
-      if (stat.size < data.lengthInBytes ~/ 2) {
+      if (stat.size < totalBytes ~/ 2) {
         throw Exception('Model copy incomplete');
       }
 
       _modelsCopied = true;
-      // IMPORTANT: Don't set _modelPath here - it's set in checkAssetsIntegrity
-      // to ensure it's set to Whisper path, not Llama path
+      AIManager.setState(AIState.loading, message: '$modelName pronto!', progress: 1.0);
       _log('Model ready: $destPath');
     } catch (e) {
       _log('Copy FAILED: $e');
