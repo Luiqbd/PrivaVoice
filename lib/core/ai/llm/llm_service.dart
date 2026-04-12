@@ -1,3 +1,4 @@
+import 'dart:ffi';
 import 'dart:isolate';
 import 'package:path_provider/path_provider.dart';
 import '../native/llama_bindings.dart';
