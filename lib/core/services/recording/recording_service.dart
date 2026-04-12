@@ -41,7 +41,7 @@ class RecordingService {
       }
       
       final uuid = const Uuid().v4();
-      _currentRecordingPath = '${recordingsDir.path}/recording_$uuid.m4a';
+      _currentRecordingPath = '${recordingsDir.path}/recording_$uuid.wav';
       _recordingStartTime = DateTime.now();
       
       // Start Android foreground service

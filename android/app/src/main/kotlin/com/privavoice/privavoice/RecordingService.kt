@@ -92,6 +92,9 @@ class RecordingService : Service() {
         try {
             currentFilePath = filePath
             
+            // CRITICAL: Force WAV 16kHz Mono for Whisper compatibility
+            val outputFile = File(filePath.replace(".m4a", ".wav"))
+            
             mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 MediaRecorder(this)
             } else {
@@ -99,14 +102,17 @@ class RecordingService : Service() {
                 MediaRecorder()
             }.apply {
                 setAudioSource(MediaRecorder.AudioSource.MIC)
-                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-                setAudioSamplingRate(16000)
-                setAudioEncodingBitRate(128000)
-                setOutputFile(filePath)
+                setOutputFormat(MediaRecorder.OutputFormat.DEFAULT)
+                setAudioEncoder(MediaRecorder.AudioEncoder.DEFAULT)
+                setAudioSamplingRate(16000)  // CRITICAL: 16kHz for Whisper
+                setAudioEncodingBitRate(25600)
+                setOutputFile(outputFile.absolutePath)
                 prepare()
                 start()
             }
+            
+            // Update path to WAV
+            currentFilePath = outputFile.absolutePath
             
             // Ativar Noise Suppressor nativo do Android
             try {
