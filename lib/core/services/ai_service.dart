@@ -868,6 +868,10 @@ $_diagnosticLog
         
         _log('🔥[Isolate] Loading Llama for summary...');
         
+        // CRITICAL: Release Whisper BEFORE loading Llama to prevent OOM
+        _log('🔥[Isolate] Releasing Whisper before loading Llama...');
+        WhisperBindings.dispose();
+        
         final modelPath = _modelPath;
         if (modelPath == null) {
           _log('🔥[Isolate] Model path not set');
@@ -900,6 +904,17 @@ $_diagnosticLog
         // Dispose immediately
         LlamaBindings.dispose();
         _log('🔥[Isolate] Llama disposed');
+        
+        // Reload Whisper after Llama is done
+        // Note: Path is already available in _modelPath
+        if (_modelPath != null) {
+          try {
+            WhisperBindings.initFromFile(_modelPath!);
+            _log('🔥[Isolate] Whisper reloaded!');
+          } catch (e) {
+            _log('🔥[Isolate] Whisper reload failed: $e');
+          }
+        }
         
         if (llmResult == null) {
           _log('🔥[Isolate] Llama generate returned null');
@@ -995,6 +1010,10 @@ $_diagnosticLog
         
         _log('🔥[Isolate] Loading Llama for chat...');
         
+        // CRITICAL: Release Whisper BEFORE loading Llama to prevent OOM
+        _log('🔥[Isolate] Releasing Whisper before loading Llama...');
+        WhisperBindings.dispose();
+        
         final modelPath = _modelPath;
         if (modelPath == null) {
           _log('🔥[Isolate] Model path not set');
@@ -1034,6 +1053,16 @@ Resposta:''';
         // Dispose immediately
         LlamaBindings.dispose();
         _log('🔥[Isolate] Llama disposed');
+        
+        // Reload Whisper after Llama is done
+        if (_modelPath != null) {
+          try {
+            WhisperBindings.initFromFile(_modelPath!);
+            _log('🔥[Isolate] Whisper reloaded!');
+          } catch (e) {
+            _log('🔥[Isolate] Whisper reload failed: $e');
+          }
+        }
         
         if (llmResult == null) {
           return null;
