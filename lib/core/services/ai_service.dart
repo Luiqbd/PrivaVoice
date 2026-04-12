@@ -631,21 +631,42 @@ class AIService {
         if (initResult) {
           _isolateWhisperReady = true;
           _log('🔥[Isolate] Platform service initialized');
-          final jsonResult = await WhisperPlatformService.transcribe(audioPath, language: 'pt');
-          if (jsonResult != null && jsonResult.isNotEmpty) {
-            _log('🔥[Isolate] Platform service result: ${jsonResult.length > 100 ? jsonResult.substring(0, 100) : jsonResult}...');
-            // Parse JSON response from Kotlin
-            try {
-              final Map<String, dynamic> parsed = jsonDecode(jsonResult);
-              text = parsed['text'] as String?;
-              final segList = parsed['segments'] as List<dynamic>?;
-              if (segList != null) {
-                segments = segList.map((s) => Map<String, dynamic>.from(s as Map)).toList();
-                _log('🔥[Isolate] Parsed ${segments.length} segments from JSON');
+          
+          // Add timeout to prevent freeze - wait max 30 seconds for transcribe
+          _log('🔥[Isolate] Starting transcribe...');
+          try {
+            final completer = Completer<String?>();
+            
+            // Transcribe call
+            WhisperPlatformService.transcribe(audioPath, language: 'pt').then((result) {
+              if (!completer.isCompleted) completer.complete(result);
+            });
+            
+            // Timeout after 30 seconds
+            Future.delayed(const Duration(seconds: 30), () {
+              if (!completer.isCompleted) {
+                _log('🔥[Isolate] Transcribe TIMEOUT - using fallback');
+                completer.complete(null);
               }
-            } catch (e) {
-              _log('🔥[Isolate] JSON parse failed, using raw text: $e');
-              text = jsonResult; // Use as plain text if not JSON
+            });
+            
+            final jsonResult = await completer.future;
+            
+            if (jsonResult != null && jsonResult.isNotEmpty) {
+              _log('🔥[Isolate] Platform service result received');
+              // Parse JSON response from Kotlin
+              try {
+                final Map<String, dynamic> parsed = jsonDecode(jsonResult);
+                text = parsed['text'] as String?;
+                final segList = parsed['segments'] as List<dynamic>?;
+                if (segList != null) {
+                  segments = segList.map((s) => Map<String, dynamic>.from(s as Map)).toList();
+                  _log('🔥[Isolate] Parsed ${segments.length} segments from JSON');
+                }
+              } catch (e) {
+                _log('🔥[Isolate] JSON parse failed, using raw text: $e');
+                text = jsonResult; // Use as plain text if not JSON
+              }
             }
           }
         }
