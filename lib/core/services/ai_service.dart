@@ -163,45 +163,62 @@ class AIService {
   static Duration? _getAudioDuration(String audioPath) {
     try {
       final file = File(audioPath);
-      if (!file.existsSync()) return null;
+      if (!file.existsSync()) {
+        _log('WAV: File not found, using default duration');
+        return const Duration(minutes: 2);
+      }
       
       // Read WAV file header to get duration
-      // WAV format: 44 bytes header
-      // Bytes 40-43 = file size - 8
-      // Bytes 22-25 = sample rate
-      // Bytes 34-35 = bits per sample * channels
       final raf = file.openSync(mode: FileMode.read);
       final bytes = raf.readSync(44);
       raf.closeSync();
       
-      if (bytes.length < 44) return null;
+      if (bytes.length < 44) {
+        _log('WAV: Header too small, using default duration');
+        return const Duration(minutes: 2);
+      }
       
       // Convert Uint8List to List<int>
       final header = bytes.toList();
       
       // Check if it's a WAV file (RIFF header)
       if (header[0] != 0x52 || header[1] != 0x49 || header[2] != 0x46 || header[3] != 0x46) {
-        return null; // Not WAV
+        _log('WAV: Not a valid WAV file, using default duration');
+        return const Duration(minutes: 2);
       }
       
       // Get sample rate (bytes 22-25, little endian)
-      final sampleRate = header[22] | (header[23] << 8) | (header[24] << 16) | (header[25] << 24);
-      if (sampleRate <= 0) return null;
+      var sampleRate = header[22] | (header[23] << 8) | (header[24] << 16) | (header[25] << 24);
+      
+      // Sanity check - valid sample rates are 8000, 16000, 22050, 44100, 48000
+      // If invalid (> 100000), use default 16000 Hz
+      if (sampleRate <= 0 || sampleRate > 100000) {
+        _log('WAV: Invalid sampleRate $sampleRate, defaulting to 16000Hz');
+        sampleRate = 16000;
+      }
       
       // Get byte rate (bytes 28-31, little endian)
-      final byteRate = header[28] | (header[29] << 8) | (header[30] << 16) | (header[31] << 24);
-      if (byteRate <= 0) return null;
+      var byteRate = header[28] | (header[29] << 8) | (header[30] << 16) | (header[31] << 24);
+      if (byteRate <= 0) {
+        // Calculate from sampleRate if byteRate is invalid
+        byteRate = sampleRate * 2; // 16-bit mono
+        _log('WAV: Invalid byteRate, calculated as $byteRate');
+      }
       
       // Get data size (bytes 40-43, little endian)
-      final dataSize = header[40] | (header[41] << 8) | (header[42] << 16) | (header[43] << 24);
+      var dataSize = header[40] | (header[41] << 8) | (header[42] << 16) | (header[43] << 24);
+      if (dataSize <= 0 || dataSize > 100000000) {
+        _log('WAV: Invalid dataSize $dataSize, using file size minus header');
+        dataSize = bytes.length - 44;
+      }
       
       final durationSeconds = dataSize / byteRate;
       _log('WAV duration: ${durationSeconds.toStringAsFixed(1)}s (sampleRate: $sampleRate, dataSize: $dataSize)');
       
       return Duration(milliseconds: (durationSeconds * 1000).round());
     } catch (e) {
-      _log('Error getting audio duration: $e');
-      return null;
+      _log('WAV: Error parsing header: $e, using default duration');
+      return const Duration(minutes: 2);
     }
   }
 
@@ -481,10 +498,9 @@ class AIService {
       final finalAudioPath = normalizedPath ?? audioPath;
       _log('processAudio: Audio normalized: ${normalizedPath != null ? "OK" : "using original"}');
 
-      // Initialize WhisperPlatformService on MAIN THREAD before isolate
-      _log('processAudio: Initializing platform service on main thread...');
-      final platformInitResult = await WhisperPlatformService.initialize(safePath);
-      _log('processAudio: Platform service init result: $platformInitResult');
+      // DO NOT initialize WhisperPlatformService here - it will be initialized INSIDE the isolate
+      // This fixes "Whisper not initialized" error because the context must be created in the same thread where it's used
+      _log('processAudio: Will initialize WhisperPlatform INSIDE isolate...');
       
       // Capture token BEFORE isolate
       final rootToken = ServicesBinding.rootIsolateToken!;

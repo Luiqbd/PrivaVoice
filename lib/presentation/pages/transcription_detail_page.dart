@@ -158,7 +158,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
             }
             // Check if processing is complete (text is not empty and not "Processando...")
             if (updated.text.isNotEmpty && updated.text != 'Processando...') {
-              debugPrint('TranscriptionDetailPage: AI finished! Text: ${updated.text.substring(0, updated.text.length > 50 ? 50 : updated.text.length)}...');
+              debugPrint('TranscriptionDetailPage: AI finished! Text: ${updated.text.length >= 50 ? updated.text.substring(0, 50) + "..." : updated.text}');
               setState(() {
                 _isProcessing = false;
               });
@@ -341,7 +341,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
         return;
       }
 
-      debugPrint('TranscriptionDetailPage: AI returned text: ${result.text.substring(0, result.text.length > 50 ? 50 : result.text.length)}...');
+      debugPrint('TranscriptionDetailPage: AI returned text: ${result.text.length >= 50 ? result.text.substring(0, 50) + "..." : result.text}');
 
       final finalResult = Transcription(
         id: _transcription!.id,  // Use EXACT same ID from the existing record
@@ -365,7 +365,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
       debugPrint('TranscriptionDetailPage: Saved, now reloading...');
       final updated = await repo.getTranscriptionById(_transcription!.id);
 
-      debugPrint('TranscriptionDetailPage: Reloaded! Text: ${updated?.text.substring(0, 50) ?? "NULL"}...');
+      debugPrint('TranscriptionDetailPage: Reloaded! Text: ${updated?.text != null && updated.text.length >= 50 ? updated.text.substring(0, 50) + "..." : updated?.text ?? "NULL"}');
 
       if (mounted) {
         setState(() {
