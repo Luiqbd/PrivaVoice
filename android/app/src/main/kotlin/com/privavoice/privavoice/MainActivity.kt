@@ -54,10 +54,18 @@ class MainActivity : FlutterActivity() {
         whisperChannel.setMethodCallHandler { call, result ->
             when (call.method) {
                 "init" -> {
-                    val language = call.argument<String>("language") ?: "pt"
-                    whisperBridge.initialize(language) { success, message ->
-                        if (success) result.success(true)
-                        else result.error("INIT_ERROR", message, null)
+                    val path = call.argument<String>("modelPath") ?: ""
+                    // Initialize library AND load model in one call
+                    whisperBridge.initialize("pt") { success, initMsg ->
+                        if (success) {
+                            // NOW load the model (creates WhisperContext!)
+                            whisperBridge.loadModel(path) { loadSuccess, loadMsg ->
+                                if (loadSuccess) result.success(true)
+                                else result.error("LOAD_ERROR", loadMsg, null)
+                            }
+                        } else {
+                            result.error("INIT_ERROR", initMsg, null)
+                        }
                     }
                 }
                 "loadModel" -> {

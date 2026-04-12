@@ -48,7 +48,7 @@ class WhisperBridge(private val context: Context) {
     }
 
     /**
-     * Load whisper-base.bin model
+     * Load whisper-base.bin model and create WhisperContext
      */
     fun loadModel(path: String, callback: ((Boolean, String) -> Unit)? = null) {
         modelPath = path
@@ -60,11 +60,14 @@ class WhisperBridge(private val context: Context) {
         }
         
         try {
+            println("WhisperBridge: Creating WhisperContext with path: $path")
             whisperContext = WhisperContext(path)
             isInitialized = true
+            println("WhisperBridge: WhisperContext created successfully!")
             callback?.invoke(true, "Model loaded: $path")
         } catch (e: Exception) {
             isInitialized = false
+            println("WhisperBridge: Error loading model: ${e.message}")
             callback?.invoke(false, "Error loading model: ${e.message}")
         }
     }

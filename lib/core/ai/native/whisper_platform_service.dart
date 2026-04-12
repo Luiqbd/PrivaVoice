@@ -36,9 +36,10 @@ class WhisperPlatformService {
       
       print('WhisperPlatform: Model file verified, initializing...');
       
-      // Initialize via platform channel
+      // Initialize via platform channel - pass modelPath so Kotlin creates context
       final result = await _channel.invokeMethod<bool>('init', {
         'modelPath': modelPath,
+        'language': 'pt',
       });
       
       _isInitialized = result ?? false;
