@@ -528,23 +528,17 @@ class AIService {
       // This fixes "Whisper not initialized" error because the context must be created in the same thread where it's used
       _log('processAudio: Will initialize WhisperPlatform INSIDE isolate...');
       
-      // Capture token BEFORE isolate
-      final rootToken = ServicesBinding.rootIsolateToken!;
+      // Use async call instead of Isolate to avoid native library crash
+      // Libraries like mx.valdora manage their own threads
+      _log('processAudio: Running transcription on main thread...');
       
-      Transcription? result;
       try {
-        result = await Isolate.run(() async {
-          // Initialize the background isolate messenger FIRST - CRITICAL!
-          BackgroundIsolateBinaryMessenger.ensureInitialized(rootToken);
-          
-          _log('🔥[Isolate] Starting pipeline...');
-          return await _processPipeline(
-            audioPath: finalAudioPath,
-            title: title,
-            modelPath: safePath,
-          );
-        });
-        _log('processAudio: Isolate completed, result: ${result?.text != null && result!.text.length > 50 ? result.text.substring(0, 50) + "..." : result?.text ?? "NULL"}');
+        result = await _processPipeline(
+          audioPath: finalAudioPath,
+          title: title,
+          modelPath: safePath,
+        );
+        _log('processAudio: Pipeline completed');
       } catch (isolateError, stack) {
         _log('processAudio: Isolate FAILED: $isolateError');
         _log('processAudio: Stack: $stack');
