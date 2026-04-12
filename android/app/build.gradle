@@ -7,7 +7,7 @@ plugins {
 android {
     namespace = "com.privavoice.privavoice"
     compileSdk = 36
-    ndkVersion = "27.0.12077973"
+    ndkVersion = "26.1.10909125"
 
     aaptOptions {
         noCompress 'bin', 'gguf'
