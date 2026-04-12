@@ -21,7 +21,7 @@ class PrivaVoiceApp extends StatefulWidget {
 class _PrivaVoiceAppState extends State<PrivaVoiceApp> {
   bool _showOnboarding = true;  // Show onboarding on first launch
   bool _permissionsRequested = false;
-  bool _aiReady = false;
+  bool _setupShown = false;  // Track if setup screen was shown
   final PermissionService _permissionService = PermissionService();
   Timer? _aiReadyTimer;
 
@@ -50,9 +50,6 @@ class _PrivaVoiceAppState extends State<PrivaVoiceApp> {
     if (granted) {
       debugPrint('AI: Permissions granted, initializing AI...');
       AIService.initializeInBackground();
-      
-      // Start monitoring AI state
-      _startAIStateMonitor();
     }
     
     // Set system UI style
@@ -64,22 +61,10 @@ class _PrivaVoiceAppState extends State<PrivaVoiceApp> {
     ));
   }
 
-  void _startAIStateMonitor() {
-    _aiReadyTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
-      if (!mounted) return;
-      
-      final state = AIManager.state;
-      if (state == AIState.readyWhisper && !_aiReady) {
-        setState(() {
-          _aiReady = true;
-        });
-      }
-    });
-  }
-
-  void _onOnboardingComplete() {
+  // Called when setup page completes
+  void _onSetupComplete() {
     setState(() {
-      _showOnboarding = false;
+      _setupShown = true;
     });
   }
 
@@ -93,14 +78,24 @@ class _PrivaVoiceAppState extends State<PrivaVoiceApp> {
         theme: AppTheme.darkTheme,
         home: _showOnboarding 
             ? OnboardingPage(onComplete: _onOnboardingComplete)
-            : (_aiReady 
-                ? const HomePage() 
-                : SetupInitialPage(onComplete: () {
-                    setState(() {
-                      _aiReady = true;
-                    });
-                  })),
+            : _buildAfterOnboarding(),
       ),
     );
+  }
+
+  Widget _buildAfterOnboarding() {
+    // If setup was already shown, go to HomePage
+    if (_setupShown) {
+      return const HomePage();
+    }
+    
+    // Show SetupInitialPage while AI initializes (always show for at least once)
+    return SetupInitialPage(onComplete: _onSetupComplete);
+  }
+
+  void _onOnboardingComplete() {
+    setState(() {
+      _showOnboarding = false;
+    });
   }
 }
