@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
-import '../core/ai/ai_state.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/ai/ai_state.dart';
 
 /// Setup Initial Page - Elegant loading screen for 1.11GB model copy
 /// Shows real progress during AI initialization

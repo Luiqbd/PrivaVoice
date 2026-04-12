@@ -365,7 +365,7 @@ class _TranscriptionDetailPageState extends State<TranscriptionDetailPage> {
       debugPrint('TranscriptionDetailPage: Saved, now reloading...');
       final updated = await repo.getTranscriptionById(_transcription!.id);
 
-      debugPrint('TranscriptionDetailPage: Reloaded! Text: ${updated?.text != null && updated.text.length >= 50 ? updated.text.substring(0, 50) + "..." : updated?.text ?? "NULL"}');
+      debugPrint('TranscriptionDetailPage: Reloaded! Text: ${(updated?.text?.length ?? 0) >= 50 ? updated!.text!.substring(0, 50) + "..." : updated?.text ?? "NULL"}');
 
       if (mounted) {
         setState(() {
