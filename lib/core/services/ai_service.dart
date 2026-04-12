@@ -634,6 +634,7 @@ class AIService {
           
           // Add timeout to prevent freeze - wait max 30 seconds for transcribe
           _log('🔥[Isolate] Starting transcribe...');
+          String? jsonResult;
           try {
             final completer = Completer<String?>();
             
@@ -650,28 +651,30 @@ class AIService {
               }
             });
             
-            final jsonResult = await completer.future;
-            
-            if (jsonResult != null && jsonResult.isNotEmpty) {
-              _log('🔥[Isolate] Platform service result received');
-              // Parse JSON response from Kotlin
-              try {
-                final Map<String, dynamic> parsed = jsonDecode(jsonResult);
-                text = parsed['text'] as String?;
-                final segList = parsed['segments'] as List<dynamic>?;
-                if (segList != null) {
-                  segments = segList.map((s) => Map<String, dynamic>.from(s as Map)).toList();
-                  _log('🔥[Isolate] Parsed ${segments.length} segments from JSON');
-                }
-              } catch (e) {
-                _log('🔥[Isolate] JSON parse failed, using raw text: $e');
-                text = jsonResult; // Use as plain text if not JSON
+            jsonResult = await completer.future;
+          } catch (e) {
+            _log('🔥[Isolate] Transcribe error: $e');
+          }
+          
+          if (jsonResult != null && jsonResult.isNotEmpty) {
+            _log('🔥[Isolate] Platform service result received');
+            // Parse JSON response from Kotlin
+            try {
+              final Map<String, dynamic> parsed = jsonDecode(jsonResult);
+              text = parsed['text'] as String?;
+              final segList = parsed['segments'] as List<dynamic>?;
+              if (segList != null) {
+                segments = segList.map((s) => Map<String, dynamic>.from(s as Map)).toList();
+                _log('🔥[Isolate] Parsed ${segments.length} segments from JSON');
               }
+            } catch (e) {
+              _log('🔥[Isolate] JSON parse failed, using raw text: $e');
+              text = jsonResult; // Use as plain text if not JSON
             }
           }
         }
       } catch (e) {
-        _log('🔥[Isolate] Platform service FAILED: $e');
+        _log('🔥[Isolate] Platform service error: $e');
       }
       
       // If platform service didn't work, try FFI
