@@ -234,38 +234,59 @@ class WhisperBindings {
     print('Whisper: Processing $numSamples samples...');
 
     try {
-      final result = _full!(ctx, 0, samples, numSamples);
+      // Wrap in try-catch to prevent native crash from killing app
+      String? result;
+      try {
+        result = _callWhisperFull(ctx, samples, numSamples);
+      } catch (nativeError) {
+        print('Whisper: Native call FAILED: $nativeError');
+        calloc.free(samples);
+        return 'Erro na transcrição: áudio corrompido ou formato inválido';
+      }
+      
       print('Whisper: whisper_full result = $result');
       calloc.free(samples);
-
-      if (result != 0) {
-        print('Whisper: ❌ whisper_full FAILED');
-        return null;
+      
+      if (result == null || result.isEmpty) {
+        return 'Transcrição vazia';
       }
-
-      final nSegments = _nSegments!(ctx);
-      print('Whisper: n_segments = $nSegments');
-
-      if (nSegments <= 0) {
-        print('Whisper: ❌ No segments');
-        return null;
-      }
-
-      final buffer = StringBuffer();
-      for (int i = 0; i < nSegments; i++) {
-        final textPtr = _getSegmentText!(ctx, i);
-        if (textPtr != Pointer<Utf8>.fromAddress(0)) {
-          if (buffer.isNotEmpty) buffer.write(' ');
-          buffer.write(textPtr.toDartString());
-        }
-      }
-
-      return buffer.toString();
+      
+      return result;
     } catch (e) {
       print('Whisper: full() ERROR = $e');
       calloc.free(samples);
+      return 'Erro: $e';
+    }
+  }
+  
+  // Separate method to isolate native call
+  static String? _callWhisperFull(Pointer<Void> ctx, Pointer<Float> samples, int numSamples) {
+    final result = _full!(ctx, 0, samples, numSamples);
+    print('Whisper: whisper_full result code = $result');
+    
+    if (result != 0) {
+      print('Whisper: whisper_full returned error code');
       return null;
     }
+
+    final nSegments = _nSegments!(ctx);
+    print('Whisper: n_segments = $nSegments');
+
+    if (nSegments <= 0) {
+      print('Whisper: No segments');
+      return null;
+    }
+
+    final buffer = StringBuffer();
+    for (int i = 0; i < nSegments; i++) {
+      final textPtr = _getSegmentText!(ctx, i);
+      if (textPtr != Pointer<Utf8>.fromAddress(0)) {
+        if (buffer.isNotEmpty) buffer.write(' ');
+        buffer.write(textPtr.toDartString());
+      }
+    }
+
+    return buffer.toString();
   }
 
   static List<Map<String, dynamic>>? getWordTimestamps(Pointer<Void> ctx) {
