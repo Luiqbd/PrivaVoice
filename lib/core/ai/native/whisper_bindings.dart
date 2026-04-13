@@ -40,14 +40,25 @@ class WhisperBindings {
     if (_isLoaded) return true;
 
     try {
-      // First try to use System.loadLibrary via platform channel
-      // This works with AAR dependencies that include .so files
-      try {
-        _lib = DynamicLibrary.open('libwhisper.so');
-        print('Whisper: ✅ Loaded libwhisper.so directly');
-      } catch (e) {
-        print('Whisper: Direct open failed: $e');
-        // Try alternative paths for when AAR .so is loaded via System.loadLibrary
+      // Try multiple library names that mx.valdora might use
+      List<String> libNames = [
+        'libwhisper.so',
+        'libwhisper_android.so',
+        'libwhisper-android.so',
+      ];
+      
+      for (String libName in libNames) {
+        try {
+          _lib = DynamicLibrary.open(libName);
+          print('Whisper: ✅ Loaded $libName');
+          break;
+        } catch (e) {
+          print('Whisper: ❌ $libName not found: $e');
+        }
+      }
+      
+      // If still null, try system paths
+      if (_lib == null) {
         List<String> paths = [
           '/data/data/com.privavoice.privavoice/lib/libwhisper.so',
           '/data/data/com.privavoice.privavoice/app_lib/libwhisper.so',
@@ -65,7 +76,7 @@ class WhisperBindings {
       }
       
       if (_lib == null) {
-        throw Exception('Could not load libwhisper.so from any path');
+        throw Exception('Could not load whisper library');
       }
       
       // Try standard C ABI first, then Java JNI names
