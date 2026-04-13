@@ -532,6 +532,7 @@ class AIService {
       // Libraries like mx.valdora manage their own threads
       _log('processAudio: Running transcription on main thread...');
       
+      Transcription? result;
       try {
         result = await _processPipeline(
           audioPath: finalAudioPath,
