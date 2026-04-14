@@ -430,7 +430,11 @@ class AIService {
       if (!ready) {
         _log('Post-initialization check failed');
       }
-
+      
+      // Load PT-BR prompt for better transcription
+      _log('Loading PT-BR context...');
+      await WhisperBindings.loadPtBrPrompt();
+      
       _initialized = true;
       _validateModelPath();
       _log('=== INITIALIZATION COMPLETE ===');

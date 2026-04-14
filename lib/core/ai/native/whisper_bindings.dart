@@ -16,6 +16,10 @@ typedef WhisperFullNative = Int32 Function(
 typedef WhisperFullDart = int Function(
     Pointer<Void> ctx, int flags, Pointer<Float> samples, int n_samples);
 
+// Whisper full with prompt - uses parameters struct
+typedef WhisperFullParamsNative = Pointer<Void> Function(Pointer<Void> ctx);
+typedef WhisperFullParamsDart = Pointer<Void> Function(Pointer<Void> ctx);
+
 typedef WhisperFullNSegmentsNative = Int32 Function(Pointer<Void> ctx);
 typedef WhisperFullNSegmentsDart = int Function(Pointer<Void> ctx);
 
@@ -29,6 +33,7 @@ class WhisperBindings {
   static DynamicLibrary? _lib;
   static bool _isLoaded = false;
   static Pointer<Void>? _ctx;
+  static String? _ptBrPrompt; // Store PT-BR prompt
   
   static WhisperInitFromFileDart? _initFromFile;
   static WhisperFreeDart? _free;
@@ -37,6 +42,44 @@ class WhisperBindings {
   static WhisperFullGetSegmentTextDart? _getSegmentText;
 
   static bool get isAvailable => _isLoaded;
+  
+  /// Load PT-BR prompt from assets folder
+  static Future<void> loadPtBrPrompt() async {
+    if (_ptBrPrompt != null) return; // Already loaded
+    
+    try {
+      final buffer = StringBuffer();
+      final basePath = 'assets/pt-br';
+      
+      // Read all .txt files from pt-br folder
+      final files = [
+        'palavras_comuns.txt',
+        'juridico.txt', 
+        'negocios.txt',
+        'localidades.txt',
+        'nomes_proprios.txt',
+        'frases_basicas.txt',
+      ];
+      
+      for (final fileName in files) {
+        try {
+          final content = await File('$basePath/$fileName').readAsString();
+          if (content.isNotEmpty) {
+            buffer.write(content);
+            buffer.write(' ');
+          }
+        } catch (e) {
+          print('Whisper: Could not read $fileName: $e');
+        }
+      }
+      
+      _ptBrPrompt = buffer.toString().trim();
+      print('Whisper: ✅ PT-BR prompt loaded (${_ptBrPrompt!.length} chars)');
+    } catch (e) {
+      print('Whisper: PT-BR prompt load error: $e');
+      _ptBrPrompt = null;
+    }
+  }
 
   static bool load() {
     if (_isLoaded) return true;
@@ -224,6 +267,11 @@ class WhisperBindings {
 
   static String? full({required Pointer<Void> ctx, required String audioPath, bool withTimestamps = true}) {
     print('Whisper: full() - audio: $audioPath');
+    
+    // Log PT-BR prompt availability
+    if (_ptBrPrompt != null && _ptBrPrompt!.isNotEmpty) {
+      print('Whisper: ✅ Using PT-BR context (${_ptBrPrompt!.length} chars)');
+    }
 
     if (ctx == Pointer<Void>.fromAddress(0)) {
       print('Whisper: ❌ ctx is NULL');
@@ -297,9 +345,8 @@ class WhisperBindings {
     return buffer.toString();
   }
 
-  static List<Map<String, dynamic>>? getWordTimestamps(Pointer<Void> ctx) {
-    return [];
-  }
+  /// Get the PT-BR prompt for use in transcription context
+  static String? getPtBrPrompt() => _ptBrPrompt;
 
   static void dispose() {
     print('Whisper: dispose() called');
