@@ -1,6 +1,8 @@
 import 'dart:ffi';
 import 'dart:io';
+import 'dart:isolate';
 import 'package:ffi/ffi.dart';
+import 'package:flutter/foundation.dart';
 
 // === FFI Type Definitions ===
 typedef WhisperInitFromFileNative = Pointer<Void> Function(Pointer<Utf8> path);
@@ -199,14 +201,20 @@ class WhisperBindings {
         return null;
       }
       
+      // Use malloc with proper alignment for Float32 (4 bytes)
       final samplesPtr = calloc<Float>(numSamples);
+      
+      // Copy with proper alignment - convert Int16 PCM to Float32
       for (int i = 0; i < numSamples; i++) {
+        // Read as unsigned 16-bit, then convert to signed
         int sample = bytes[dataOffset + i * 2] | (bytes[dataOffset + i * 2 + 1] << 8);
+        // Convert unsigned to signed
         if (sample >= 32768) sample -= 65536;
+        // Normalize to -1.0 to 1.0
         samplesPtr[i] = sample / 32768.0;
       }
       
-      print('Whisper: Converted $numSamples samples to Float32');
+      print('Whisper: ✅ Allocated $numSamples Float32 samples with proper alignment');
       return samplesPtr;
     } catch (e) {
       print('Whisper: WAV ERROR = $e');

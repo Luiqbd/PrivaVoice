@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../domain/entities/transcription.dart';
@@ -528,20 +529,20 @@ class AIService {
       // This fixes "Whisper not initialized" error because the context must be created in the same thread where it's used
       _log('processAudio: Will initialize WhisperPlatform INSIDE isolate...');
       
-      // Use async call instead of Isolate to avoid native library crash
-      // Libraries like mx.valdora manage their own threads
-      _log('processAudio: Running transcription on main thread...');
+      // Use compute() to run FFI on background isolate (prevents UI freeze)
+      _log('processAudio: Running transcription on compute isolate...');
       
       Transcription? result;
       try {
-        result = await _processPipeline(
-          audioPath: finalAudioPath,
-          title: title,
-          modelPath: safePath,
-        );
+        // Run the entire pipeline in compute to prevent UI freeze
+        result = await compute(_computeTranscription, {
+          'audioPath': finalAudioPath,
+          'title': title,
+          'modelPath': safePath,
+        });
         _log('processAudio: Pipeline completed');
       } catch (isolateError, stack) {
-        _log('processAudio: Isolate FAILED: $isolateError');
+        _log('processAudio: Compute FAILED: $isolateError');
         _log('processAudio: Stack: $stack');
         rethrow;
       }
@@ -566,6 +567,16 @@ class AIService {
     }
   }
 
+  /// Top-level function for compute() - must be outside class
+  static Future<Transcription> _computeTranscription(Map<String, dynamic> params) async {
+    return await AIService._processPipeline(
+      audioPath: params['audioPath'],
+      title: params['title'],
+      modelPath: params['modelPath'],
+    );
+  }
+
+  // Static method that compute can call
   static Future<Transcription> _processPipeline({
     required String audioPath,
     required String title,
