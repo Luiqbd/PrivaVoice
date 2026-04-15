@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:isolate';
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 // === FFI Type Definitions ===
 typedef WhisperInitFromFileNative = Pointer<Void> Function(Pointer<Utf8> path);
@@ -43,38 +44,43 @@ class WhisperBindings {
 
   static bool get isAvailable => _isLoaded;
   
-  /// Load PT-BR prompt from assets folder
+  /// Load PT-BR prompt from assets folder using Flutter's asset system
   static Future<void> loadPtBrPrompt() async {
     if (_ptBrPrompt != null) return; // Already loaded
     
     try {
       final buffer = StringBuffer();
-      final basePath = 'assets/pt-br';
       
-      // Read all .txt files from pt-br folder
+      // Read all .txt files from assets/pt-br folder
       final files = [
-        'palavras_comuns.txt',
-        'juridico.txt', 
-        'negocios.txt',
-        'localidades.txt',
-        'nomes_proprios.txt',
-        'frases_basicas.txt',
+        'assets/pt-br/palavras_comuns.txt',
+        'assets/pt-br/juridico.txt', 
+        'assets/pt-br/negocios.txt',
+        'assets/pt-br/localidades.txt',
+        'assets/pt-br/nomes_proprios.txt',
+        'assets/pt-br/frases_basicas.txt',
       ];
       
-      for (final fileName in files) {
+      for (final assetPath in files) {
         try {
-          final content = await File('$basePath/$fileName').readAsString();
+          final content = await rootBundle.loadString(assetPath);
           if (content.isNotEmpty) {
             buffer.write(content);
             buffer.write(' ');
+            print('Whisper: Loaded $assetPath (${content.length} chars)');
           }
         } catch (e) {
-          print('Whisper: Could not read $fileName: $e');
+          print('Whisper: Could not load $assetPath: $e');
         }
       }
       
       _ptBrPrompt = buffer.toString().trim();
-      print('Whisper: ✅ PT-BR prompt loaded (${_ptBrPrompt!.length} chars)');
+      if (_ptBrPrompt!.isNotEmpty) {
+        print('Whisper: ✅ PT-BR prompt loaded (${_ptBrPrompt!.length} chars)');
+      } else {
+        print('Whisper: ⚠️ PT-BR prompt empty - assets may not be in pubspec.yaml');
+        _ptBrPrompt = null;
+      }
     } catch (e) {
       print('Whisper: PT-BR prompt load error: $e');
       _ptBrPrompt = null;

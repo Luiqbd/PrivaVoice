@@ -494,18 +494,21 @@ class AIService {
     }
 
     AIManager.setState(AIState.processing, message: 'Transcrevendo...');
-    _emitProgress(TranscriptionProgress.loading(0.2, 'Processando áudio...'));
-    onProgress?.call(0.2, 'Processando audio...');
-
+    _emitProgress(TranscriptionProgress.loading(0.1, 'Iniciando motor Whisper...'));
+    onProgress?.call(0.1, 'Iniciando...');
+    
     // === STREAMING: Emit progress quickly so user doesn't see static screen ===
     // User sees progress updates immediately
-    await Future.delayed(const Duration(milliseconds: 500));
-    _emitProgress(TranscriptionProgress.loading(0.3, 'Transcrevendo...'));
-    onProgress?.call(0.3, 'Processando...');
+    await Future.delayed(const Duration(milliseconds: 300));
+    _emitProgress(TranscriptionProgress.loading(0.2, 'Carregando modelo...'));
+    onProgress?.call(0.2, 'Carregando modelo...');
     
-    // Emit partial quickly
-    await Future.delayed(const Duration(milliseconds: 500));
-    _emitProgress(TranscriptionProgress.partial('Aguarde...', 0.4));
+    await Future.delayed(const Duration(milliseconds: 300));
+    _emitProgress(TranscriptionProgress.loading(0.3, 'Preparando áudio...'));
+    onProgress?.call(0.3, 'Preparando...');
+    
+    await Future.delayed(const Duration(milliseconds: 300));
+    _emitProgress(TranscriptionProgress.partial('Transcrevendo...', 0.4));
     onProgress?.call(0.4, 'Transcrevendo...');
 
     try {
