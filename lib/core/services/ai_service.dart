@@ -638,25 +638,53 @@ class AIService {
       
       _log('🔥[Isolate] Trying native FFI...');
       
-      if (!WhisperBindings.load()) {
-        _log('Whisper: FFI load FAILED - using fallback');
-        return _generateFallbackTranscription(audioPath, title);
-      }
-
-      _log('🔥[Isolate] Init Whisper...');
-      final whisperCtx = WhisperBindings.initFromFile(modelPath);
+      // Try Kotlin platform channel first (more stable than direct FFI)
+      _log('🔥[Isolate] Using Kotlin WhisperBridge...');
       
-      if (whisperCtx == null) {
-        _log('Whisper: initFromFile returned NULL - using fallback');
-        return _generateFallbackTranscription(audioPath, title);
-      }
-
-      _log('🔥[Isolate] ctx = $whisperCtx');
-
-      _log('🔥[Isolate] Transcribing...');
       try {
-        // First pass: get partial segments for streaming
-        text = WhisperBindings.full(ctx: whisperCtx, audioPath: audioPath) ?? '';
+        // Initialize Whisper via platform channel
+        final initResult = await WhisperPlatformService.initialize(language: 'pt');
+        _log('🔥[Isolate] WhisperPlatform init: $initResult');
+        
+        // Load model via platform channel
+        final loadResult = await WhisperPlatformService.loadModel(modelPath);
+        _log('🔥[Isolate] WhisperPlatform loadModel: $loadResult');
+        
+        // Transcribe via platform channel (runs on background thread in Kotlin)
+        _log('🔥[Isolate] Calling transcribe...');
+        text = await WhisperPlatformService.transcribe(audioPath, language: 'pt');
+        _log('🔥[Isolate] Transcribe result: ${text?.substring(0, text.length > 50 ? 50 : 0)}...');
+        
+        // Release after transcription
+        await WhisperPlatformService.release();
+        
+        if (text == null || text.isEmpty) {
+          _log('Whisper: Platform returned empty - using fallback');
+          return _generateFallbackTranscription(audioPath, title);
+        }
+      } catch (e) {
+        _log('🔥[Isolate] Platform channel FAILED: $e - trying FFI');
+        
+        // Fallback to direct FFI if platform fails
+        if (!WhisperBindings.load()) {
+          _log('Whisper: FFI load FAILED - using fallback');
+          return _generateFallbackTranscription(audioPath, title);
+        }
+
+        _log('🔥[Isolate] Init Whisper...');
+        final whisperCtx = WhisperBindings.initFromFile(modelPath);
+        
+        if (whisperCtx == null) {
+          _log('Whisper: initFromFile returned NULL - using fallback');
+          return _generateFallbackTranscription(audioPath, title);
+        }
+
+        _log('🔥[Isolate] ctx = $whisperCtx');
+
+        _log('🔥[Isolate] Transcribing...');
+        try {
+          // First pass: get partial segments for streaming
+          text = WhisperBindings.full(ctx: whisperCtx, audioPath: audioPath) ?? '';
         
         // Get segments for streaming UI
         final segmentList = WhisperBindings.getSegments(whisperCtx);
