@@ -339,7 +339,19 @@ class WhisperBindings {
       return null;
     }
 
-    // Return segments list for streaming
+    final buffer = StringBuffer();
+    for (int i = 0; i < nSegments; i++) {
+      final textPtr = _getSegmentText!(ctx, i);
+      if (textPtr != Pointer<Utf8>.fromAddress(0)) {
+        if (buffer.isNotEmpty) buffer.write(' ');
+        buffer.write(textPtr.toDartString());
+      }
+    }
+
+    return buffer.toString();
+  }
+  
+  // Return segments list for streaming
   static List<String> getSegments(Pointer<Void> ctx) {
     final segments = <String>[];
     
