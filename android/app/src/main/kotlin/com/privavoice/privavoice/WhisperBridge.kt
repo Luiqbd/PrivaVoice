@@ -3,7 +3,10 @@ package com.privavoice.privavoice
 import android.content.Context
 import mx.valdora.whisper.WhisperContext
 import java.io.File
+import java.util.concurrent.Executors
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Whisper Bridge - mx.valdora:whisper-android:1.0.0
@@ -74,6 +77,7 @@ class WhisperBridge(private val context: Context) {
 
     /**
      * Transcribe audio file (WAV, 16kHz mono PCM)
+     * Runs on background thread to prevent UI freeze
      */
     fun transcribe(audioPath: String, callback: (String) -> Unit) {
         val wc = whisperContext
@@ -82,13 +86,16 @@ class WhisperBridge(private val context: Context) {
             return
         }
 
-        try {
-            val result = runBlocking {
-                wc.transcribe(File(audioPath))
+        // Run on background thread with lower priority
+        Executors.newSingleThreadExecutor().execute {
+            try {
+                val result = runBlocking(Dispatchers.IO) {
+                    wc.transcribe(File(audioPath))
+                }
+                callback(result)
+            } catch (e: Exception) {
+                callback("Error: ${e.message}")
             }
-            callback(result)
-        } catch (e: Exception) {
-            callback("Error: ${e.message}")
         }
     }
 
