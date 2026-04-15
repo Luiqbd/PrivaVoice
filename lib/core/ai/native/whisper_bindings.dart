@@ -45,11 +45,14 @@ class WhisperBindings {
   static bool get isAvailable => _isLoaded;
   
   /// Load PT-BR prompt from assets folder using Flutter's asset system
+  /// LIMIT: Max 200-300 tokens (~500 chars) to prevent context overflow
   static Future<void> loadPtBrPrompt() async {
     if (_ptBrPrompt != null) return; // Already loaded
     
     try {
       final buffer = StringBuffer();
+      int wordCount = 0;
+      const int MAX_WORDS = 50; // Limit to ~50 keywords
       
       // Read all .txt files from assets/pt-br folder
       final files = [
@@ -62,12 +65,21 @@ class WhisperBindings {
       ];
       
       for (final assetPath in files) {
+        if (wordCount >= MAX_WORDS) break;
+        
         try {
           final content = await rootBundle.loadString(assetPath);
           if (content.isNotEmpty) {
-            buffer.write(content);
-            buffer.write(' ');
-            print('Whisper: Loaded $assetPath (${content.length} chars)');
+            // Take first few words from each file (prioritized)
+            final words = content.split(RegExp(r'\s+')).take(MAX_WORDS - wordCount);
+            for (final word in words) {
+              if (word.trim().isNotEmpty && wordCount < MAX_WORDS) {
+                buffer.write(word.trim());
+                buffer.write(' ');
+                wordCount++;
+              }
+            }
+            print('Whisper: Loaded $assetPath (${words.length} words)');
           }
         } catch (e) {
           print('Whisper: Could not load $assetPath: $e');
@@ -76,9 +88,9 @@ class WhisperBindings {
       
       _ptBrPrompt = buffer.toString().trim();
       if (_ptBrPrompt!.isNotEmpty) {
-        print('Whisper: ✅ PT-BR prompt loaded (${_ptBrPrompt!.length} chars)');
+        print('Whisper: ✅ PT-BR prompt loaded (${_ptBrPrompt!.length} chars, $wordCount words)');
       } else {
-        print('Whisper: ⚠️ PT-BR prompt empty - assets may not be in pubspec.yaml');
+        print('Whisper: ⚠️ PT-BR prompt empty');
         _ptBrPrompt = null;
       }
     } catch (e) {

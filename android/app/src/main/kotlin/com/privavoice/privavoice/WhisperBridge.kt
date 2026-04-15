@@ -89,13 +89,37 @@ class WhisperBridge(private val context: Context) {
         // Run on background thread with lower priority
         Executors.newSingleThreadExecutor().execute {
             try {
-                val result = runBlocking(Dispatchers.IO) {
-                    wc.transcribe(File(audioPath))
+                val result = try {
+                    runBlocking(Dispatchers.IO) {
+                        wc.transcribe(File(audioPath))
+                    }
+                } catch (nativeError: Exception) {
+                    // Catch native C++ crashes to prevent app crash
+                    "Error: ${nativeError.message ?: "Native inference failed"}"
                 }
                 callback(result)
+                
+                // Force GC after transcription to free memory
+                System.gc()
             } catch (e: Exception) {
                 callback("Error: ${e.message}")
+                System.gc()
             }
+        }
+    }
+    
+    /**
+     * Release Whisper context and free memory
+     */
+    fun releaseContext() {
+        try {
+            whisperContext?.close()
+            whisperContext = null
+            isInitialized = false
+            System.gc()
+            println("Whisper: Context released, memory freed")
+        } catch (e: Exception) {
+            println("Whisper: Release error: ${e.message}")
         }
     }
 
