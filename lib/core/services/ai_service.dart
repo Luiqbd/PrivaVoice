@@ -535,13 +535,13 @@ class AIService {
       final finalAudioPath = normalizedPath ?? audioPath;
       _log('processAudio: Audio normalized: ${normalizedPath != null ? "OK" : "using original"}');
 
-      // DO NOT initialize WhisperPlatformService here - it will be initialized INSIDE the isolate
-      // This fixes "Whisper not initialized" error because the context must be created in the same thread where it's used
-      _log('processAudio: Will initialize WhisperPlatform INSIDE isolate...');
+      // WhisperPlatformService handles native initialization internally
+      // It runs on background thread via platform channel
       
-      // Run transcription async (not blocking UI but using same isolate for FFI)
-      // Using compute() causes FFI to fail in new isolate
-      _log('processAudio: Running transcription async...');
+      // Run transcription on MAIN THREAD (no isolate/compute)
+      // Whisper will manage its own internal threads
+      // UI may freeze for 2 seconds but app won't crash
+      _log('processAudio: Running on MAIN THREAD (NO ISOLATE)...');
       
       Transcription? result;
       try {
@@ -550,9 +550,9 @@ class AIService {
           title: title,
           modelPath: safePath,
         );
-        _log('processAudio: Pipeline completed');
+        _log('processAudio: ✅ Pipeline completed successfully');
       } catch (isolateError, stack) {
-        _log('processAudio: Pipeline FAILED: $isolateError');
+        _log('processAudio: ❌ Pipeline FAILED: $isolateError');
         _log('processAudio: Stack: $stack');
         rethrow;
       }
@@ -577,35 +577,35 @@ class AIService {
     }
   }
 
-  // Static method for transcription pipeline
+  // Static method for transcription pipeline - runs on MAIN THREAD
   static Future<Transcription> _processPipeline({
     required String audioPath,
     required String title,
     required String modelPath,
   }) async {
-    _log('🔥[Isolate] _processPipeline called');
-    _log('🔥[Isolate] audioPath: $audioPath');
-    _log('🔥[Isolate] modelPath: $modelPath');
+    _log('🔄[MainThread] _processPipeline called');
+    _log('🔄[MainThread] audioPath: $audioPath');
+    _log('🔄[MainThread] modelPath: $modelPath');
     
     // Verify audio exists
     final audioFile = File(audioPath);
     if (!audioFile.existsSync()) {
-      throw Exception('[Isolate] Audio file NOT FOUND: $audioPath');
+      throw Exception('[MainThread] Audio file NOT FOUND: $audioPath');
     }
     final audioSize = audioFile.lengthSync();
-    _log('🔥[Isolate] Audio file exists, size: $audioSize bytes');
+    _log('🔄[MainThread] Audio file exists, size: $audioSize bytes');
     
     // Verify model exists
     final modelFile = File(modelPath);
     if (!modelFile.existsSync()) {
-      throw Exception('[Isolate] Model file NOT FOUND: $modelPath');
+      throw Exception('[MainThread] Model file NOT FOUND: $modelPath');
     }
     final modelSize = modelFile.lengthSync();
-    _log('🔥[Isolate] Model file exists, size: $modelSize bytes');
-    _log('🔥[Isolate] Pipeline start');
-    _log('🔥[Isolate] Using model path: $modelPath');
+    _log('🔄[MainThread] Model file exists, size: $modelSize bytes');
+    _log('🔄[MainThread] Pipeline start');
+    _log('🔄[MainThread] Using model path: $modelPath');
 
-    // Token already initialized in Isolate.run() closure
+    // No token needed - running on main thread
 
     try {
       if (!File(audioPath).existsSync()) {
@@ -613,47 +613,47 @@ class AIService {
       }
 
       final audioStat = File(audioPath).statSync();
-      _log('🔥[Isolate] Audio size: ${audioStat.size} bytes');
+      _log('🔥[MainThread] Audio size: ${audioStat.size} bytes');
 
       // Verify model file exists
       final modelFile = File(modelPath);
       if (!modelFile.existsSync()) {
-        throw Exception('[Isolate] Model file NOT FOUND: $modelPath');
+        throw Exception('[MainThread] Model file NOT FOUND: $modelPath');
       }
       final modelSize = modelFile.lengthSync();
-      _log('🔥[Isolate] Model file size: $modelSize bytes');
+      _log('🔥[MainThread] Model file size: $modelSize bytes');
       
       // Skip integrity check - just verify file exists
       // Let Whisper handle compatibility
 
-      _log('🔥[Isolate] Model: $modelPath');
+      _log('🔥[MainThread] Model: $modelPath');
 
       // Skip platform service (mx.valdora) - it's unstable and crashes
       // Go directly to FFI which is more reliable
-      _log('🔥[Isolate] Using native FFI for transcription...');
+      _log('🔥[MainThread] Using native FFI for transcription...');
       
       // Use FFI directly
       String? text;
       dynamic segments;
       
-      _log('🔥[Isolate] Trying native FFI...');
+      _log('🔥[MainThread] Trying native FFI...');
       
       // Try Kotlin platform channel first (more stable than direct FFI)
-      _log('🔥[Isolate] Using Kotlin WhisperBridge...');
+      _log('🔥[MainThread] Using Kotlin WhisperBridge...');
       
       try {
         // Initialize Whisper via platform channel
         final initResult = await WhisperPlatformService.initialize(language: 'pt');
-        _log('🔥[Isolate] WhisperPlatform init: $initResult');
+        _log('🔥[MainThread] WhisperPlatform init: $initResult');
         
         // Load model via platform channel
         final loadResult = await WhisperPlatformService.loadModel(modelPath);
-        _log('🔥[Isolate] WhisperPlatform loadModel: $loadResult');
+        _log('🔥[MainThread] WhisperPlatform loadModel: $loadResult');
         
         // Transcribe via platform channel (runs on background thread in Kotlin)
-        _log('🔥[Isolate] Calling transcribe...');
+        _log('🔥[MainThread] Calling transcribe...');
         text = await WhisperPlatformService.transcribe(audioPath, language: 'pt');
-        _log('🔥[Isolate] Transcribe result: ${text?.substring(0, text.length > 50 ? 50 : 0)}...');
+        _log('🔥[MainThread] Transcribe result: ${text?.substring(0, text.length > 50 ? 50 : 0)}...');
         
         // Release after transcription
         await WhisperPlatformService.release();
@@ -663,7 +663,7 @@ class AIService {
           return _generateFallbackTranscription(audioPath, title);
         }
       } catch (e) {
-        _log('🔥[Isolate] Platform channel FAILED: $e - trying FFI');
+        _log('🔥[MainThread] Platform channel FAILED: $e - trying FFI');
         
         // Fallback to direct FFI if platform fails
         if (!WhisperBindings.load()) {
@@ -671,7 +671,7 @@ class AIService {
           return _generateFallbackTranscription(audioPath, title);
         }
 
-        _log('🔥[Isolate] Init Whisper...');
+        _log('🔥[MainThread] Init Whisper...');
         final whisperCtx = WhisperBindings.initFromFile(modelPath);
         
         if (whisperCtx == null) {
@@ -679,16 +679,16 @@ class AIService {
           return _generateFallbackTranscription(audioPath, title);
         }
 
-        _log('🔥[Isolate] ctx = $whisperCtx');
+        _log('🔥[MainThread] ctx = $whisperCtx');
 
-        _log('🔥[Isolate] Transcribing...');
+        _log('🔥[MainThread] Transcribing...');
         try {
           // First pass: get partial segments for streaming
           text = WhisperBindings.full(ctx: whisperCtx, audioPath: audioPath) ?? '';
         
         // Get segments for streaming UI
         final segmentList = WhisperBindings.getSegments(whisperCtx);
-        _log('🔥[Isolate] Got ${segmentList.length} segments for streaming');
+        _log('🔥[MainThread] Got ${segmentList.length} segments for streaming');
         
         // Stream each segment as we get them (with small delay to prevent UI lag)
         for (int i = 0; i < segmentList.length; i++) {
@@ -700,7 +700,7 @@ class AIService {
           await Future.delayed(const Duration(milliseconds: 100));
         }
       } catch (e) {
-        _log('🔥[Isolate] Whisper EXCEPTION: $e - using fallback');
+        _log('🔥[MainThread] Whisper EXCEPTION: $e - using fallback');
         return _generateFallbackTranscription(audioPath, title);
       }
       
@@ -710,11 +710,11 @@ class AIService {
         return _generateFallbackTranscription(audioPath, title);
       }
 
-      _log('🔥[Isolate] Text: $text');
+      _log('🔥[MainThread] Text: $text');
 
       // Get actual audio duration for proper karaoke sync
       final audioDuration = _getAudioDuration(audioPath);
-      _log('🔥[Isolate] Audio duration: ${audioDuration?.inSeconds ?? 120} seconds');
+      _log('🔥[MainThread] Audio duration: ${audioDuration?.inSeconds ?? 120} seconds');
 
       // Use segment-based diarization if available (from Kotlin JSON)
       // Otherwise fall back to simple Voz 1 assignment
@@ -732,7 +732,7 @@ class AIService {
       
       // === SAVE TO DATABASE IMMEDIATELY so UI can show text "nascendo" ===
       // This makes the app feel 10x faster - user sees first words in 5 seconds
-      _log('🔥[Isolate] Saving partial result to database for streaming effect...');
+      _log('🔥[MainThread] Saving partial result to database for streaming effect...');
       try {
         final partialTranscription = Transcription(
           id: title.hashCode.abs().toString(),
@@ -750,20 +750,20 @@ class AIService {
         // Note: Cannot call repository directly in isolate
         // UI will pick up the final result via auto-refresh
       } catch (e) {
-        _log('🔥[Isolate] Partial save error (non-critical): $e');
+        _log('🔥[MainThread] Partial save error (non-critical): $e');
       }
       
       // === URGENT: Don't load Llama here - will cause OOM ===
       // Summary will be generated on-demand when user clicks button
-      _log('🔥[Isolate] Skipping automatic summary generation to save RAM');
-      _log('🔥[Isolate] User can generate summary later on-demand');
+      _log('🔥[MainThread] Skipping automatic summary generation to save RAM');
+      _log('🔥[MainThread] User can generate summary later on-demand');
 
       String summary = '';
       List<String> actionItems = [];
 
       // Skip automatic Llama loading - summary will be generated on-demand
       // This prevents OOM on low-end devices like Moto G06
-      _log('🔥[Isolate] Pipeline complete (summary available on-demand)');
+      _log('🔥[MainThread] Pipeline complete (summary available on-demand)');
 
       return Transcription(
         id: title.hashCode.abs().toString(),  // Use title as ID base
@@ -780,24 +780,24 @@ class AIService {
       );
       
     } finally {
-      _log('🔥[Isolate] Finally block: Cleaning up memory...');
+      _log('🔥[MainThread] Finally block: Cleaning up memory...');
       
       try {
         WhisperBindings.dispose();
-        _log('🔥[Isolate] Whisper disposed');
+        _log('🔥[MainThread] Whisper disposed');
       } catch (e) {
-        _log('🔥[Isolate] Whisper dispose error: $e');
+        _log('🔥[MainThread] Whisper dispose error: $e');
       }
       
       try {
         LlamaBindings.dispose();
-        _log('🔥[Isolate] Llama disposed');
+        _log('🔥[MainThread] Llama disposed');
       } catch (e) {
-        _log('🔥[Isolate] Llama dispose error: $e');
+        _log('🔥[MainThread] Llama dispose error: $e');
       }
       
       await Future.delayed(const Duration(milliseconds: 500));
-      _log('🔥[Isolate] Memory cleanup complete');
+      _log('🔥[MainThread] Memory cleanup complete');
     }
   }
 
@@ -932,15 +932,15 @@ $_diagnosticLog
         // Initialize token
         BackgroundIsolateBinaryMessenger.ensureInitialized(rootToken);
         
-        _log('🔥[Isolate] Loading Llama for summary...');
+        _log('🔥[MainThread] Loading Llama for summary...');
         
         // CRITICAL: Release Whisper BEFORE loading Llama to prevent OOM
-        _log('🔥[Isolate] Releasing Whisper before loading Llama...');
+        _log('🔥[MainThread] Releasing Whisper before loading Llama...');
         WhisperBindings.dispose();
         
         final modelPath = _modelPath;
         if (modelPath == null) {
-          _log('🔥[Isolate] Model path not set');
+          _log('🔥[MainThread] Model path not set');
           return null;
         }
         
@@ -948,42 +948,42 @@ $_diagnosticLog
         
         // Check Llama model exists
         if (!File(llamaPath).existsSync()) {
-          _log('🔥[Isolate] Llama model not found');
+          _log('🔥[MainThread] Llama model not found');
           return null;
         }
         
         // Load Llama
         if (!LlamaBindings.load()) {
-          _log('🔥[Isolate] Llama load failed');
+          _log('🔥[MainThread] Llama load failed');
           return null;
         }
         
         final llamaCtx = LlamaBindings.initFromFile(llamaPath);
         if (llamaCtx == null) {
-          _log('🔥[Isolate] Llama ctx init failed');
+          _log('🔥[MainThread] Llama ctx init failed');
           return null;
         }
         
-        _log('🔥[Isolate] Llama ready, generating summary...');
+        _log('🔥[MainThread] Llama ready, generating summary...');
         final llmResult = LlamaBindings.generate(ctx: llamaCtx, prompt: text);
         
         // Dispose immediately
         LlamaBindings.dispose();
-        _log('🔥[Isolate] Llama disposed');
+        _log('🔥[MainThread] Llama disposed');
         
         // Reload Whisper after Llama is done
         // Note: Path is already available in _modelPath
         if (_modelPath != null) {
           try {
             WhisperBindings.initFromFile(_modelPath!);
-            _log('🔥[Isolate] Whisper reloaded!');
+            _log('🔥[MainThread] Whisper reloaded!');
           } catch (e) {
-            _log('🔥[Isolate] Whisper reload failed: $e');
+            _log('🔥[MainThread] Whisper reload failed: $e');
           }
         }
         
         if (llmResult == null) {
-          _log('🔥[Isolate] Llama generate returned null');
+          _log('🔥[MainThread] Llama generate returned null');
           return null;
         }
         
@@ -993,8 +993,8 @@ $_diagnosticLog
         // Extract 5 keywords from text using simple frequency analysis
         final keywords = _extractKeywords(text);
         
-        _log('🔥[Isolate] Summary generated: $summary');
-        _log('🔥[Isolate] Keywords: $keywords');
+        _log('🔥[MainThread] Summary generated: $summary');
+        _log('🔥[MainThread] Keywords: $keywords');
         
         // Return a new Transcription with summary
         return Transcription(
@@ -1074,37 +1074,37 @@ $_diagnosticLog
       final result = await Isolate.run(() async {
         BackgroundIsolateBinaryMessenger.ensureInitialized(rootToken);
         
-        _log('🔥[Isolate] Loading Llama for chat...');
+        _log('🔥[MainThread] Loading Llama for chat...');
         
         // CRITICAL: Release Whisper BEFORE loading Llama to prevent OOM
-        _log('🔥[Isolate] Releasing Whisper before loading Llama...');
+        _log('🔥[MainThread] Releasing Whisper before loading Llama...');
         WhisperBindings.dispose();
         
         final modelPath = _modelPath;
         if (modelPath == null) {
-          _log('🔥[Isolate] Model path not set');
+          _log('🔥[MainThread] Model path not set');
           return null;
         }
         
         final llamaPath = modelPath.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
         
         if (!File(llamaPath).existsSync()) {
-          _log('🔥[Isolate] Llama model not found');
+          _log('🔥[MainThread] Llama model not found');
           return null;
         }
         
         if (!LlamaBindings.load()) {
-          _log('🔥[Isolate] Llama load failed');
+          _log('🔥[MainThread] Llama load failed');
           return null;
         }
         
         final llamaCtx = LlamaBindings.initFromFile(llamaPath);
         if (llamaCtx == null) {
-          _log('🔥[Isolate] Llama ctx init failed');
+          _log('🔥[MainThread] Llama ctx init failed');
           return null;
         }
         
-        _log('🔥[Isolate] Llama ready, generating chat response...');
+        _log('🔥[MainThread] Llama ready, generating chat response...');
         
         // Chat prompt
         final prompt = '''
@@ -1118,15 +1118,15 @@ Resposta:''';
         
         // Dispose immediately
         LlamaBindings.dispose();
-        _log('🔥[Isolate] Llama disposed');
+        _log('🔥[MainThread] Llama disposed');
         
         // Reload Whisper after Llama is done
         if (_modelPath != null) {
           try {
             WhisperBindings.initFromFile(_modelPath!);
-            _log('🔥[Isolate] Whisper reloaded!');
+            _log('🔥[MainThread] Whisper reloaded!');
           } catch (e) {
-            _log('🔥[Isolate] Whisper reload failed: $e');
+            _log('🔥[MainThread] Whisper reload failed: $e');
           }
         }
         
