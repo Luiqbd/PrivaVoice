@@ -339,18 +339,36 @@ class WhisperBindings {
       return null;
     }
 
-    final buffer = StringBuffer();
-    for (int i = 0; i < nSegments; i++) {
-      final textPtr = _getSegmentText!(ctx, i);
-      if (textPtr != Pointer<Utf8>.fromAddress(0)) {
-        if (buffer.isNotEmpty) buffer.write(' ');
-        buffer.write(textPtr.toDartString());
+    // Return segments list for streaming
+  static List<String> getSegments(Pointer<Void> ctx) {
+    final segments = <String>[];
+    
+    try {
+      final nSegments = _nSegments!(ctx);
+      print('Whisper: n_segments = $nSegments');
+
+      if (nSegments <= 0) {
+        print('Whisper: No segments');
+        return segments;
       }
+
+      for (int i = 0; i < nSegments; i++) {
+        final textPtr = _getSegmentText!(ctx, i);
+        if (textPtr != Pointer<Utf8>.fromAddress(0)) {
+          final text = textPtr.toDartString();
+          if (text.isNotEmpty) {
+            segments.add(text);
+            print('Whisper: Segment $i: ${text.substring(0, text.length > 50 ? 50 : text.length)}...');
+          }
+        }
+      }
+    } catch (e) {
+      print('Whisper: getSegments error: $e');
     }
-
-    return buffer.toString();
+    
+    return segments;
   }
-
+  
   /// Get the PT-BR prompt for use in transcription context
   static String? getPtBrPrompt() => _ptBrPrompt;
 

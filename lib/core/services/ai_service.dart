@@ -652,7 +652,20 @@ class AIService {
 
       _log('🔥[Isolate] Transcribing...');
       try {
+        // First pass: get partial segments for streaming
         text = WhisperBindings.full(ctx: whisperCtx, audioPath: audioPath) ?? '';
+        
+        // Get segments for streaming UI
+        final segmentList = WhisperBindings.getSegments(whisperCtx);
+        _log('🔥[Isolate] Got ${segmentList.length} segments for streaming');
+        
+        // Stream each segment as we get them
+        for (int i = 0; i < segmentList.length; i++) {
+          _transcriptionController.add(TranscriptionProgress.partial(
+            segmentList[i], 
+            0.4 + (0.2 * i / segmentList.length)
+          ));
+        }
       } catch (e) {
         _log('🔥[Isolate] Whisper EXCEPTION: $e - using fallback');
         return _generateFallbackTranscription(audioPath, title);
