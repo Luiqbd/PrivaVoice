@@ -96,12 +96,7 @@ class WhisperBridge(private val context: Context) {
             try {
                 val result = try {
                     runBlocking(Dispatchers.IO) {
-                        // Create transcription parameters for speed/s memory optimization
-                        val params = mx.valdora.whisper.WhisperContext.WhisperParams().apply {
-                            n_threads = optimalThreads
-                            speed_up = true // Enable VAD-like behavior - skip long silences
-                        }
-                        wc.transcribe(File(audioPath), params)
+                        wc.transcribe(File(audioPath))
                     }
                 } catch (nativeError: Exception) {
                     // Catch native C++ crashes to prevent app crash
