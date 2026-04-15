@@ -639,21 +639,21 @@ class AIService {
       _log('🔥[MainThread] Trying native FFI...');
       
       // Try Kotlin platform channel first (more stable than direct FFI)
-      _log('🔥[MainThread] Using Kotlin WhisperBridge...');
+      _log('🔄[MainThread] Using Kotlin WhisperBridge...');
       
       try {
-        // Initialize Whisper via platform channel
-        final initResult = await WhisperPlatformService.initialize(language: 'pt');
-        _log('🔥[MainThread] WhisperPlatform init: $initResult');
+        // Initialize Whisper via platform channel (modelPath + language)
+        final initResult = await WhisperPlatformService.initialize(modelPath);
+        _log('🔄[MainThread] WhisperPlatform init: $initResult');
         
-        // Load model via platform channel
-        final loadResult = await WhisperPlatformService.loadModel(modelPath);
-        _log('🔥[MainThread] WhisperPlatform loadModel: $loadResult');
+        if (!initResult) {
+          throw Exception('WhisperPlatform initialize failed');
+        }
         
         // Transcribe via platform channel (runs on background thread in Kotlin)
-        _log('🔥[MainThread] Calling transcribe...');
+        _log('🔄[MainThread] Calling transcribe...');
         text = await WhisperPlatformService.transcribe(audioPath, language: 'pt');
-        _log('🔥[MainThread] Transcribe result: ${text?.substring(0, text.length > 50 ? 50 : 0)}...');
+        _log('🔄[MainThread] Transcribe result: ${text?.substring(0, text.length > 50 ? 50 : 0)}...');
         
         // Release after transcription
         await WhisperPlatformService.release();
@@ -663,7 +663,7 @@ class AIService {
           return _generateFallbackTranscription(audioPath, title);
         }
       } catch (e) {
-        _log('🔥[MainThread] Platform channel FAILED: $e - trying FFI');
+        _log('🔄[MainThread] Platform channel FAILED: $e - trying FFI');
         
         // Fallback to direct FFI if platform fails
         if (!WhisperBindings.load()) {
@@ -671,7 +671,7 @@ class AIService {
           return _generateFallbackTranscription(audioPath, title);
         }
 
-        _log('🔥[MainThread] Init Whisper...');
+        _log('🔄[MainThread] Init Whisper...');
         final whisperCtx = WhisperBindings.initFromFile(modelPath);
         
         if (whisperCtx == null) {
@@ -679,29 +679,30 @@ class AIService {
           return _generateFallbackTranscription(audioPath, title);
         }
 
-        _log('🔥[MainThread] ctx = $whisperCtx');
+        _log('🔄[MainThread] ctx = $whisperCtx');
 
-        _log('🔥[MainThread] Transcribing...');
+        _log('🔄[MainThread] Transcribing...');
         try {
           // First pass: get partial segments for streaming
           text = WhisperBindings.full(ctx: whisperCtx, audioPath: audioPath) ?? '';
-        
-        // Get segments for streaming UI
-        final segmentList = WhisperBindings.getSegments(whisperCtx);
-        _log('🔥[MainThread] Got ${segmentList.length} segments for streaming');
-        
-        // Stream each segment as we get them (with small delay to prevent UI lag)
-        for (int i = 0; i < segmentList.length; i++) {
-          _transcriptionController.add(TranscriptionProgress.partial(
-            segmentList[i], 
-            0.4 + (0.2 * i / segmentList.length)
-          ));
-          // Small delay between segments to keep 60fps stable
-          await Future.delayed(const Duration(milliseconds: 100));
+          
+          // Get segments for streaming UI
+          final segmentList = WhisperBindings.getSegments(whisperCtx);
+          _log('🔄[MainThread] Got ${segmentList.length} segments for streaming');
+          
+          // Stream each segment as we get them (with small delay to prevent UI lag)
+          for (int i = 0; i < segmentList.length; i++) {
+            _transcriptionController.add(TranscriptionProgress.partial(
+              segmentList[i], 
+              0.4 + (0.2 * i / segmentList.length)
+            ));
+            // Small delay between segments to keep 60fps stable
+            await Future.delayed(const Duration(milliseconds: 100));
+          }
+        } catch (e) {
+          _log('🔄[MainThread] Whisper EXCEPTION: $e - using fallback');
+          return _generateFallbackTranscription(audioPath, title);
         }
-      } catch (e) {
-        _log('🔥[MainThread] Whisper EXCEPTION: $e - using fallback');
-        return _generateFallbackTranscription(audioPath, title);
       }
       
       // If Whisper returned empty, use fallback instead of failing
