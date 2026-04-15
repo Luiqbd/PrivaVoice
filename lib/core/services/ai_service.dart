@@ -533,20 +533,20 @@ class AIService {
       // This fixes "Whisper not initialized" error because the context must be created in the same thread where it's used
       _log('processAudio: Will initialize WhisperPlatform INSIDE isolate...');
       
-      // Use compute() to run FFI on background isolate (prevents UI freeze)
-      _log('processAudio: Running transcription on compute isolate...');
+      // Run transcription async (not blocking UI but using same isolate for FFI)
+      // Using compute() causes FFI to fail in new isolate
+      _log('processAudio: Running transcription async...');
       
       Transcription? result;
       try {
-        // Run the entire pipeline in compute to prevent UI freeze
-        result = await compute(_computeTranscription, {
-          'audioPath': finalAudioPath,
-          'title': title,
-          'modelPath': safePath,
-        });
+        result = await _processPipeline(
+          audioPath: finalAudioPath,
+          title: title,
+          modelPath: safePath,
+        );
         _log('processAudio: Pipeline completed');
       } catch (isolateError, stack) {
-        _log('processAudio: Compute FAILED: $isolateError');
+        _log('processAudio: Pipeline FAILED: $isolateError');
         _log('processAudio: Stack: $stack');
         rethrow;
       }
@@ -571,16 +571,7 @@ class AIService {
     }
   }
 
-  /// Top-level function for compute() - must be outside class
-  static Future<Transcription> _computeTranscription(Map<String, dynamic> params) async {
-    return await AIService._processPipeline(
-      audioPath: params['audioPath'],
-      title: params['title'],
-      modelPath: params['modelPath'],
-    );
-  }
-
-  // Static method that compute can call
+  // Static method for transcription pipeline
   static Future<Transcription> _processPipeline({
     required String audioPath,
     required String title,
