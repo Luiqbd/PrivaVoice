@@ -508,8 +508,11 @@ class AIService {
     onProgress?.call(0.3, 'Preparando...');
     
     await Future.delayed(const Duration(milliseconds: 300));
-    _emitProgress(TranscriptionProgress.partial('Transcrevendo...', 0.4));
-    onProgress?.call(0.4, 'Transcrevendo...');
+    _emitProgress(TranscriptionProgress.loading(0.4, 'Processando 504.320 samples...'));
+    onProgress?.call(0.4, 'Processando...');
+    
+    // Give UI time to show loading before heavy processing
+    await Future.delayed(const Duration(milliseconds: 500));
 
     try {
       // CRITICAL: Always use Whisper model for transcription, not Llama!
