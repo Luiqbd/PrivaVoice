@@ -86,12 +86,22 @@ class WhisperBridge(private val context: Context) {
             return
         }
 
+        // Calculate optimal thread count: leave 1 for system
+        val availableCores = Runtime.getRuntime().availableProcessors()
+        val optimalThreads = maxOf(1, availableCores - 1)
+        println("Whisper: Using $optimalThreads threads (of $availableCores available)")
+        
         // Run on background thread with lower priority
         Executors.newSingleThreadExecutor().execute {
             try {
                 val result = try {
                     runBlocking(Dispatchers.IO) {
-                        wc.transcribe(File(audioPath))
+                        // Create transcription parameters for speed/s memory optimization
+                        val params = mx.valdora.whisper.WhisperContext.WhisperParams().apply {
+                            n_threads = optimalThreads
+                            speed_up = true // Enable VAD-like behavior - skip long silences
+                        }
+                        wc.transcribe(File(audioPath), params)
                     }
                 } catch (nativeError: Exception) {
                     // Catch native C++ crashes to prevent app crash
