@@ -939,19 +939,21 @@ $_diagnosticLog
         _log('🔥[MainThread] Releasing Whisper before loading Llama...');
         WhisperBindings.dispose();
         
+        // Generate Llama path from Whisper path using string replacement
         final modelPath = _modelPath;
         if (modelPath == null) {
-          _log('🔥[MainThread] Model path not set');
-          return null;
+          _log('⚠️[MainThread] Model path not set - checking assets first');
+          // Try to initialize assets if not done
+          await checkAssetsIntegrity();
+          if (_modelPath == null) {
+            _log('❌[MainThread] Still no model path after check');
+            return null;
+          }
         }
         
-        final llamaPath = modelPath.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
-        
-        // Check Llama model exists
-        if (!File(llamaPath).existsSync()) {
-          _log('🔥[MainThread] Llama model not found');
-          return null;
-        }
+        _log('🔄[MainThread] Using model path: $_modelPath');
+        final llamaPath = modelPath!.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
+        _log('🔄[MainThread] Derived Llama path: $llamaPath');
         
         // Load Llama
         if (!LlamaBindings.load()) {

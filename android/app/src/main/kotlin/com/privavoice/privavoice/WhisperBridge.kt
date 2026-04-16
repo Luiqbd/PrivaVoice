@@ -77,14 +77,18 @@ class WhisperBridge(private val context: Context) {
 
     /**
      * Transcribe audio file (WAV, 16kHz mono PCM)
-     * Runs on background thread to prevent UI freeze
+     * CRITICAL: Force language to PT-BR to prevent Spanish/English confusion
      */
-    fun transcribe(audioPath: String, callback: (String) -> Unit) {
+    fun transcribe(audioPath: String, language: String = "pt", callback: (String) -> Unit) {
         val wc = whisperContext
         if (wc == null) {
             callback("Error: Whisper not initialized")
             return
         }
+
+        // CRITICAL: Force PT-BR - ignore whatever language was passed
+        val fixedLanguage = "pt"  // FORCE Portuguese
+        println("WhisperBridge: FORCING language to PT-BR (was: $language)")
 
         // Calculate optimal thread count: leave 1 for system
         val availableCores = Runtime.getRuntime().availableProcessors()
