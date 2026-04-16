@@ -59,6 +59,7 @@ class AIService {
   static bool _isolateWhisperReady = false;
   static bool _modelsCopied = false;
   static String? _modelPath;
+  static String? _llamaModelPath; // Separate persistent path for Llama
   static String _diagnosticLog = '';
   static int _availableSpaceBytes = 0;
   
@@ -294,6 +295,7 @@ class AIService {
           await _deleteAndRecreateModel(llamaPath, LLAMA_FILENAME);
           _log('✅ Llama recreated successfully!');
         } else {
+          _llamaModelPath = llamaPath; // Store persistent path
           _log('✅ Llama model ready (verified)');
         }
       } else {
@@ -303,6 +305,7 @@ class AIService {
         // Verify copy worked
         final copiedFile = File(llamaPath);
         if (await copiedFile.exists()) {
+          _llamaModelPath = llamaPath; // Store persistent path
           final copiedSize = copiedFile.statSync().size;
           _log('✅ Llama copied successfully! Size: $copiedSize bytes');
         } else {
