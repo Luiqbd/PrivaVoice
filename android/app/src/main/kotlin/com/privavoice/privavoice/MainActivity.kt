@@ -55,11 +55,12 @@ class MainActivity : FlutterActivity() {
             when (call.method) {
                 "init" -> {
                     val path = call.argument<String>("modelPath") ?: ""
+                    val language = call.argument<String>("language") ?: "pt"
                     // Initialize library AND load model in one call
-                    whisperBridge.initialize("pt") { success, initMsg ->
+                    whisperBridge.initialize(language) { success, initMsg ->
                         if (success) {
                             // NOW load the model (creates WhisperContext!)
-                            whisperBridge.loadModel(path) { loadSuccess, loadMsg ->
+                            whisperBridge.loadModel(path, language) { loadSuccess, loadMsg ->
                                 if (loadSuccess) result.success(true)
                                 else result.error("LOAD_ERROR", loadMsg, null)
                             }
@@ -70,7 +71,8 @@ class MainActivity : FlutterActivity() {
                 }
                 "loadModel" -> {
                     val path = call.argument<String>("modelPath") ?: ""
-                    whisperBridge.loadModel(path) { success, message ->
+                    val language = call.argument<String>("language") ?: "pt"
+                    whisperBridge.loadModel(path, language) { success, message ->
                         if (success) result.success(mapOf("status" to "ok", "message" to message))
                         else result.error("LOAD_ERROR", message, null)
                     }
@@ -78,13 +80,13 @@ class MainActivity : FlutterActivity() {
                 "transcribe" -> {
                     val path = call.argument<String>("audioPath") ?: ""
                     // Force PT language to prevent Spanish transcription
-                    val language = "pt"
+                    val language = call.argument<String>("language") ?: "pt"
                     
                     // Synchronous transcribe - returns directly
                     var textResponse = ""
                     val semaphore = java.util.concurrent.CountDownLatch(1)
                     
-                    whisperBridge.transcribe(path) { text ->
+                    whisperBridge.transcribe(path, language) { text ->
                         textResponse = text
                         semaphore.countDown()
                     }

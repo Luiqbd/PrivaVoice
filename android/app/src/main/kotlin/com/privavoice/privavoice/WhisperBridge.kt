@@ -53,7 +53,7 @@ class WhisperBridge(private val context: Context) {
     /**
      * Load whisper-base.bin model and create WhisperContext
      */
-    fun loadModel(path: String, callback: ((Boolean, String) -> Unit)? = null) {
+    fun loadModel(path: String, language: String = "pt", callback: ((Boolean, String) -> Unit)? = null) {
         modelPath = path
         
         val file = File(path)
@@ -63,10 +63,15 @@ class WhisperBridge(private val context: Context) {
         }
         
         try {
-            println("WhisperBridge: Creating WhisperContext with path: $path")
-            whisperContext = WhisperContext(path)
+            println("WhisperBridge: Creating WhisperContext with path: $path, language: $language")
+            
+            // Use builder to set language (force PT)
+            whisperContext = WhisperContext.builder()
+                .setLanguage(language)  // FORCE Portuguese
+                .build(file)
+            
             isInitialized = true
-            println("WhisperBridge: WhisperContext created successfully!")
+            println("WhisperBridge: WhisperContext created successfully with $language!")
             callback?.invoke(true, "Model loaded: $path")
         } catch (e: Exception) {
             isInitialized = false
@@ -79,14 +84,14 @@ class WhisperBridge(private val context: Context) {
      * Transcribe audio file (WAV, 16kHz mono PCM)
      * Uses runBlocking for suspend function
      */
-    fun transcribe(audioPath: String, callback: (String) -> Unit) {
+    fun transcribe(audioPath: String, language: String = "pt", callback: (String) -> Unit) {
         val wc = whisperContext
         if (wc == null) {
             callback("Error: Whisper not initialized")
             return
         }
 
-        println("WhisperBridge: Starting transcription...")
+        println("WhisperBridge: Starting transcription in language: $language...")
 
         // Run on executor to prevent blocking
         Executors.newSingleThreadExecutor().execute {
