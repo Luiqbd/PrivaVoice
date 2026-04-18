@@ -1105,7 +1105,9 @@ Resposta:''';
         LlamaBindings.dispose();
         _log('🔥[MainThread] Llama disposed for chat');
         
-        return llmResult;
+        // Extract string from map result
+        if (llmResult == null) return null;
+        return llmResult['response'] ?? llmResult['summary'] ?? llmResult.toString();
       });
       
       AIManager.setState(AIState.readyWhisper, message: 'Pronto');
