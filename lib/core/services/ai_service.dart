@@ -1091,13 +1091,13 @@ $_diagnosticLog
         
         _log('🔥[MainThread] Llama ready, generating chat response...');
         
-        // Chat prompt
-        final prompt = '''
+        // Chat prompt - Use TinyLlama chat template
+        final prompt = '''<|system|>
 Você é um assistente útil chamado PrivaChat. Use a transcrição abaixo para responder às perguntas do usuário de forma clara e em português brasileiro.
-
+<|user|>
 $context
-
-Resposta:''';
+<|assistant|>
+''';
         
         final llmResult = LlamaBindings.generate(ctx: llamaCtx, prompt: prompt);
         
@@ -1105,9 +1105,21 @@ Resposta:''';
         LlamaBindings.dispose();
         _log('🔥[MainThread] Llama disposed for chat');
         
-        // Extract string from map result
+        // Extract string from result and clean up template tags
         if (llmResult == null) return null;
-        return llmResult['response'] ?? llmResult['summary'] ?? llmResult.toString();
+        
+        // Get the raw response
+        String response = llmResult['response'] ?? llmResult['summary'] ?? llmResult.toString();
+        
+        // Clean up template tags - extract only assistant response
+        if (response.contains('<|assistant|>')) {
+          response = response.split('<|assistant|>').last;
+        }
+        if (response.contains('<|end|>')) {
+          response = response.split('<|end|>').first;
+        }
+        
+        return response.trim();
       });
       
       AIManager.setState(AIState.readyWhisper, message: 'Pronto');
