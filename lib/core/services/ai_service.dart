@@ -532,11 +532,9 @@ class AIService {
         throw Exception('Whisper model not found: $safePath');
       }
 
-      // Normalize audio for better transcription quality
-      _log('processAudio: Normalizing audio for optimal clarity...');
-      final normalizedPath = await AudioNormalizer.normalize(audioPath, '${audioPath}_normalized.wav');
-      final finalAudioPath = normalizedPath ?? audioPath;
-      _log('processAudio: Audio normalized: ${normalizedPath != null ? "OK" : "using original"}');
+      // STABILITY: Skip normalization - use raw WAV
+      final finalAudioPath = audioPath;
+      _log('processAudio: Using raw WAV (NO normalization)...');
 
       // WhisperPlatformService handles native initialization internally
       // It runs on background thread via platform channel
@@ -641,99 +639,34 @@ class AIService {
       
       _log('🔄[MainThread] Trying native FFI with PT-BR prompt...');
       
+      // STABILITY: Only use FFI - skip Kotlin (crashes)
       // Try FFI FIRST - it loads PT-BR prompt automatically
-      try {
-        if (!WhisperBindings.load()) {
-          _log('⚠️[MainThread] FFI load failed - trying Kotlin');
-          throw Exception('FFI not available');
-        }
-
-        // Load PT-BR prompt if not already loaded
-        await WhisperBindings.loadPtBrPrompt();
-        
-        _log('🔄[MainThread] Init Whisper via FFI...');
-        final whisperCtx = WhisperBindings.initFromFile(modelPath);
-        
-        if (whisperCtx != null) {
-          _log('🔄[MainThread] Transcribing via FFI (with PT-BR prompt)...');
-          text = WhisperBindings.full(ctx: whisperCtx, audioPath: audioPath) ?? '';
-          _log('🔄[MainThread] FFI result: ${text.substring(0, text.length > 50 ? 50 : 0)}...');
-          
-          if (text.isNotEmpty) {
-            // Success with FFI!
-            _log('✅[MainThread] FFI transcription success!');
-          }
-        } else {
-          throw Exception('FFI init failed');
-        }
-      } catch (e) {
-        _log('⚠️[MainThread] FFI FAILED: $e');
-        
-        // Fallback to Kotlin platform channel
-        _log('🔄[MainThread] Falling back to Kotlin WhisperBridge...');
-        
-        try {
-          // Initialize Whisper via platform channel
-          final initResult = await WhisperPlatformService.initialize(modelPath);
-          _log('🔄[MainThread] WhisperPlatform init: $initResult');
-          
-          if (!initResult) {
-            throw Exception('WhisperPlatform initialize failed');
-          }
-          
-          // Transcribe via platform channel (runs on background thread in Kotlin)
-          _log('🔄[MainThread] Calling transcribe...');
-          text = await WhisperPlatformService.transcribe(audioPath, language: 'pt');
-          _log('🔄[MainThread] Transcribe result: ${text?.substring(0, text.length > 50 ? 50 : 0)}...');
-          
-          // Release after transcription
-          await WhisperPlatformService.release();
-          
-          if (text == null || text.isEmpty) {
-            _log('Whisper: Platform returned empty - using fallback');
-            return _generateFallbackTranscription(audioPath, title);
-          }
-        } catch (e) {
-          _log('🔄[MainThread] Platform channel FAILED: $e - trying FFI');
-          
-          // Fallback to direct FFI if platform fails
-          if (!WhisperBindings.load()) {
-            _log('Whisper: FFI load FAILED - using fallback');
-            return _generateFallbackTranscription(audioPath, title);
-          }
-    
-          _log('🔄[MainThread] Init Whisper...');
-          final whisperCtx = WhisperBindings.initFromFile(modelPath);
-          
-          if (whisperCtx == null) {
-            _log('Whisper: initFromFile returned NULL - using fallback');
-            return _generateFallbackTranscription(audioPath, title);
-          }
-    
-          _log('🔄[MainThread] ctx = $whisperCtx');
-    
-          _log('🔄[MainThread] Transcribing...');
-          // First pass: get partial segments for streaming
-          text = WhisperBindings.full(ctx: whisperCtx, audioPath: audioPath) ?? '';
-          
-          // Get segments for streaming UI
-          final segmentList = WhisperBindings.getSegments(whisperCtx);
-          _log('🔄[MainThread] Got ${segmentList.length} segments for streaming');
-          
-          // Stream each segment as we get them (with small delay to prevent UI lag)
-          for (int i = 0; i < segmentList.length; i++) {
-            _transcriptionController.add(TranscriptionProgress.partial(
-              segmentList[i], 
-              0.4 + (0.2 * i / segmentList.length)
-            ));
-            // Small delay between segments to keep 60fps stable
-            await Future.delayed(const Duration(milliseconds: 100));
-          }
-      } catch (e) {
-          _log('🔄[MainThread] Whisper EXCEPTION: $e - using fallback');
-          return _generateFallbackTranscription(audioPath, title);
-        }
+      if (!WhisperBindings.load()) {
+        _log('⚠️[MainThread] FFI load FAILED');
+        return _generateFallbackTranscription(audioPath, title);
       }
+
+      // Load PT-BR prompt if not already loaded
+      await WhisperBindings.loadPtBrPrompt();
+      
+      _log('🔄[MainThread] Init Whisper via FFI...');
+      final whisperCtx = WhisperBindings.initFromFile(modelPath);
+      
+      if (whisperCtx == null) {
+        _log('⚠️[MainThread] FFI init returned NULL');
+        return _generateFallbackTranscription(audioPath, title);
+      }
+      
+      _log('🔄[MainThread] Transcribing via FFI (with PT-BR prompt)...');
+      text = WhisperBindings.full(ctx: whisperCtx, audioPath: audioPath) ?? '';
+      _log('🔄[MainThread] FFI result: ${text.substring(0, text.length > 50 ? 50 : 0)}...');
+      
+      if (text.isEmpty) {
+        _log('⚠️[MainThread] FFI returned empty');
+        return _generateFallbackTranscription(audioPath, title);
+      }
+      
+      _log('✅[MainThread] FFI transcription success!');
       
       // If Whisper returned empty, use fallback instead of failing
       if (text == null || text.isEmpty) {
