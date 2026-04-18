@@ -5,7 +5,10 @@ import mx.valdora.whisper.WhisperContext
 import java.io.File
 import java.util.concurrent.Executors
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
@@ -79,7 +82,7 @@ class WhisperBridge(private val context: Context) {
 
     /**
      * Transcribe audio file (WAV, 16kHz mono PCM)
-     * CRITICAL: Force language to PT-BR to prevent Spanish/English confusion
+     * CRITICAL: Use CoroutineScope for thread-safe background execution
      */
     fun transcribe(audioPath: String, language: String = "pt", callback: (String) -> Unit) {
         val wc = whisperContext
@@ -97,24 +100,35 @@ class WhisperBridge(private val context: Context) {
         val optimalThreads = maxOf(1, availableCores - 1)
         println("Whisper: Using $optimalThreads threads (of $availableCores available)")
         
-        // Run on background thread with lower priority
-        Executors.newSingleThreadExecutor().execute {
+        // Use CoroutineScope for thread-safe execution
+        val coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+        coroutineScope.launch {
             try {
+                println("WhisperBridge: Starting transcription on background thread...")
                 val result = try {
-                    runBlocking(Dispatchers.IO) {
+                    // Run native C++ on IO dispatcher
+                    withContext(Dispatchers.IO) {
                         wc.transcribe(File(audioPath))
                     }
                 } catch (nativeError: Exception) {
                     // Catch native C++ crashes to prevent app crash
                     "Error: ${nativeError.message ?: "Native inference failed"}"
                 }
-                callback(result)
+                
+                // Execute callback on Main thread
+                withContext(Dispatchers.Main) {
+                    callback(result)
+                }
                 
                 // Force GC after transcription to free memory
                 System.gc()
+                coroutineScope.cancel()
             } catch (e: Exception) {
-                callback("Error: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    callback("Error: ${e.message}")
+                }
                 System.gc()
+                coroutineScope.cancel()
             }
         }
     }
