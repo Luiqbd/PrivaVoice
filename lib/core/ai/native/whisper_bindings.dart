@@ -334,7 +334,9 @@ class WhisperBindings {
   }
   
   // Separate method to isolate native call
+  // STABILITY: flags=0 (NO speed_up, no crashes)
   static String? _callWhisperFull(Pointer<Void> ctx, Pointer<Float> samples, int numSamples) {
+    // flags=0 = standard mode - safest
     final result = _full!(ctx, 0, samples, numSamples);
     print('Whisper: whisper_full result code = $result');
     
