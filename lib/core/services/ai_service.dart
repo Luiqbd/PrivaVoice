@@ -723,17 +723,18 @@ $text
 
       // Use segment-based diarization if available (from Kotlin JSON)
       // Otherwise fall back to simple Voz 1 assignment
+      final textToUse = text ?? '';
       final hasSegments = segments != null && (segments as List).isNotEmpty;
       final speakers = hasSegments
           ? _diarizeWithSegments(List<Map<String, dynamic>>.from(segments), audioDuration: audioDuration)
-          : _simpleDiarize(text);
+          : _simpleDiarize(textToUse);
       
       // Stream each segment for real-time UI effect
       for (final seg in speakers) {
         _transcriptionController.add(TranscriptionProgress.partial(seg.text, 0.5));
       }
       
-      _emitProgress(TranscriptionProgress.partial(text, 0.7));
+      _emitProgress(TranscriptionProgress.partial(textToUse, 0.7));
       
       // === SAVE TO DATABASE IMMEDIATELY so UI can show text "nascendo" ===
       // This makes the app feel 10x faster - user sees first words in 5 seconds
@@ -743,7 +744,7 @@ $text
           id: title.hashCode.abs().toString(),
           title: title,
           audioPath: audioPath,
-          text: text,
+          text: textToUse,
           wordTimestamps: [],
           createdAt: DateTime.now(),
           duration: const Duration(minutes: 2),
@@ -774,7 +775,7 @@ $text
         id: title.hashCode.abs().toString(),  // Use title as ID base
         title: title,
         audioPath: audioPath,
-        text: text,
+        text: textToUse,
         wordTimestamps: [],
         createdAt: DateTime.now(),
         duration: const Duration(minutes: 2),
