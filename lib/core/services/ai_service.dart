@@ -915,19 +915,22 @@ $_diagnosticLog
       await checkAssetsIntegrity();
     }
     final finalLlamaPath = _llamaModelPath ?? _modelPath?.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
+    if (finalLlamaPath == null || finalLlamaPath.isEmpty) {
+      _log('❌[MainThread] No Llama path available');
+      return null;
+    }
     
     final rootToken = ServicesBinding.rootIsolateToken!;
     
     try {
-      final result = await Isolate.run((Map<String, String> params) async {
+      final result = await Isolate.run(() async {
         // Initialize token
         BackgroundIsolateBinaryMessenger.ensureInitialized(rootToken);
         
         _log('🔥[MainThread] Loading Llama for summary...');
         
-        // Get llama path from parameter
-        final llamaPath = params['llamaPath']!;
-        _log('🔄[MainThread] Using Llama path: $llamaPath');
+        // Use captured path from closure
+        _log('🔄[MainThread] Using Llama path: $finalLlamaPath');
         
         // Load Llama
         if (!LlamaBindings.load()) {
@@ -935,7 +938,7 @@ $_diagnosticLog
           return null;
         }
         
-        final llamaCtx = LlamaBindings.initFromFile(llamaPath);
+        final llamaCtx = LlamaBindings.initFromFile(finalLlamaPath);
         if (llamaCtx == null) {
           _log('🔥[MainThread] Llama ctx init failed');
           return null;
@@ -1052,34 +1055,35 @@ $_diagnosticLog
       await checkAssetsIntegrity();
     }
     final finalLlamaPath = _llamaModelPath ?? _modelPath?.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
+    if (finalLlamaPath == null || finalLlamaPath.isEmpty) {
+      _log('❌[MainThread] No Llama path available');
+      return null;
+    }
     
     final rootToken = ServicesBinding.rootIsolateToken!;
     
     try {
-      final result = await Isolate.run((Map<String, String> params) async {
+      final result = await Isolate.run(() async {
         BackgroundIsolateBinaryMessenger.ensureInitialized(rootToken);
         
         _log('🔥[MainThread] Loading Llama for chat...');
         
-        // Get llama path from parameter
-        final llamaPath = params['llamaPath']!;
-        final context = params['context']!;
-        _log('🔄[MainThread] Using Llama path: $llamaPath');
+        // Use captured path from closure
+        _log('🔄[MainThread] Using Llama path: $finalLlamaPath');
         
-        // Use persistent _llamaModelPath if available
-        if (!File(llamaPath).existsSync()) {
-          _log('❌[MainThread] Llama model not found at: $llamaPath');
+        if (!File(finalLlamaPath).existsSync()) {
+          _log('❌[MainThread] Llama model not found at: $finalLlamaPath');
           return null;
         }
         
-        _log('🔄[MainThread] Found Llama at: $llamaPath');
+        _log('🔄[MainThread] Found Llama at: $finalLlamaPath');
         
         if (!LlamaBindings.load()) {
           _log('🔥[MainThread] Llama load failed');
           return null;
         }
         
-        final llamaCtx = LlamaBindings.initFromFile(llamaPath);
+        final llamaCtx = LlamaBindings.initFromFile(finalLlamaPath);
         if (llamaCtx == null) {
           _log('🔥[MainThread] Llama ctx init failed');
           return null;
@@ -1102,30 +1106,6 @@ Resposta:''';
         _log('🔥[MainThread] Llama disposed for chat');
         
         return llmResult;
-      }, {
-        'llamaPath': finalLlamaPath ?? '',
-        'context': context,
-      });
-        
-        // Dispose immediately
-        LlamaBindings.dispose();
-        _log('🔥[MainThread] Llama disposed');
-        
-        // Reload Whisper after Llama is done
-        if (_modelPath != null) {
-          try {
-            WhisperBindings.initFromFile(_modelPath!);
-            _log('🔥[MainThread] Whisper reloaded!');
-          } catch (e) {
-            _log('🔥[MainThread] Whisper reload failed: $e');
-          }
-        }
-        
-        if (llmResult == null) {
-          return null;
-        }
-        
-        return llmResult['response'] ?? llmResult['summary'] ?? '';
       });
       
       AIManager.setState(AIState.readyWhisper, message: 'Pronto');
