@@ -77,6 +77,9 @@ class MainActivity : FlutterActivity() {
                 }
                 "transcribe" -> {
                     val path = call.argument<String>("audioPath") ?: ""
+                    // Force PT language to prevent Spanish transcription
+                    val language = "pt"
+                    
                     // Synchronous transcribe - returns directly
                     var textResponse = ""
                     val semaphore = java.util.concurrent.CountDownLatch(1)

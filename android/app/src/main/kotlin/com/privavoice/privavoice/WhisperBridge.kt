@@ -86,6 +86,9 @@ class WhisperBridge(private val context: Context) {
             return
         }
 
+        // Force PT language to prevent Spanish
+        println("WhisperBridge: FORCING language to PT")
+
         // Calculate optimal thread count: leave 1 for system
         val availableCores = Runtime.getRuntime().availableProcessors()
         val optimalThreads = maxOf(1, availableCores - 1)
