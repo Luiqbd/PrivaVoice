@@ -637,39 +637,33 @@ class AIService {
       String? text;
       dynamic segments;
       
-      _log('🔄[MainThread] Trying native FFI with PT-BR prompt...');
+      // Use Kotlin mx.valdora via platform channel (NOT FFI)
+      _log('🔄[MainThread] Using Kotlin mx.valdora platform channel...');
       
-      // STABILITY: Only use FFI - skip Kotlin (crashes)
-      // Try FFI FIRST - it loads PT-BR prompt automatically
-      if (!WhisperBindings.load()) {
-        _log('⚠️[MainThread] FFI load FAILED');
-        return _generateFallbackTranscription(audioPath, title);
-      }
-
-      _log('🔄[MainThread] Running whisper in compute isolate...');
+      // Initialize Whisper via platform channel
+      final initResult = await WhisperPlatformService.initialize(modelPath);
+      _log('🔄[MainThread] WhisperPlatform init: $initResult');
       
-      // STABILITY: Use compute() to run whisper in isolated memory
-      // This prevents native crash from killing the app
-      final computeResult = await compute(_whisperTranscribeIsolate, {
-        'modelPath': modelPath,
-        'audioPath': audioPath,
-      });
-      
-      text = computeResult;
-      _log('🔄[MainThread] FFI result: ${text.substring(0, text.length > 50 ? 50 : 0)}...');
-      
-      if (text.isEmpty) {
-        _log('⚠️[MainThread] FFI returned empty');
+      if (!initResult) {
+        _log('⚠️[MainThread] WhisperPlatform init FAILED');
         return _generateFallbackTranscription(audioPath, title);
       }
       
-      _log('✅[MainThread] FFI transcription success!');
+      // Transcribe via platform channel (runs on background thread in Kotlin)
+      _log('🔄[MainThread] Transcribing via platform channel...');
+      text = await WhisperPlatformService.transcribe(audioPath, language: 'pt');
+      _log('🔄[MainThread] Platform result: ${text?.substring(0, text.length > 50 ? 50 : 0)}...');
       
-      // If Whisper returned empty, use fallback instead of failing
+      // Release Whisper to free memory before Llama
+      _log('🔄[MainThread] Releasing Whisper...');
+      await WhisperPlatformService.release();
+      
       if (text == null || text.isEmpty) {
-        _log('Whisper: returned EMPTY - using fallback');
+        _log('⚠️[MainThread] Platform returned empty');
         return _generateFallbackTranscription(audioPath, title);
       }
+      
+      _log('✅[MainThread] Kotlin transcription success!');
 
       _log('🔥[MainThread] Text: $text');
 

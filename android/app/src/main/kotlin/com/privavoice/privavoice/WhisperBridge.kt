@@ -77,7 +77,7 @@ class WhisperBridge(private val context: Context) {
 
     /**
      * Transcribe audio file (WAV, 16kHz mono PCM)
-     * Runs on background thread to prevent UI freeze
+     * Simple direct call - mx.valdora handles threading internally
      */
     fun transcribe(audioPath: String, callback: (String) -> Unit) {
         val wc = whisperContext
@@ -86,30 +86,20 @@ class WhisperBridge(private val context: Context) {
             return
         }
 
-        // Force PT language to prevent Spanish
-        println("WhisperBridge: FORCING language to PT")
+        println("WhisperBridge: Starting transcription...")
 
-        // Calculate optimal thread count: leave 1 for system
-        val availableCores = Runtime.getRuntime().availableProcessors()
-        val optimalThreads = maxOf(1, availableCores - 1)
-        println("Whisper: Using $optimalThreads threads (of $availableCores available)")
-        
-        // Run on background thread with lower priority
+        // Run on executor to prevent blocking
         Executors.newSingleThreadExecutor().execute {
             try {
-                val result = try {
-                    runBlocking(Dispatchers.IO) {
-                        wc.transcribe(File(audioPath))
-                    }
-                } catch (nativeError: Exception) {
-                    // Catch native C++ crashes to prevent app crash
-                    "Error: ${nativeError.message ?: "Native inference failed"}"
-                }
+                // Direct call - mx.valdora manages its own threads
+                val result = wc.transcribe(File(audioPath))
+                println("WhisperBridge: Transcription done, ${result.length} chars")
                 callback(result)
-                
-                // Force GC after transcription to free memory
+
+                // Force GC after transcription
                 System.gc()
             } catch (e: Exception) {
+                println("WhisperBridge: Transcription error: ${e.message}")
                 callback("Error: ${e.message}")
                 System.gc()
             }
