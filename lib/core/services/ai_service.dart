@@ -777,10 +777,12 @@ $textToFix
                   }
                 }
               }
+            } // end if ctx
+            } // end else
             // Simplefix: If post-processing failed or Llama not loaded
-            if (text == textToFix && text.isNotEmpty) {
+            if (text == textToFix && (text ?? "").isNotEmpty) {
               // Direct string replacements for common errors
-              final fixed = text
+              final fixed = text ?? ""
                 .replaceAll('transcriçãou', 'transcrição')
                 .replaceAll('gravaçãou', 'gravação')
                 .replaceAll('testandou', 'testando')
