@@ -738,20 +738,20 @@ $text
 
       _log('🔥[MainThread] Text: $text');
 
-        // POST-PROCESSING: Fix Whisper errors using Llama
-        final textToFix = text ?? '';
-        if (textToFix.isNotEmpty) {
-          try {
-            _log('🔧[MainThread] Post-processing...');
+      // POST-PROCESSING: Fix Whisper errors using Llama
+      final textToFix = text ?? '';
+      if (textToFix.isNotEmpty) {
+        try {
+          _log('🔧[MainThread] Post-processing...');
             
-            if (!LlamaBindings.load()) {
-              // Skip
-            } else {
-              final llPath = _llamaModelPath ?? _modelPath?.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
-              if (llPath != null) {
-                final ctx = LlamaBindings.initFromFile(llPath);
-                if (ctx != null) {
-                  final prompt = '''<|system|>
+          if (!LlamaBindings.load()) {
+            // Skip
+          } else {
+            final llPath = _llamaModelPath ?? _modelPath?.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
+            if (llPath != null) {
+              final ctx = LlamaBindings.initFromFile(llPath);
+              if (ctx != null) {
+                final prompt = '''<|system|>
 Aja como um revisor ortográfico.
 Remova o 'u' ou 'n' no final de palavras como 'transcriçãou'→'transcrição', 'gravaçãou'→'gravação', 'testandou'→'testando'.
 Retorne apenas o texto limpo, sem explicações.
@@ -759,26 +759,24 @@ Retorne apenas o texto limpo, sem explicações.
 $textToFix
 <|assistant|>
 ''';
-                  final out = LlamaBindings.generate(ctx: ctx, prompt: prompt);
-                  LlamaBindings.dispose();
-                  if (out != null) {
-                    String s = out.toString();
-                    // Clean ALL AI tags from output
-                    if (s.contains('<|system|>')) s = s.split('<|system|>').last;
-                    if (s.contains('<|user|>')) s = s.split('<|user|>').last;
-                    if (s.contains('<|assistant|>')) s = s.split('<|assistant|>').last;
-                    if (s.contains('<|end|>')) s = s.split('<|end|>').first;
-                    s = s.trim();
-                    
-                    if (s.isNotEmpty && s.length > textToFix.length * 0.5) {
-                      text = s;
-                      _log('🔧[MainThread] Errors fixed');
-                    }
+                final out = LlamaBindings.generate(ctx: ctx, prompt: prompt);
+                LlamaBindings.dispose();
+                if (out != null) {
+                  String s = out.toString();
+                  // Clean ALL AI tags from output
+                  if (s.contains('<|system|>')) s = s.split('<|system|>').last;
+                  if (s.contains('<|user|>')) s = s.split('<|user|>').last;
+                  if (s.contains('<|assistant|>')) s = s.split('<|assistant|>').last;
+                  if (s.contains('<|end|>')) s = s.split('<|end|>').first;
+                  s = s.trim();
+                  
+                  if (s.isNotEmpty && s.length > textToFix.length * 0.5) {
+                    text = s;
+                    _log('🔧[MainThread] Errors fixed');
                   }
                 }
               }
             } // end if ctx
-            } // end else
             // Simplefix: If post-processing failed or Llama not loaded
             if (text == textToFix && (text ?? "").isNotEmpty) {
               // Direct string replacements for common errors
@@ -794,12 +792,13 @@ $textToFix
                 _log('🔧[MainThread] Simple fix applied');
               }
             }
-          } catch (e) {
-            _log('⚠️[MainThread] Post-process error: $e');
           }
-        } // end if textToFix.isNotEmpty
+        } catch (e) {
+          _log('⚠️[MainThread] Post-process error: $e');
+        }
+      } // end if textToFix.isNotEmpty
 
-        _log('🔥[MainThread] Text after post-processing: $text');
+      _log('🔥[MainThread] Text after post-processing: $text');
 
       // Get actual audio duration for proper karaoke sync
       final audioDuration = _getAudioDuration(audioPath);
@@ -874,6 +873,7 @@ $textToFix
       try { LlamaBindings.dispose(); } catch (_) {}
     }
   }
+
   /// Diarization by pause: if interval > 1.5s, assign to Voz 2
 
   /// Uses segment timing from Whisper JSON output
