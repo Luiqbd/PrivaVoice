@@ -713,24 +713,23 @@ class AIService {
           _log('🔄[MainThread] ctx = $whisperCtx');
     
           _log('🔄[MainThread] Transcribing...');
-          try {
-            // First pass: get partial segments for streaming
-            text = WhisperBindings.full(ctx: whisperCtx, audioPath: audioPath) ?? '';
-            
-            // Get segments for streaming UI
-            final segmentList = WhisperBindings.getSegments(whisperCtx);
-            _log('🔄[MainThread] Got ${segmentList.length} segments for streaming');
-            
-            // Stream each segment as we get them (with small delay to prevent UI lag)
-            for (int i = 0; i < segmentList.length; i++) {
-              _transcriptionController.add(TranscriptionProgress.partial(
-                segmentList[i], 
-                0.4 + (0.2 * i / segmentList.length)
-              ));
-              // Small delay between segments to keep 60fps stable
-              await Future.delayed(const Duration(milliseconds: 100));
-            }
-        } catch (e) {
+          // First pass: get partial segments for streaming
+          text = WhisperBindings.full(ctx: whisperCtx, audioPath: audioPath) ?? '';
+          
+          // Get segments for streaming UI
+          final segmentList = WhisperBindings.getSegments(whisperCtx);
+          _log('🔄[MainThread] Got ${segmentList.length} segments for streaming');
+          
+          // Stream each segment as we get them (with small delay to prevent UI lag)
+          for (int i = 0; i < segmentList.length; i++) {
+            _transcriptionController.add(TranscriptionProgress.partial(
+              segmentList[i], 
+              0.4 + (0.2 * i / segmentList.length)
+            ));
+            // Small delay between segments to keep 60fps stable
+            await Future.delayed(const Duration(milliseconds: 100));
+          }
+      } catch (e) {
           _log('🔄[MainThread] Whisper EXCEPTION: $e - using fallback');
           return _generateFallbackTranscription(audioPath, title);
         }
