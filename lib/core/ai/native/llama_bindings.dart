@@ -23,9 +23,10 @@ class LlamaBindings {
     print('Llama: Attempting to load native library...');
 
     try {
-      // Try jniLibs path first
+      // Try jniLibs path first - extractNativeLibs=true extracts to app library dir
       List<String> paths = [
         'libllama.so',
+        '/data/user/0/com.privavoice.privavoice/app_flutter/lib/libllama.so',
         '/data/data/com.privavoice.privavoice/lib/libllama.so',
       ];
 

@@ -777,11 +777,24 @@ $textToFix
                   }
                 }
               }
+            // Simplefix: If post-processing failed or Llama not loaded
+            if (text == textToFix) {
+              // Direct string replacements for common errors
+              text = text
+                .replaceAll('transcriçãou', 'transcrição')
+                .replaceAll('gravaçãou', 'gravação')
+                .replaceAll('testandou', 'testando')
+                .replaceAll('falandou', 'falando')
+                .replaceAll('gravandou', 'gravando')
+                .replaceAll('digalandou', 'digalando');
+              if (text != textToFix) {
+                _log('🔧[MainThread] Simple fix applied');
+              }
             }
           } catch (e) {
             _log('⚠️[MainThread] Post-process error: $e');
           }
-        }
+        } // end if textToFix.isNotEmpty
 
         _log('🔥[MainThread] Text after post-processing: $text');
 
