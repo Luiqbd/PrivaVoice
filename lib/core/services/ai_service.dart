@@ -908,35 +908,25 @@ $_diagnosticLog
     _log('=== GENERATE SUMMARY ON-DEMAND ===');
     AIManager.setState(AIState.processing, message: 'Gerando resumo...');
     
-    // Capture token for isolate
+    // Capture paths BEFORE entering isolate
+    final llamaPath = _llamaModelPath ?? _modelPath?.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
+    if (llamaPath == null) {
+      _log('⚠️[MainThread] No Llama path - checking assets');
+      await checkAssetsIntegrity();
+    }
+    final finalLlamaPath = _llamaModelPath ?? _modelPath?.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
+    
     final rootToken = ServicesBinding.rootIsolateToken!;
     
     try {
-      final result = await Isolate.run(() async {
+      final result = await Isolate.run((Map<String, String> params) async {
         // Initialize token
         BackgroundIsolateBinaryMessenger.ensureInitialized(rootToken);
         
         _log('🔥[MainThread] Loading Llama for summary...');
         
-        // CRITICAL: Release Whisper BEFORE loading Llama to prevent OOM
-        _log('🔥[MainThread] Releasing Whisper before loading Llama...');
-        WhisperBindings.dispose();
-        
-        // Generate Llama path from Whisper path using string replacement
-        final modelPath = _modelPath;
-        if (modelPath == null) {
-          _log('⚠️[MainThread] Model path not set - checking assets first');
-          // Try to initialize assets if not done
-          await checkAssetsIntegrity();
-          if (_modelPath == null) {
-            _log('❌[MainThread] Still no model path after check');
-            return null;
-          }
-        }
-        
-        _log('🔄[MainThread] Using model path: $_modelPath');
-        // Use persistent _llamaModelPath if available
-        final llamaPath = _llamaModelPath ?? modelPath!.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
+        // Get llama path from parameter
+        final llamaPath = params['llamaPath']!;
         _log('🔄[MainThread] Using Llama path: $llamaPath');
         
         // Load Llama
@@ -1055,28 +1045,28 @@ $_diagnosticLog
     _log('=== GENERATE CHAT RESPONSE ===');
     AIManager.setState(AIState.processing, message: 'PrivaChat pensando...');
     
+    // Capture paths BEFORE entering isolate
+    final llamaPath = _llamaModelPath ?? _modelPath?.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
+    if (llamaPath == null) {
+      _log('⚠️[MainThread] No Llama path - checking assets');
+      await checkAssetsIntegrity();
+    }
+    final finalLlamaPath = _llamaModelPath ?? _modelPath?.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
+    
     final rootToken = ServicesBinding.rootIsolateToken!;
     
     try {
-      final result = await Isolate.run(() async {
+      final result = await Isolate.run((Map<String, String> params) async {
         BackgroundIsolateBinaryMessenger.ensureInitialized(rootToken);
         
         _log('🔥[MainThread] Loading Llama for chat...');
         
-        // CRITICAL: Release Whisper BEFORE loading Llama to prevent OOM
-        _log('🔥[MainThread] Releasing Whisper before loading Llama...');
-        WhisperBindings.dispose();
+        // Get llama path from parameter
+        final llamaPath = params['llamaPath']!;
+        final context = params['context']!;
+        _log('🔄[MainThread] Using Llama path: $llamaPath');
         
         // Use persistent _llamaModelPath if available
-        final modelPath = _modelPath;
-        if (modelPath == null && _llamaModelPath == null) {
-          _log('❌[MainThread] No Llama model path available');
-          return null;
-        }
-        
-        // Use persistent path or derive from modelPath
-        final llamaPath = _llamaModelPath ?? modelPath!.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
-        
         if (!File(llamaPath).existsSync()) {
           _log('❌[MainThread] Llama model not found at: $llamaPath');
           return null;
@@ -1106,6 +1096,16 @@ $context
 Resposta:''';
         
         final llmResult = LlamaBindings.generate(ctx: llamaCtx, prompt: prompt);
+        
+        // Dispose immediately
+        LlamaBindings.dispose();
+        _log('🔥[MainThread] Llama disposed for chat');
+        
+        return llmResult;
+      }, {
+        'llamaPath': finalLlamaPath ?? '',
+        'context': context,
+      });
         
         // Dispose immediately
         LlamaBindings.dispose();
