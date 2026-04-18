@@ -58,11 +58,9 @@ flutter {
 }
 
 dependencies {
-    // Llama.cpp - Native module (oficial do llama.cpp)
-    implementation(project(":llama-android"))
-    
-    // Llama.cpp - NLP (Maven Central) - COMMENTED, usando o nativo
-    // implementation("io.github.ljcamargo:llamacpp-kotlin:0.2.0")
+    // Llama.cpp - NLP (Maven Central)
+    // Using native libllama.so from jniLibs instead
+    implementation("io.github.ljcamargo:llamacpp-kotlin:0.2.0")
     
     // Whisper - mx.valdora (libwhisper.so nativo)
     implementation("mx.valdora:whisper-android:1.0.0")
