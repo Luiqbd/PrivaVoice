@@ -739,7 +739,8 @@ $text
       _log('🔥[MainThread] Text: $text');
 
         // POST-PROCESSING: Fix Whisper errors using Llama
-        if (text.isNotEmpty && _useLlamaTranslation) {
+        final textToFix = text ?? '';
+        if (textToFix.isNotEmpty) {
           try {
             _log('🔧[MainThread] Post-processing...');
             if (!LlamaBindings.load()) {
@@ -754,7 +755,7 @@ You correct transcription errors in Brazilian Portuguese.
 Errors: "u" at end (testandou→testando), "n" at end (falandou→falando).
 NO translation. Return ONLY corrected text.
 <|user|>
-''' + text + '''
+$textToFix
 <|assistant|>
 ''';
                   final out = LlamaBindings.generate(ctx: ctx, prompt: prompt);
@@ -764,7 +765,7 @@ NO translation. Return ONLY corrected text.
                     if (s.contains('<|assistant|>')) s = s.split('<|assistant|>').last;
                     if (s.contains('<|end|>')) s = s.split('<|end|>').first;
                     s = s.trim();
-                    if (s.isNotEmpty && s.length > text.length * 0.5) {
+                    if (s.isNotEmpty && s.length > textToFix.length * 0.5) {
                       text = s;
                       _log('🔧[MainThread] Errors fixed');
                     }
