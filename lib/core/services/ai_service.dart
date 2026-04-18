@@ -870,27 +870,12 @@ $textToFix
       );
       
     } finally {
-      _log('🔥[MainThread] Finally block: Cleaning up memory...');
-      
-      try {
-        WhisperBindings.dispose();
-        _log('🔥[MainThread] Whisper disposed');
-      } catch (e) {
-        _log('🔥[MainThread] Whisper dispose error: $e');
-      }
-      
-      try {
-        LlamaBindings.dispose();
-        _log('🔥[MainThread] Llama disposed');
-      } catch (e) {
-        _log('🔥[MainThread] Llama dispose error: $e');
-      }
-      
-      // Skipped delay in finally
+      try { WhisperBindings.dispose(); } catch (_) {}
+      try { LlamaBindings.dispose(); } catch (_) {}
     }
   }
-
   /// Diarization by pause: if interval > 1.5s, assign to Voz 2
+
   /// Uses segment timing from Whisper JSON output
   static List<SpeakerSegment> _diarizeWithSegments(
     List<Map<String, dynamic>> segments, {
