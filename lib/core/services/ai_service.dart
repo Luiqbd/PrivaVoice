@@ -665,6 +665,56 @@ class AIService {
       
       _log('✅[MainThread] Kotlin transcription success!');
 
+      _log('🔥[MainThread] Raw text: $text');
+
+      // FIX: Detect and translate Spanish to Portuguese
+      final isSpanish = text.toLowerCase().contains('hola') || 
+                        text.toLowerCase().contains('está') ||
+                        text.toLowerCase().contains('grabación') ||
+                        text.toLowerCase().contains('aplicación') ||
+                        text.toLowerCase().contains('este') ||
+                        text.toLowerCase().contains('esta');
+      
+      if (isSpanish) {
+        _log('🔄[MainThread] Detected Spanish, translating to Portuguese...');
+        try {
+          // Use Llama to translate
+          if (!LlamaBindings.load()) {
+            _log('⚠️[MainThread] Llama load failed for translation');
+          } else {
+            final llamaPath = _llamaModelPath ?? _modelPath?.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
+            if (llamaPath != null) {
+              final llamaCtx = LlamaBindings.initFromFile(llamaPath);
+              if (llamaCtx != null) {
+                final translatePrompt = '''<|system|>
+You are a translator. Translate the following text from Spanish to Portuguese (Brazilian Portuguese). Output ONLY the translated text, nothing else.
+<|user|>
+$text
+<|assistant|>
+''';
+                final translated = LlamaBindings.generate(ctx: llamaCtx, prompt: translatePrompt);
+                LlamaBindings.dispose();
+                
+                if (translated != null && translated.isNotEmpty) {
+                  // Extract translation
+                  String ptText = translated.toString();
+                  if (ptText.contains('<|assistant|>')) {
+                    ptText = ptText.split('<|assistant|>').last;
+                  }
+                  if (ptText.contains('<|end|>')) {
+                    ptText = ptText.split('<|end|>').first;
+                  }
+                  text = ptText.trim();
+                  _log('🔄[MainThread] Translated to PT: ${text.substring(0, text.length > 50 ? 50 : 0)}...');
+                }
+              }
+            }
+          }
+        } catch (e) {
+          _log('⚠️[MainThread] Translation failed: $e');
+        }
+      }
+
       _log('🔥[MainThread] Text: $text');
 
       // Get actual audio duration for proper karaoke sync
