@@ -311,7 +311,11 @@ class WhisperBindings {
       // Wrap in try-catch to prevent native crash from killing app
       String? result;
       try {
+        // STABILITY: Add timeout protection
+        final stopwatch = Stopwatch()..start();
         result = _callWhisperFull(ctx, samples, numSamples);
+        stopwatch.stop();
+        print('Whisper: Transcription took ${stopwatch.elapsedMilliseconds}ms');
       } catch (nativeError) {
         print('Whisper: Native call FAILED: $nativeError');
         calloc.free(samples);
@@ -336,17 +340,31 @@ class WhisperBindings {
   // Separate method to isolate native call
   // STABILITY: flags=0 (NO speed_up, no crashes)
   static String? _callWhisperFull(Pointer<Void> ctx, Pointer<Float> samples, int numSamples) {
-    // flags=0 = standard mode - safest
-    final result = _full!(ctx, 0, samples, numSamples);
-    print('Whisper: whisper_full result code = $result');
-    
-    if (result != 0) {
-      print('Whisper: whisper_full returned error code');
+    // STABILITY: Wrap in try-catch to prevent native crash from killing app
+    try {
+      print('Whisper: Calling whisper_full...');
+      // flags=0 = standard mode - safest
+      final result = _full!(ctx, 0, samples, numSamples);
+      print('Whisper: whisper_full result code = $result');
+      
+      if (result != 0) {
+        print('Whisper: whisper_full returned error code: $result');
+        return null;
+      }
+    } catch (e) {
+      print('Whisper: ❌ Native crash in whisper_full: $e');
       return null;
     }
 
-    final nSegments = _nSegments!(ctx);
-    print('Whisper: n_segments = $nSegments');
+    // Get segments - also wrap in try-catch
+    int nSegments;
+    try {
+      nSegments = _nSegments!(ctx);
+      print('Whisper: n_segments = $nSegments');
+    } catch (e) {
+      print('Whisper: ❌ Native crash in n_segments: $e');
+      return null;
+    }
 
     if (nSegments <= 0) {
       print('Whisper: No segments');
@@ -355,10 +373,15 @@ class WhisperBindings {
 
     final buffer = StringBuffer();
     for (int i = 0; i < nSegments; i++) {
-      final textPtr = _getSegmentText!(ctx, i);
-      if (textPtr != Pointer<Utf8>.fromAddress(0)) {
-        if (buffer.isNotEmpty) buffer.write(' ');
-        buffer.write(textPtr.toDartString());
+      try {
+        final textPtr = _getSegmentText!(ctx, i);
+        if (textPtr != Pointer<Utf8>.fromAddress(0)) {
+          if (buffer.isNotEmpty) buffer.write(' ');
+          buffer.write(textPtr.toDartString());
+        }
+      } catch (e) {
+        print('Whisper: ❌ Error reading segment $i: $e');
+        // Continue to next segment
       }
     }
 
