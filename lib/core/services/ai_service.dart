@@ -695,17 +695,34 @@ $text
                 final translated = LlamaBindings.generate(ctx: llamaCtx, prompt: translatePrompt);
                 LlamaBindings.dispose();
                 
-                if (translated != null && translated.isNotEmpty) {
-                  // Extract translation
-                  String ptText = translated.toString();
+                // Check if translation was successful
+                if (translated != null) {
+                  // Handle both Map (fallback) and String formats
+                  String ptText;
+                  if (translated is Map) {
+                    // Fallback generate returns a Map with 'response' or 'summary'
+                    ptText = translated['response']?.toString() ?? 
+                             translated['summary']?.toString() ?? 
+                             translated.toString();
+                  } else {
+                    ptText = translated.toString();
+                  }
+                  
+                  // Clean up template tags - extract only assistant response
                   if (ptText.contains('<|assistant|>')) {
                     ptText = ptText.split('<|assistant|>').last;
                   }
                   if (ptText.contains('<|end|>')) {
                     ptText = ptText.split('<|end|>').first;
                   }
+                  // Also clean up "summary:" prefix that Llama might add
+                  if (ptText.toLowerCase().startsWith('resumo:') || 
+                      ptText.toLowerCase().startsWith('summary:')) {
+                    ptText = ptText.substring(ptText.indexOf(':') + 1).trim();
+                  }
+                  
                   text = ptText.trim();
-                  _log('🔄[MainThread] Translated to PT: ${text.substring(0, text.length > 50 ? 50 : 0)}...');
+                  _log('🔄[MainThread] Translated to PT: ${text.length > 50 ? text.substring(0, 50) + "..." : text}');
                 }
               }
             }
