@@ -320,15 +320,26 @@ class LlamaBindings {
     
     // Simple word replacement dictionary (most common Spanish words → Portuguese)
     final replacements = {
+      // Saudação e comuns
       'hola': 'olá',
       'está': 'está',
       'estoy': 'estou',
       'testando': 'testando',
+      // Gravação e áudio
       'grabación': 'gravação',
       'gravaçao': 'gravação',
       'grabaçao': 'gravação',
+      // Edição
+      'edición': 'edição',
+      'editaçao': 'edição',
+      // Aplicativo
       'aplicación': 'aplicativo',
       'aplicativo': 'aplicativo',
+      // Primeira mão
+      'primera mano': 'primeira mão',
+      'primera': 'primeira',
+      'mano': 'mão',
+      // Nova/Novo
       'nueva': 'nova',
       'novo': 'novo',
       'nuevo': 'novo',

@@ -686,8 +686,12 @@ class AIService {
             if (llamaPath != null) {
               final llamaCtx = LlamaBindings.initFromFile(llamaPath);
               if (llamaCtx != null) {
+                // Professional translation prompt for PT-BR
                 final translatePrompt = '''<|system|>
-You are a translator. Translate the following text from Spanish to Portuguese (Brazilian Portuguese). Output ONLY the translated text, nothing else.
+You are a professional translator from Spanish to Brazilian Portuguese. 
+Your task is to translate audio transcriptions to natural Brazilian Portuguese.
+Use correct Portuguese terms: 'gravação' NOT 'grabación', 'aplicativo' NOT 'aplicación', 'edição' NOT 'edición'.
+Return ONLY the translated text in Portuguese. No explanations, no tags, no comments.
 <|user|>
 $text
 <|assistant|>
