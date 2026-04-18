@@ -886,8 +886,7 @@ $textToFix
         _log('🔥[MainThread] Llama dispose error: $e');
       }
       
-      await Future.delayed(const Duration(milliseconds: 500));
-      _log('🔥[MainThread] Memory cleanup complete');
+      // Skipped delay in finally
     }
   }
 
