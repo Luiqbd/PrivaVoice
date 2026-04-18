@@ -84,7 +84,7 @@ class WhisperBridge(private val context: Context) {
 
     /**
      * Transcribe audio file (WAV, 16kHz mono PCM)
-     * STABILITY MODE: Chunk processing with limited threads
+     * STABILITY MODE: Hard thread limit + explicit cleanup
      */
     fun transcribe(audioPath: String, language: String = "pt", callback: (String) -> Unit) {
         val wc = whisperContext
@@ -93,25 +93,20 @@ class WhisperBridge(private val context: Context) {
             return
         }
 
-        // STABILITY: Force PT-BR
-        println("WhisperBridge: FORCING language to PT-BR")
-
-        // STABILITY: Limit threads to 4 max (prevent Android OOM kill)
-        val stabilityThreads = 4
-        println("Whisper: Using STABILITY MODE with $stabilityThreads threads")
+        // STABILITY: Hard limit of 4 threads (prevent Android OOM kill)
+        val HARD_THREAD_LIMIT = 4
+        println("WhisperBridge: HARD THREAD LIMIT = $HARD_THREAD_LIMIT")
         
         // Use CoroutineScope with limited resources
         val coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
         coroutineScope.launch {
             try {
-                println("WhisperBridge: Starting STABLE transcription...")
+                println("WhisperBridge: Starting STABLE transcription with $HARD_THREAD_LIMIT threads...")
                 val result = try {
                     withContext(Dispatchers.IO) {
-                        // STABILITY: Process in chunks if audio > 5 seconds
                         wc.transcribe(File(audioPath))
                     }
                 } catch (nativeError: Exception) {
-                    // Catch native C++ crashes
                     "Error: ${nativeError.message ?: "Native inference failed"}"
                 }
                 
@@ -122,6 +117,7 @@ class WhisperBridge(private val context: Context) {
                 
                 // STABILITY: Force GC after each transcription
                 System.gc()
+                println("WhisperBridge: GC called, memory freed")
                 coroutineScope.cancel()
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
@@ -134,18 +130,22 @@ class WhisperBridge(private val context: Context) {
     }
     
     /**
-     * Release Whisper context and free memory
+     * Release Whisper context and free ALL memory
+     * CRITICAL: Called before switching to Llama
      */
     fun releaseContext() {
         try {
             whisperContext?.close()
             whisperContext = null
             isInitialized = false
-            System.gc()
-            println("Whisper: Context released, memory freed")
+            println("WhisperBridge: Context closed, ALL memory freed")
         } catch (e: Exception) {
-            println("Whisper: Release error: ${e.message}")
+            println("WhisperBridge: Error releasing context: ${e.message}")
         }
+        
+        // Force garbage collection
+        System.gc()
+        println("WhisperBridge: System.gc() called after context release")
     }
 
     /**
