@@ -738,6 +738,47 @@ $text
 
       _log('🔥[MainThread] Text: $text');
 
+        // POST-PROCESSING: Fix Whisper errors using Llama
+        if (text.isNotEmpty && _useLlamaTranslation) {
+          try {
+            _log('🔧[MainThread] Post-processing...');
+            if (!LlamaBindings.load()) {
+              // Skip
+            } else {
+              final llPath = _llamaModelPath ?? _modelPath?.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
+              if (llPath != null) {
+                final ctx = LlamaBindings.initFromFile(llPath);
+                if (ctx != null) {
+                  final prompt = '''<|system|>
+You correct transcription errors in Brazilian Portuguese.
+Errors: "u" at end (testandou→testando), "n" at end (falandou→falando).
+NO translation. Return ONLY corrected text.
+<|user|>
+''' + text + '''
+<|assistant|>
+''';
+                  final out = LlamaBindings.generate(ctx: ctx, prompt: prompt);
+                  LlamaBindings.dispose();
+                  if (out != null) {
+                    String s = out.toString();
+                    if (s.contains('<|assistant|>')) s = s.split('<|assistant|>').last;
+                    if (s.contains('<|end|>')) s = s.split('<|end|>').first;
+                    s = s.trim();
+                    if (s.isNotEmpty && s.length > text.length * 0.5) {
+                      text = s;
+                      _log('🔧[MainThread] Errors fixed');
+                    }
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            _log('⚠️[MainThread] Post-process error: $e');
+          }
+        }
+
+        _log('🔥[MainThread] Text after post-processing: $text');
+
       // Get actual audio duration for proper karaoke sync
       final audioDuration = _getAudioDuration(audioPath);
       _log('🔥[MainThread] Audio duration: ${audioDuration?.inSeconds ?? 120} seconds');
