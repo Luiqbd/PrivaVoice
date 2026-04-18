@@ -646,19 +646,16 @@ class AIService {
         return _generateFallbackTranscription(audioPath, title);
       }
 
-      // Load PT-BR prompt if not already loaded
-      await WhisperBindings.loadPtBrPrompt();
+      _log('🔄[MainThread] Running whisper in compute isolate...');
       
-      _log('🔄[MainThread] Init Whisper via FFI...');
-      final whisperCtx = WhisperBindings.initFromFile(modelPath);
+      // STABILITY: Use compute() to run whisper in isolated memory
+      // This prevents native crash from killing the app
+      final computeResult = await compute(_whisperTranscribeIsolate, {
+        'modelPath': modelPath,
+        'audioPath': audioPath,
+      });
       
-      if (whisperCtx == null) {
-        _log('⚠️[MainThread] FFI init returned NULL');
-        return _generateFallbackTranscription(audioPath, title);
-      }
-      
-      _log('🔄[MainThread] Transcribing via FFI (with PT-BR prompt)...');
-      text = WhisperBindings.full(ctx: whisperCtx, audioPath: audioPath) ?? '';
+      text = computeResult;
       _log('🔄[MainThread] FFI result: ${text.substring(0, text.length > 50 ? 50 : 0)}...');
       
       if (text.isEmpty) {
@@ -852,6 +849,35 @@ Error: ${AIManager.lastError}
 --- Diagnostic Log ---
 $_diagnosticLog
 ''';
+  }
+
+  /// Isolate function for whisper transcription
+  /// Runs in separate memory space to prevent native crashes
+  static String _whisperTranscribeIsolate(Map<String, String> params) {
+    final modelPath = params['modelPath']!;
+    final audioPath = params['audioPath']!;
+    
+    print('Isolate: Loading whisper...');
+    
+    // Load FFI in isolate
+    if (!WhisperBindings.load()) {
+      return '';
+    }
+    
+    // Load PT-BR prompt
+    WhisperBindings.loadPtBrPrompt();
+    
+    // Init model
+    final ctx = WhisperBindings.initFromFile(modelPath);
+    if (ctx == null) {
+      return '';
+    }
+    
+    // Transcribe
+    final result = WhisperBindings.full(ctx: ctx, audioPath: audioPath) ?? '';
+    print('Isolate: Transcription done, ${result.length} chars');
+    
+    return result;
   }
 
   /// Fallback transcription when native library fails
