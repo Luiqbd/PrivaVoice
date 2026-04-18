@@ -66,12 +66,13 @@ class WhisperPlatformService {
         return null;
       }
       
-      // CRITICAL: Force PT language by passing prompt in the request
-      // The mx.valdora library checks for language in params
+      // CRITICAL: Force PT language via prompt - this is the only way with mx.valdora
+      // The prompt is used as initial context to bias the model
       final result = await _channel.invokeMethod<String>('transcribe', {
         'audioPath': audioPath,
-        'language': 'pt',  // FORCE Portuguese - ignore whatever was passed
-        'prompt': 'pt-BR spoken language transcription' // Force via prompt
+        'language': 'pt',
+        // Strong Portuguese prompt to force PT transcription
+        'prompt': 'Este áudio está em português brasileiro. Transcreva em português do Brasil. Palavras comuns em português: olá, bom dia, obrigado, saúde, céu, terra, água, fogo, casa, trabalho, família, amigos, trabalho, informação, dados, sistema, aplicativo, transcrição, áudio, gravação, microfone, processamento, inteligência, artificial, neural, modelo, linguagem, reconhecimento, voz, fala, palavras, frases, sentenças, texto.'
       });
       
       print('WhisperPlatform: Transcribe result: ${result != null && result.length > 50 ? result.substring(0, 50) + "..." : result ?? "null"}');
