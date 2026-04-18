@@ -18,6 +18,7 @@
     <application
         android:label="PrivaVoice"
         android:name="${applicationName}"
+        android:extractNativeLibs="true"
         android:icon="@mipmap/ic_launcher"
         android:requestLegacyExternalStorage="true"
         android:largeHeap="true">

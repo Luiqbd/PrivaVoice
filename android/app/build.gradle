@@ -9,8 +9,14 @@ android {
     compileSdk = 36
     ndkVersion = "27.0.12077973"
 
+    sourceSets {
+        main {
+            jniLibs.srcDirs = ['src/main/jniLibs']
+        }
+    }
+
     aaptOptions {
-        noCompress 'bin', 'gguf'
+        noCompress 'bin', 'gguf', 'so'
     }
 
     compileOptions {
