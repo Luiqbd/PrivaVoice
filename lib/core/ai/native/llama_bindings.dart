@@ -15,18 +15,18 @@ class LlamaBindings {
   static bool get isContextReady => _ctx != null && _ctx != Pointer<Void>.fromAddress(0);
   static List<String> get lastTokens => _lastTokens;
 
-  /// Load libllama.so with fallback logging
+  /// Load the native library
+  /// Uses libllama.so from jniLibs
   static bool load() {
     if (_isLoaded) return true;
 
     print('Llama: Attempting to load native library...');
 
     try {
-      // Try library name from dependency
+      // Try jniLibs path first
       List<String> paths = [
         'libllama.so',
         '/data/data/com.privavoice.privavoice/lib/libllama.so',
-        '/data/app/lib/libllama.so',
       ];
 
       _lib = null;
@@ -41,14 +41,13 @@ class LlamaBindings {
       }
 
       if (_lib == null) {
-        // Fallback: try to use the Maven Kotlin binding
-        print('Llama: ⚠️ Native lib not found, using Kotlin binding fallback');
+        print('Llama: ⚠️ Native lib not found, using fallback');
         _isLoaded = true;
         return true;
       }
 
       _isLoaded = true;
-      print('Llama: ✅ Library loaded successfully');
+      print('Llama: ✅ Native library loaded successfully');
       return true;
     } catch (e) {
       print('Llama: ❌ Load error: $e');
