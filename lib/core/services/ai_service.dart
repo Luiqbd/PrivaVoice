@@ -744,14 +744,6 @@ $text
           try {
             _log('🔧[MainThread] Post-processing...');
             
-            // Force load libllama.so
-            try {
-              System.loadLibrary('llama');
-              _log('🔧[MainThread] libllama.so loaded');
-            } catch (e) {
-              _log('⚠️[MainThread] libllama.so already loaded or fallback');
-            }
-            
             if (!LlamaBindings.load()) {
               // Skip
             } else {
