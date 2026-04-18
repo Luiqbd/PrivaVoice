@@ -17,6 +17,11 @@ typedef WhisperFullNative = Int32 Function(
 typedef WhisperFullDart = int Function(
     Pointer<Void> ctx, int flags, Pointer<Float> samples, int n_samples);
 
+/// STABILITY: Whisper flags for low-power mode
+/// WHISPER_FLAG_SPEED_UP = 2 (bit 1) - faster processing
+/// We'll use flags=2 for speed mode
+const int WHISPER_FLAG_SPEED_UP = 2;
+
 // Whisper full with prompt - uses parameters struct
 typedef WhisperFullParamsNative = Pointer<Void> Function(Pointer<Void> ctx);
 typedef WhisperFullParamsDart = Pointer<Void> Function(Pointer<Void> ctx);
@@ -286,8 +291,13 @@ class WhisperBindings {
   }
   
   // Separate method to isolate native call
+  /// STABILITY: Use flags=2 (WHISPER_FLAG_SPEED_UP) for low-power mode
   static String? _callWhisperFull(Pointer<Void> ctx, Pointer<Float> samples, int numSamples) {
-    final result = _full!(ctx, 0, samples, numSamples);
+    // Use speed_up flag to reduce processing load
+    final stabilityFlags = WHISPER_FLAG_SPEED_UP; // 2 = speed up mode
+    print('Whisper: Calling with STABILITY flags=$stabilityFlags (speed_up enabled)');
+    
+    final result = _full!(ctx, stabilityFlags, samples, numSamples);
     print('Whisper: whisper_full result code = $result');
     
     if (result != 0) {
