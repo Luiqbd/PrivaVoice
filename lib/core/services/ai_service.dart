@@ -639,13 +639,41 @@ class AIService {
       String? text;
       dynamic segments;
       
-      _log('🔥[MainThread] Trying native FFI...');
+      _log('🔄[MainThread] Trying native FFI with PT-BR prompt...');
       
-      // Try Kotlin platform channel first (more stable than direct FFI)
-      _log('🔄[MainThread] Using Kotlin WhisperBridge...');
-      
+      // Try FFI FIRST - it loads PT-BR prompt automatically
       try {
-        // Initialize Whisper via platform channel (modelPath + language)
+        if (!WhisperBindings.load()) {
+          _log('⚠️[MainThread] FFI load failed - trying Kotlin');
+          throw Exception('FFI not available');
+        }
+
+        // Load PT-BR prompt if not already loaded
+        await WhisperBindings.loadPtBrPrompt();
+        
+        _log('🔄[MainThread] Init Whisper via FFI...');
+        final whisperCtx = WhisperBindings.initFromFile(modelPath);
+        
+        if (whisperCtx != null) {
+          _log('🔄[MainThread] Transcribing via FFI (with PT-BR prompt)...');
+          text = WhisperBindings.full(ctx: whisperCtx, audioPath: audioPath) ?? '';
+          _log('🔄[MainThread] FFI result: ${text.substring(0, text.length > 50 ? 50 : 0)}...');
+          
+          if (text.isNotEmpty) {
+            // Success with FFI!
+            _log('✅[MainThread] FFI transcription success!');
+          }
+        } else {
+          throw Exception('FFI init failed');
+        }
+      } catch (e) {
+        _log('⚠️[MainThread] FFI FAILED: $e');
+        
+        // Fallback to Kotlin platform channel
+        _log('🔄[MainThread] Falling back to Kotlin WhisperBridge...');
+        
+        try {
+          // Initialize Whisper via platform channel
         final initResult = await WhisperPlatformService.initialize(modelPath);
         _log('🔄[MainThread] WhisperPlatform init: $initResult');
         
