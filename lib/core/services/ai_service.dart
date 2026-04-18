@@ -743,6 +743,15 @@ $text
         if (textToFix.isNotEmpty) {
           try {
             _log('🔧[MainThread] Post-processing...');
+            
+            // Force load libllama.so
+            try {
+              System.loadLibrary('llama');
+              _log('🔧[MainThread] libllama.so loaded');
+            } catch (e) {
+              _log('⚠️[MainThread] libllama.so already loaded or fallback');
+            }
+            
             if (!LlamaBindings.load()) {
               // Skip
             } else {
@@ -751,9 +760,9 @@ $text
                 final ctx = LlamaBindings.initFromFile(llPath);
                 if (ctx != null) {
                   final prompt = '''<|system|>
-You correct transcription errors in Brazilian Portuguese.
-Errors: "u" at end (testandou→testando), "n" at end (falandou→falando).
-NO translation. Return ONLY corrected text.
+Aja como um revisor ortográfico.
+Remova o 'u' ou 'n' no final de palavras como 'transcriçãou'→'transcrição', 'gravaçãou'→'gravação', 'testandou'→'testando'.
+Retorne apenas o texto limpo, sem explicações.
 <|user|>
 $textToFix
 <|assistant|>
@@ -762,9 +771,13 @@ $textToFix
                   LlamaBindings.dispose();
                   if (out != null) {
                     String s = out.toString();
+                    // Clean ALL AI tags from output
+                    if (s.contains('<|system|>')) s = s.split('<|system|>').last;
+                    if (s.contains('<|user|>')) s = s.split('<|user|>').last;
                     if (s.contains('<|assistant|>')) s = s.split('<|assistant|>').last;
                     if (s.contains('<|end|>')) s = s.split('<|end|>').first;
                     s = s.trim();
+                    
                     if (s.isNotEmpty && s.length > textToFix.length * 0.5) {
                       text = s;
                       _log('🔧[MainThread] Errors fixed');
