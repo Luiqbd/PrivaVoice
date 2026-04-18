@@ -24,11 +24,20 @@ import kotlinx.coroutines.delay
  */
 class WhisperBridge(private val context: Context) {
 
+    // PERSISTENT context - global to prevent GC during transcription
+    @Volatile
     private var whisperContext: WhisperContext? = null
+    
+    @Volatile
     var isInitialized: Boolean = false
         private set
 
+    @Volatile
     private var modelPath: String = ""
+    
+    // PERSISTENT: Keep model loaded until explicitly released
+    @Volatile
+    private var isModelLoaded: Boolean = false
 
     companion object {
         @Volatile

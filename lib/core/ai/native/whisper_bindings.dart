@@ -212,14 +212,24 @@ class WhisperBindings {
       
       int dataOffset = 44;
       int dataSize = bytes.length - dataOffset;
-      final numSamples = dataSize ~/ 2;
+      int numSamples = dataSize ~/ 2;
       
       if (numSamples <= 0) {
         print('Whisper: ❌ No samples');
         return null;
       }
       
-      // Use malloc with proper alignment for Float32 (4 bytes)
+      // STABILITY: Ensure 16-byte alignment for Float32
+      // Whisper requires proper memory alignment
+      const int ALIGNMENT = 16;
+      if (numSamples % ALIGNMENT != 0) {
+        // Add padding to make it divisible by 16
+        final remainder = numSamples % ALIGNMENT;
+        numSamples = numSamples + (ALIGNMENT - remainder);
+        print('Whisper: Added $remainder bytes padding for alignment');
+      }
+      
+      // Use calloc with proper alignment for Float32 (4 bytes)
       final samplesPtr = calloc<Float>(numSamples);
       
       // Copy with proper alignment - convert Int16 PCM to Float32
