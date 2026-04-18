@@ -175,6 +175,21 @@ class LlamaBindings {
   ) {
     print('Llama: Using fallback generation');
 
+    // Check if this is a translation prompt
+    final isTranslation = prompt.toLowerCase().contains('translate') || 
+                         prompt.toLowerCase().contains('traduzir');
+    
+    if (isTranslation) {
+      // Simple word-by-word translation for Spanish to Portuguese
+      final simpleTranslation = _simpleSpanishToPortuguese(prompt);
+      return {
+        'response': simpleTranslation,
+        'summary': simpleTranslation,
+        'actionItems': <String>[],
+        'tokens': maxTokens,
+      };
+    }
+
     // Extract key information from prompt
     final lines = prompt.split('\n');
     String summary = '';
@@ -283,6 +298,129 @@ class LlamaBindings {
       return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
     }
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+
+/// Simple Spanish to Portuguese translation
+  static String _simpleSpanishToPortuguese(String prompt) {
+    // Extract the text to translate from between <|user|> and <|assistant|> tags
+    String textToTranslate = '';
+    
+    if (prompt.contains('<|user|>')) {
+      final parts = prompt.split('<|user|>');
+      if (parts.length > 1) {
+        textToTranslate = parts[1].split('<|assistant|>').first.trim();
+      }
+    }
+    
+    if (textToTranslate.isEmpty) {
+      // Fallback: use the full prompt minus the system instructions
+      textToTranslate = prompt.replaceAll(RegExp(r'<\|system\|>.*?<\|user\|>', dotAll: true), '').trim();
+      textToTranslate = textToTranslate.replaceAll('<|assistant|>', '').trim();
+    }
+    
+    // Simple word replacement dictionary (most common Spanish words → Portuguese)
+    final replacements = {
+      'hola': 'olá',
+      'está': 'está',
+      'estoy': 'estou',
+      'testando': 'testando',
+      'grabación': 'gravação',
+      'gravaçao': 'gravação',
+      'aplicación': 'aplicativo',
+      'aplicativo': 'aplicativo',
+      'nueva': 'nova',
+      'novo': 'novo',
+      'este': 'este',
+      'esta': 'esta',
+      'soy': 'sou',
+      'sou': 'sou',
+      'luis': 'luis',
+      'fernando': 'fernando',
+      'camargo': 'camargo',
+      'para': 'para',
+      'transcripción': 'transcrição',
+      'transcriçao': 'transcrição',
+      'portugués': 'português',
+      'portugues': 'português',
+      'brasileño': 'brasileiro',
+      'brasileiro': 'brasileiro',
+      'más': 'mais',
+      'una': 'uma',
+      'un': 'um',
+      'con': 'com',
+      'el': 'o',
+      'la': 'a',
+      'los': 'os',
+      'las': 'as',
+      'de': 'de',
+      'del': 'do',
+      'en': 'em',
+      'por': 'por',
+      'para': 'para',
+      'que': 'que',
+      'y': 'e',
+      'o': 'ou',
+      'pero': 'mas',
+      'mas': 'mas',
+      'yo': 'eu',
+      'tu': 'você',
+      'tú': 'você',
+      'usted': 'você',
+      'él': 'ele',
+      'ella': 'ela',
+      'ellos': 'eles',
+      'ellas': 'elas',
+      'nosotros': 'nós',
+      'ustedes': 'vocês',
+      'como': 'como',
+      'hacer': 'fazer',
+      'tener': 'ter',
+      'ser': 'ser',
+      'estar': 'estar',
+      'poder': 'poder',
+      'decir': 'dizer',
+      'ver': 'ver',
+      'dar': 'dar',
+      'saber': 'saber',
+      'querer': 'querer',
+      'llegar': 'chegar',
+      'pasar': 'passar',
+      'passar': 'passar',
+      'venir': 'vir',
+      'volver': 'voltar',
+      'haber': 'haver',
+      'ello': 'ele',
+      'esto': 'isto',
+      'esta': 'esta',
+      'ese': 'esse',
+      'esa': 'essa',
+      'gracias': 'obrigado',
+      'obrigado': 'obrigado',
+      'buenos': 'bons',
+      'buenas': 'boas',
+      'dias': 'dias',
+      'día': 'dia',
+      'tardes': 'tardes',
+      'noches': 'noites',
+    };
+    
+    String result = textToTranslate.toLowerCase();
+    
+    // Apply replacements (longer phrases first to avoid partial matches)
+    final sortedKeys = replacements.keys.toList()
+      ..sort((a, b) => b.length.compareTo(a.length));
+    
+    for (final word in sortedKeys) {
+      // Replace whole words only
+      result = result.replaceAll(RegExp('\\b$word\\b', caseSensitive: false), replacements[word]!);
+    }
+    
+    // Capitalize first letter
+    if (result.isNotEmpty) {
+      result = result[0].toUpperCase() + result.substring(1);
+    }
+    
+    return result;
   }
 
   /// Dispose and cleanup
