@@ -778,16 +778,17 @@ $textToFix
                 }
               }
             // Simplefix: If post-processing failed or Llama not loaded
-            if (text == textToFix) {
+            if (text == textToFix && text.isNotEmpty) {
               // Direct string replacements for common errors
-              text = text
+              final fixed = text
                 .replaceAll('transcriçãou', 'transcrição')
                 .replaceAll('gravaçãou', 'gravação')
                 .replaceAll('testandou', 'testando')
                 .replaceAll('falandou', 'falando')
                 .replaceAll('gravandou', 'gravando')
                 .replaceAll('digalandou', 'digalando');
-              if (text != textToFix) {
+              if (fixed != text) {
+                text = fixed;
                 _log('🔧[MainThread] Simple fix applied');
               }
             }
