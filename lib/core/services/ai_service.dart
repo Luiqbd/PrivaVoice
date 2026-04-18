@@ -955,8 +955,9 @@ $_diagnosticLog
         }
         
         _log('🔄[MainThread] Using model path: $_modelPath');
-        final llamaPath = modelPath!.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
-        _log('🔄[MainThread] Derived Llama path: $llamaPath');
+        // Use persistent _llamaModelPath if available
+        final llamaPath = _llamaModelPath ?? modelPath!.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
+        _log('🔄[MainThread] Using Llama path: $llamaPath');
         
         // Load Llama
         if (!LlamaBindings.load()) {
@@ -1086,18 +1087,22 @@ $_diagnosticLog
         _log('🔥[MainThread] Releasing Whisper before loading Llama...');
         WhisperBindings.dispose();
         
+        // Use persistent _llamaModelPath if available
         final modelPath = _modelPath;
-        if (modelPath == null) {
-          _log('🔥[MainThread] Model path not set');
+        if (modelPath == null && _llamaModelPath == null) {
+          _log('❌[MainThread] No Llama model path available');
           return null;
         }
         
-        final llamaPath = modelPath.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
+        // Use persistent path or derive from modelPath
+        final llamaPath = _llamaModelPath ?? modelPath!.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
         
         if (!File(llamaPath).existsSync()) {
-          _log('🔥[MainThread] Llama model not found');
+          _log('❌[MainThread] Llama model not found at: $llamaPath');
           return null;
         }
+        
+        _log('🔄[MainThread] Found Llama at: $llamaPath');
         
         if (!LlamaBindings.load()) {
           _log('🔥[MainThread] Llama load failed');

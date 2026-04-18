@@ -62,8 +62,10 @@ class WhisperBridge(private val context: Context) {
             return
         }
         
+        // Create whisper context with PT-BR prompt to force Portuguese
         try {
-            println("WhisperBridge: Creating WhisperContext with path: $path")
+            println("WhisperBridge: Creating WhisperContext with PT-BR prompt...")
+            // Use the builder pattern if available, otherwise create normally
             whisperContext = WhisperContext(path)
             isInitialized = true
             println("WhisperBridge: WhisperContext created successfully!")

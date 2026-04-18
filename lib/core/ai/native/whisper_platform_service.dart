@@ -52,6 +52,7 @@ class WhisperPlatformService {
   }
   
   /// Transcribe audio file (must be WAV 16kHz mono)
+  /// CRITICAL: Force PT via prompt appended to audio path comment
   static Future<String?> transcribe(String audioPath, {String language = 'pt'}) async {
     if (!_isInitialized) {
       print('WhisperPlatform: Not initialized');
@@ -65,9 +66,12 @@ class WhisperPlatformService {
         return null;
       }
       
+      // CRITICAL: Force PT language by passing prompt in the request
+      // The mx.valdora library checks for language in params
       final result = await _channel.invokeMethod<String>('transcribe', {
         'audioPath': audioPath,
-        'language': language,  // Pass language parameter
+        'language': 'pt',  // FORCE Portuguese - ignore whatever was passed
+        'prompt': 'pt-BR spoken language transcription' // Force via prompt
       });
       
       print('WhisperPlatform: Transcribe result: ${result != null && result.length > 50 ? result.substring(0, 50) + "..." : result ?? "null"}');
