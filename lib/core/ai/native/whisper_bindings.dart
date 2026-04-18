@@ -17,11 +17,6 @@ typedef WhisperFullNative = Int32 Function(
 typedef WhisperFullDart = int Function(
     Pointer<Void> ctx, int flags, Pointer<Float> samples, int n_samples);
 
-/// STABILITY: Whisper flags for low-power mode
-/// WHISPER_FLAG_SPEED_UP = 2 (bit 1) - faster processing
-/// We'll use flags=2 for speed mode
-const int WHISPER_FLAG_SPEED_UP = 2;
-
 // Whisper full with prompt - uses parameters struct
 typedef WhisperFullParamsNative = Pointer<Void> Function(Pointer<Void> ctx);
 typedef WhisperFullParamsDart = Pointer<Void> Function(Pointer<Void> ctx);
@@ -50,10 +45,58 @@ class WhisperBindings {
   static bool get isAvailable => _isLoaded;
   
   /// Load PT-BR prompt from assets folder using Flutter's asset system
-  /// STABILITY MODE: Skip to prevent native crashes
+  /// LIMIT: Max 200-300 tokens (~500 chars) to prevent context overflow
   static Future<void> loadPtBrPrompt() async {
-    _ptBrPrompt = null;
-    print('Whisper: STABILITY MODE - PT-BR prompt disabled');
+    if (_ptBrPrompt != null) return; // Already loaded
+    
+    try {
+      final buffer = StringBuffer();
+      int wordCount = 0;
+      const int MAX_WORDS = 50; // Limit to ~50 keywords
+      
+      // Read all .txt files from assets/pt-br folder
+      final files = [
+        'assets/pt-br/palavras_comuns.txt',
+        'assets/pt-br/juridico.txt', 
+        'assets/pt-br/negocios.txt',
+        'assets/pt-br/localidades.txt',
+        'assets/pt-br/nomes_proprios.txt',
+        'assets/pt-br/frases_basicas.txt',
+      ];
+      
+      for (final assetPath in files) {
+        if (wordCount >= MAX_WORDS) break;
+        
+        try {
+          final content = await rootBundle.loadString(assetPath);
+          if (content.isNotEmpty) {
+            // Take first few words from each file (prioritized)
+            final words = content.split(RegExp(r'\s+')).take(MAX_WORDS - wordCount);
+            for (final word in words) {
+              if (word.trim().isNotEmpty && wordCount < MAX_WORDS) {
+                buffer.write(word.trim());
+                buffer.write(' ');
+                wordCount++;
+              }
+            }
+            print('Whisper: Loaded $assetPath (${words.length} words)');
+          }
+        } catch (e) {
+          print('Whisper: Could not load $assetPath: $e');
+        }
+      }
+      
+      _ptBrPrompt = buffer.toString().trim();
+      if (_ptBrPrompt!.isNotEmpty) {
+        print('Whisper: ✅ PT-BR prompt loaded (${_ptBrPrompt!.length} chars, $wordCount words)');
+      } else {
+        print('Whisper: ⚠️ PT-BR prompt empty');
+        _ptBrPrompt = null;
+      }
+    } catch (e) {
+      print('Whisper: PT-BR prompt load error: $e');
+      _ptBrPrompt = null;
+    }
   }
 
   static bool load() {
@@ -210,37 +253,29 @@ class WhisperBindings {
         return null;
       }
       
-      // STABILITY: Skip normalization - use raw WAV data directly
       int dataOffset = 44;
       int dataSize = bytes.length - dataOffset;
-      int numSamples = dataSize ~/ 2;
+      final numSamples = dataSize ~/ 2;
       
       if (numSamples <= 0) {
         print('Whisper: ❌ No samples');
         return null;
       }
       
-      // STABILITY: Ensure 16-byte alignment for Float32
-      const int ALIGNMENT = 16;
-      if (numSamples % ALIGNMENT != 0) {
-        final remainder = numSamples % ALIGNMENT;
-        numSamples = numSamples + (ALIGNMENT - remainder);
-        print('Whisper: Added $remainder bytes padding for alignment');
-      }
-      
-      // STABILITY: Allocate with calloc - KEEP until disposed
+      // Use malloc with proper alignment for Float32 (4 bytes)
       final samplesPtr = calloc<Float>(numSamples);
       
-      // STABILITY: Direct copy without normalization
-      for (int i = 0; i < numSamples && i * 2 + dataOffset < bytes.length; i++) {
-        // Read as unsigned 16-bit, convert to signed
+      // Copy with proper alignment - convert Int16 PCM to Float32
+      for (int i = 0; i < numSamples; i++) {
+        // Read as unsigned 16-bit, then convert to signed
         int sample = bytes[dataOffset + i * 2] | (bytes[dataOffset + i * 2 + 1] << 8);
+        // Convert unsigned to signed
         if (sample >= 32768) sample -= 65536;
-        // Direct float conversion - NO normalization
+        // Normalize to -1.0 to 1.0
         samplesPtr[i] = sample / 32768.0;
       }
       
-      print('Whisper: ✅ Allocated $numSamples raw samples (NO normalization)');
+      print('Whisper: ✅ Allocated $numSamples Float32 samples with proper alignment');
       return samplesPtr;
     } catch (e) {
       print('Whisper: WAV ERROR = $e');
@@ -299,13 +334,10 @@ class WhisperBindings {
   }
   
   // Separate method to isolate native call
-  /// STABILITY: Use flags=2 (WHISPER_FLAG_SPEED_UP) for low-power mode
+  // STABILITY: flags=0 (NO speed_up, no crashes)
   static String? _callWhisperFull(Pointer<Void> ctx, Pointer<Float> samples, int numSamples) {
-    // Use speed_up flag to reduce processing load
-    final stabilityFlags = WHISPER_FLAG_SPEED_UP; // 2 = speed up mode
-    print('Whisper: Calling with STABILITY flags=$stabilityFlags (speed_up enabled)');
-    
-    final result = _full!(ctx, stabilityFlags, samples, numSamples);
+    // flags=0 = standard mode - safest
+    final result = _full!(ctx, 0, samples, numSamples);
     print('Whisper: whisper_full result code = $result');
     
     if (result != 0) {
