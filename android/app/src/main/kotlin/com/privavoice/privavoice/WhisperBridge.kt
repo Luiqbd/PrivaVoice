@@ -102,8 +102,8 @@ class WhisperBridge(private val context: Context) {
             return
         }
 
-        // STABILITY: Hard limit of 4 threads (prevent Android OOM kill)
-        val HARD_THREAD_LIMIT = 4
+        // STABILITY: Hard limit of 1 thread (test mode)
+        val HARD_THREAD_LIMIT = 1
         println("WhisperBridge: HARD THREAD LIMIT = $HARD_THREAD_LIMIT")
         
         // Use CoroutineScope with limited resources

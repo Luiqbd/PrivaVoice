@@ -210,6 +210,7 @@ class WhisperBindings {
         return null;
       }
       
+      // STABILITY: Skip normalization - use raw WAV data directly
       int dataOffset = 44;
       int dataSize = bytes.length - dataOffset;
       int numSamples = dataSize ~/ 2;
@@ -220,29 +221,26 @@ class WhisperBindings {
       }
       
       // STABILITY: Ensure 16-byte alignment for Float32
-      // Whisper requires proper memory alignment
       const int ALIGNMENT = 16;
       if (numSamples % ALIGNMENT != 0) {
-        // Add padding to make it divisible by 16
         final remainder = numSamples % ALIGNMENT;
         numSamples = numSamples + (ALIGNMENT - remainder);
         print('Whisper: Added $remainder bytes padding for alignment');
       }
       
-      // Use calloc with proper alignment for Float32 (4 bytes)
+      // STABILITY: Allocate with calloc - KEEP until disposed
       final samplesPtr = calloc<Float>(numSamples);
       
-      // Copy with proper alignment - convert Int16 PCM to Float32
-      for (int i = 0; i < numSamples; i++) {
-        // Read as unsigned 16-bit, then convert to signed
+      // STABILITY: Direct copy without normalization
+      for (int i = 0; i < numSamples && i * 2 + dataOffset < bytes.length; i++) {
+        // Read as unsigned 16-bit, convert to signed
         int sample = bytes[dataOffset + i * 2] | (bytes[dataOffset + i * 2 + 1] << 8);
-        // Convert unsigned to signed
         if (sample >= 32768) sample -= 65536;
-        // Normalize to -1.0 to 1.0
+        // Direct float conversion - NO normalization
         samplesPtr[i] = sample / 32768.0;
       }
       
-      print('Whisper: ✅ Allocated $numSamples Float32 samples with proper alignment');
+      print('Whisper: ✅ Allocated $numSamples raw samples (NO normalization)');
       return samplesPtr;
     } catch (e) {
       print('Whisper: WAV ERROR = $e');
