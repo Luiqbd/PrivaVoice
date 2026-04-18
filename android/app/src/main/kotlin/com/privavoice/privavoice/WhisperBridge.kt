@@ -77,7 +77,7 @@ class WhisperBridge(private val context: Context) {
 
     /**
      * Transcribe audio file (WAV, 16kHz mono PCM)
-     * Simple direct call - mx.valdora handles threading internally
+     * Uses runBlocking for suspend function
      */
     fun transcribe(audioPath: String, callback: (String) -> Unit) {
         val wc = whisperContext
@@ -91,8 +91,10 @@ class WhisperBridge(private val context: Context) {
         // Run on executor to prevent blocking
         Executors.newSingleThreadExecutor().execute {
             try {
-                // Direct call - mx.valdora manages its own threads
-                val result = wc.transcribe(File(audioPath))
+                // Use runBlocking for suspend function call
+                val result = runBlocking {
+                    wc.transcribe(File(audioPath))
+                }
                 println("WhisperBridge: Transcription done, ${result.length} chars")
                 callback(result)
 
