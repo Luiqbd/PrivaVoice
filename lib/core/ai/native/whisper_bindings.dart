@@ -45,58 +45,10 @@ class WhisperBindings {
   static bool get isAvailable => _isLoaded;
   
   /// Load PT-BR prompt from assets folder using Flutter's asset system
-  /// LIMIT: Max 200-300 tokens (~500 chars) to prevent context overflow
+  /// STABILITY MODE: Skip to prevent native crashes
   static Future<void> loadPtBrPrompt() async {
-    if (_ptBrPrompt != null) return; // Already loaded
-    
-    try {
-      final buffer = StringBuffer();
-      int wordCount = 0;
-      const int MAX_WORDS = 50; // Limit to ~50 keywords
-      
-      // Read all .txt files from assets/pt-br folder
-      final files = [
-        'assets/pt-br/palavras_comuns.txt',
-        'assets/pt-br/juridico.txt', 
-        'assets/pt-br/negocios.txt',
-        'assets/pt-br/localidades.txt',
-        'assets/pt-br/nomes_proprios.txt',
-        'assets/pt-br/frases_basicas.txt',
-      ];
-      
-      for (final assetPath in files) {
-        if (wordCount >= MAX_WORDS) break;
-        
-        try {
-          final content = await rootBundle.loadString(assetPath);
-          if (content.isNotEmpty) {
-            // Take first few words from each file (prioritized)
-            final words = content.split(RegExp(r'\s+')).take(MAX_WORDS - wordCount);
-            for (final word in words) {
-              if (word.trim().isNotEmpty && wordCount < MAX_WORDS) {
-                buffer.write(word.trim());
-                buffer.write(' ');
-                wordCount++;
-              }
-            }
-            print('Whisper: Loaded $assetPath (${words.length} words)');
-          }
-        } catch (e) {
-          print('Whisper: Could not load $assetPath: $e');
-        }
-      }
-      
-      _ptBrPrompt = buffer.toString().trim();
-      if (_ptBrPrompt!.isNotEmpty) {
-        print('Whisper: ✅ PT-BR prompt loaded (${_ptBrPrompt!.length} chars, $wordCount words)');
-      } else {
-        print('Whisper: ⚠️ PT-BR prompt empty');
-        _ptBrPrompt = null;
-      }
-    } catch (e) {
-      print('Whisper: PT-BR prompt load error: $e');
-      _ptBrPrompt = null;
-    }
+    _ptBrPrompt = null;
+    print('Whisper: STABILITY MODE - PT-BR prompt disabled');
   }
 
   static bool load() {

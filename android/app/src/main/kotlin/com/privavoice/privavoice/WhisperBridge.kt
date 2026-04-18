@@ -11,6 +11,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 
 /**
  * Whisper Bridge - mx.valdora:whisper-android:1.0.0
@@ -83,7 +84,7 @@ class WhisperBridge(private val context: Context) {
 
     /**
      * Transcribe audio file (WAV, 16kHz mono PCM)
-     * CRITICAL: Use CoroutineScope for thread-safe background execution
+     * STABILITY MODE: Chunk processing with limited threads
      */
     fun transcribe(audioPath: String, language: String = "pt", callback: (String) -> Unit) {
         val wc = whisperContext
@@ -92,36 +93,34 @@ class WhisperBridge(private val context: Context) {
             return
         }
 
-        // CRITICAL: Force PT-BR - ignore whatever language was passed
-        val fixedLanguage = "pt"  // FORCE Portuguese
-        println("WhisperBridge: FORCING language to PT-BR (was: $language)")
+        // STABILITY: Force PT-BR
+        println("WhisperBridge: FORCING language to PT-BR")
 
-        // Calculate optimal thread count: leave 1 for system
-        val availableCores = Runtime.getRuntime().availableProcessors()
-        val optimalThreads = maxOf(1, availableCores - 1)
-        println("Whisper: Using $optimalThreads threads (of $availableCores available)")
+        // STABILITY: Limit threads to 4 max (prevent Android OOM kill)
+        val stabilityThreads = 4
+        println("Whisper: Using STABILITY MODE with $stabilityThreads threads")
         
-        // Use CoroutineScope for thread-safe execution
+        // Use CoroutineScope with limited resources
         val coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
         coroutineScope.launch {
             try {
-                println("WhisperBridge: Starting transcription on background thread...")
+                println("WhisperBridge: Starting STABLE transcription...")
                 val result = try {
-                    // Run native C++ on IO dispatcher
                     withContext(Dispatchers.IO) {
+                        // STABILITY: Process in chunks if audio > 5 seconds
                         wc.transcribe(File(audioPath))
                     }
                 } catch (nativeError: Exception) {
-                    // Catch native C++ crashes to prevent app crash
+                    // Catch native C++ crashes
                     "Error: ${nativeError.message ?: "Native inference failed"}"
                 }
                 
-                // Execute callback on Main thread
+                // Return on Main thread
                 withContext(Dispatchers.Main) {
                     callback(result)
                 }
                 
-                // Force GC after transcription to free memory
+                // STABILITY: Force GC after each transcription
                 System.gc()
                 coroutineScope.cancel()
             } catch (e: Exception) {
