@@ -65,13 +65,11 @@ class WhisperBridge(private val context: Context) {
         try {
             println("WhisperBridge: Creating WhisperContext with path: $path, language: $language")
             
-            // Use builder to set language (force PT)
-            whisperContext = WhisperContext.builder()
-                .setLanguage(language)  // FORCE Portuguese
-                .build(file)
+            // Simple constructor - language is set via transcribe params
+            whisperContext = WhisperContext(path)
             
             isInitialized = true
-            println("WhisperBridge: WhisperContext created successfully with $language!")
+            println("WhisperBridge: WhisperContext created successfully!")
             callback?.invoke(true, "Model loaded: $path")
         } catch (e: Exception) {
             isInitialized = false
@@ -83,6 +81,7 @@ class WhisperBridge(private val context: Context) {
     /**
      * Transcribe audio file (WAV, 16kHz mono PCM)
      * Uses runBlocking for suspend function
+     * Note: Language is forced via Dart->Kotlin parameter
      */
     fun transcribe(audioPath: String, language: String = "pt", callback: (String) -> Unit) {
         val wc = whisperContext
@@ -91,7 +90,7 @@ class WhisperBridge(private val context: Context) {
             return
         }
 
-        println("WhisperBridge: Starting transcription in language: $language...")
+        println("WhisperBridge: Starting transcription (language=$language)...")
 
         // Run on executor to prevent blocking
         Executors.newSingleThreadExecutor().execute {
