@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 import 'package:flutter/foundation.dart';
@@ -10,7 +9,6 @@ import '../ai/native/whisper_bindings.dart';
 import '../ai/native/whisper_platform_service.dart';
 import '../ai/native/llama_bindings.dart';
 import '../ai/ai_state.dart';
-import '../utils/audio_normalizer.dart';
 
 /// Stream controller for real-time transcription updates
 class TranscriptionProgress {
@@ -56,23 +54,22 @@ class TranscriptionProgress {
 class AIService {
   // Track isolate-specific initialization
   static bool _initialized = false;
-  static bool _isolateWhisperReady = false;
-  static bool _modelsCopied = false;
+  static final bool _modelsCopied = false;
   static String? _modelPath;
   static String? _llamaModelPath; // Separate persistent path for Llama
   static String _diagnosticLog = '';
-  static int _availableSpaceBytes = 0;
+  static final int _availableSpaceBytes = 0;
   
   // Stream for real-time transcription updates
   static final _transcriptionController = StreamController<TranscriptionProgress>.broadcast();
   static Stream<TranscriptionProgress> get transcriptionStream => _transcriptionController.stream;
 
   // Whisper small Q5_1 (~180MB) - optimized for speed and quality
-  static const int EXPECTED_WHISPER_SIZE = 180000000;
-  static const int EXPECTED_LLAMA_SIZE = 653000000;
-  static const int WHISPER_MIN_SIZE = 160000000;
-  static const int LLAMA_MIN_SIZE = 580000000;
-  static const int MIN_DISK_SPACE_NEEDED = 1500000000;
+  static const int expectedWhisperSize = 180000000;
+  static const int expectedLlamaSize = 653000000;
+  static const int whisperMinSize = 160000000;
+  static const int llamaMinSize = 580000000;
+  static const int minDiskSpaceNeeded = 1500000000;
   
   // Dynamic thread calculation: use n-1 cores for max performance
   static int get recommendedThreads {
@@ -81,8 +78,8 @@ class AIService {
   }
 
   // Whisper small renamed to whisper-base for compatibility
-  static const String WHISPER_FILENAME = 'whisper-base.bin';
-  static const String LLAMA_FILENAME = 'tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf';
+  static const String whisperFilename = 'whisper-base.bin';
+  static const String llamaFilename = 'tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf';
 
   static bool get isModelsReady => _modelsCopied;
   static String? get modelPath => _modelPath;
@@ -92,7 +89,7 @@ class AIService {
   static void _log(String message) {
     final timestamp = DateTime.now().toIso8601String();
     _diagnosticLog += '[$timestamp] $message\n';
-    print('AI: $message');
+    debugPrint('AI: $message');
   }
   
   /// Emit progress to stream
@@ -247,15 +244,15 @@ class AIService {
         await modelDir.create(recursive: true);
       }
       
-      final whisperPath = '${modelDir.path}/$WHISPER_FILENAME';
+      final whisperPath = '${modelDir.path}/$whisperFilename';
       _log('🔍 Looking for Whisper at: $whisperPath');
       
       // Check Whisper model
       if (await File(whisperPath).exists()) {
         _log('Whisper file exists, checking integrity...');
-        if (!_verifyModelIntegrity(whisperPath, EXPECTED_WHISPER_SIZE, WHISPER_MIN_SIZE)) {
+        if (!_verifyModelIntegrity(whisperPath, expectedWhisperSize, whisperMinSize)) {
           _log('Whisper corrupted, recreating...');
-          await _deleteAndRecreateModel(whisperPath, WHISPER_FILENAME);
+          await _deleteAndRecreateModel(whisperPath, whisperFilename);
         } else {
           _modelPath = whisperPath;
           _modelsCopied = true;
@@ -273,7 +270,7 @@ class AIService {
       }
       
       // ALSO check and copy Llama model
-      final llamaPath = '${modelDir.path}/$LLAMA_FILENAME';
+      final llamaPath = '${modelDir.path}/$llamaFilename';
       _log('🔍 Looking for Llama at: $llamaPath');
       
       // Check if directory exists first
@@ -290,9 +287,9 @@ class AIService {
         final stat = llamaFile.statSync();
         _log('🔍 Llama file size: ${stat.size} bytes');
         
-        if (!_verifyModelIntegrity(llamaPath, EXPECTED_LLAMA_SIZE, LLAMA_MIN_SIZE)) {
+        if (!_verifyModelIntegrity(llamaPath, expectedLlamaSize, llamaMinSize)) {
           _log('⚠️ Llama corrupted, recreating...');
-          await _deleteAndRecreateModel(llamaPath, LLAMA_FILENAME);
+          await _deleteAndRecreateModel(llamaPath, llamaFilename);
           _log('✅ Llama recreated successfully!');
         } else {
           _llamaModelPath = llamaPath; // Store persistent path
@@ -455,7 +452,7 @@ class AIService {
     if (!await modelDir.exists()) {
       await modelDir.create(recursive: true);
     }
-    print('AI: Models directory prepared');
+    debugPrint('AI: Models directory prepared');
   }
 
   static Future<Transcription?> processAudio({
@@ -522,7 +519,7 @@ class AIService {
       // The _modelPath might be set to Llama by checkAssetsIntegrity, so we need to fix it
       final appDir = await getApplicationDocumentsDirectory();
       final modelDir = Directory('${appDir.path}/models');
-      final whisperPath = '${modelDir.path}/$WHISPER_FILENAME';
+      final whisperPath = '${modelDir.path}/$whisperFilename';
       
       // Use Whisper path directly for transcription
       final safePath = whisperPath;
@@ -635,7 +632,7 @@ class AIService {
       
       // Use FFI directly
       String? text;
-      dynamic segments;
+      List<dynamic>? segments = null;
       
       // Use Kotlin mx.valdora via platform channel (NOT FFI)
       _log('🔄[MainThread] Using Kotlin mx.valdora platform channel...');
@@ -682,7 +679,7 @@ class AIService {
           if (!LlamaBindings.load()) {
             _log('⚠️[MainThread] Llama load failed for translation');
           } else {
-            final llamaPath = _llamaModelPath ?? _modelPath?.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
+            final llamaPath = _llamaModelPath ?? _modelPath?.replaceAll(WHISPER_FILENAME, llamaFilename);
             if (llamaPath != null) {
               final llamaCtx = LlamaBindings.initFromFile(llamaPath);
               if (llamaCtx != null) {
@@ -747,7 +744,7 @@ $text
           if (!LlamaBindings.load()) {
             // Skip
           } else {
-            final llPath = _llamaModelPath ?? _modelPath?.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
+            final llPath = _llamaModelPath ?? _modelPath?.replaceAll(WHISPER_FILENAME, llamaFilename);
             if (llPath != null) {
               final ctx = LlamaBindings.initFromFile(llPath);
               if (ctx != null) {
@@ -823,21 +820,8 @@ $textToFix
       // This makes the app feel 10x faster - user sees first words in 5 seconds
       _log('🔥[MainThread] Saving partial result to database for streaming effect...');
       try {
-        final partialTranscription = Transcription(
-          id: title.hashCode.abs().toString(),
-          title: title,
-          audioPath: audioPath,
-          text: textToUse,
-          wordTimestamps: [],
-          createdAt: DateTime.now(),
-          duration: const Duration(minutes: 2),
-          isEncrypted: true,
-          speakerSegments: speakers,
-          summary: '',
-          actionItems: [],
-        );
-        // Note: Cannot call repository directly in isolate
-        // UI will pick up the final result via auto-refresh
+        // Note: Cannot call repository directly here - UI will pick up final result via auto-refresh
+        // TODO: Implement streaming save if needed
       } catch (e) {
         _log('🔥[MainThread] Partial save error (non-critical): $e');
       }
@@ -970,7 +954,7 @@ $_diagnosticLog
     final modelPath = params['modelPath']!;
     final audioPath = params['audioPath']!;
     
-    print('Isolate: Loading whisper...');
+    debugPrint('Isolate: Loading whisper...');
     
     // Load FFI in isolate
     if (!WhisperBindings.load()) {
@@ -988,7 +972,7 @@ $_diagnosticLog
     
     // Transcribe
     final result = WhisperBindings.full(ctx: ctx, audioPath: audioPath) ?? '';
-    print('Isolate: Transcription done, ${result.length} chars');
+    debugPrint('Isolate: Transcription done, ${result.length} chars');
     
     return result;
   }
@@ -1028,12 +1012,12 @@ $_diagnosticLog
     AIManager.setState(AIState.processing, message: 'Gerando resumo...');
     
     // Capture paths BEFORE entering isolate
-    final llamaPath = _llamaModelPath ?? _modelPath?.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
+    final llamaPath = _llamaModelPath ?? _modelPath?.replaceAll(WHISPER_FILENAME, llamaFilename);
     if (llamaPath == null) {
       _log('⚠️[MainThread] No Llama path - checking assets');
       await checkAssetsIntegrity();
     }
-    final finalLlamaPath = _llamaModelPath ?? _modelPath?.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
+    final finalLlamaPath = _llamaModelPath ?? _modelPath?.replaceAll(WHISPER_FILENAME, llamaFilename);
     if (finalLlamaPath == null || finalLlamaPath.isEmpty) {
       _log('❌[MainThread] No Llama path available');
       return null;
@@ -1131,9 +1115,9 @@ $_diagnosticLog
       'muito', 'nos', 'já', 'eu', 'também', 'só', 'pelo', 'pela', 'até',
       'isso', 'ela', 'entre', 'depois', 'sem', 'mesmo', 'aos', 'seus',
       'me', 'onde', 'havia', 'eram', 'essa', 'nem', 'suas', 'meu', 'às',
-      'tinha', 'foram', 'essa', 'pelo', 'pela', 'tan', 'to', 'é', 'ser',
-      'está', 'tem', 'vai', 'vamos', 'né', 'né', 'ai', 'ah', 'oh', 'olha',
-      'você', 'eu', 'nós', 'eles', 'ela', 'tu', 'yo', 'él', 'las', 'los',
+      'tinha', 'foram', 'pelo', 'pela', 'tan', 'to', 'é', 'ser',
+      'está', 'tem', 'vai', 'vamos', 'né', 'ai', 'ah', 'oh', 'olha',
+      'você', 'nós', 'eles', 'tu', 'yo', 'él', 'las', 'los',
     };
     
     // Clean and split text
@@ -1168,12 +1152,12 @@ $_diagnosticLog
     AIManager.setState(AIState.processing, message: 'PrivaChat pensando...');
     
     // Capture paths BEFORE entering isolate
-    final llamaPath = _llamaModelPath ?? _modelPath?.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
+    final llamaPath = _llamaModelPath ?? _modelPath?.replaceAll(WHISPER_FILENAME, llamaFilename);
     if (llamaPath == null) {
       _log('⚠️[MainThread] No Llama path - checking assets');
       await checkAssetsIntegrity();
     }
-    final finalLlamaPath = _llamaModelPath ?? _modelPath?.replaceAll(WHISPER_FILENAME, LLAMA_FILENAME);
+    final finalLlamaPath = _llamaModelPath ?? _modelPath?.replaceAll(WHISPER_FILENAME, llamaFilename);
     if (finalLlamaPath == null || finalLlamaPath.isEmpty) {
       _log('❌[MainThread] No Llama path available');
       return null;
