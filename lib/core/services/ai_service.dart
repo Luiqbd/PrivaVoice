@@ -10,14 +10,14 @@ import '../ai/native/whisper_platform_service.dart';
 import '../ai/native/llama_bindings.dart';
 import '../ai/ai_state.dart';
 
-/// Stream controller for real-time transcription updates
+/// Stream controller para atualizações de transcrição
 class TranscriptionProgress {
   final String? partialText;
   final List<SpeakerSegment>? speakerSegments;
-  final double progress; // 0.0 to 1.0
+  final double progress;
   final bool isComplete;
   final String? statusMessage;
-  
+
   TranscriptionProgress({
     this.partialText,
     this.speakerSegments,
@@ -25,434 +25,94 @@ class TranscriptionProgress {
     this.isComplete = false,
     this.statusMessage,
   });
-  
-  static TranscriptionProgress empty() => TranscriptionProgress(
-    progress: 0.0,
-    statusMessage: 'Iniciando...',
-  );
-  
-  static TranscriptionProgress loading(double progress, String message) => TranscriptionProgress(
-    progress: progress,
-    statusMessage: message,
-  );
-  
-  static TranscriptionProgress partial(String text, double progress) => TranscriptionProgress(
-    partialText: text,
-    progress: progress,
-    statusMessage: 'Processando áudio...',
-  );
-  
-  static TranscriptionProgress complete(String text, List<SpeakerSegment>? speakers) => TranscriptionProgress(
-    partialText: text,
-    speakerSegments: speakers,
-    progress: 1.0,
-    isComplete: true,
-    statusMessage: 'Completo!',
-  );
+
+  static TranscriptionProgress empty() => TranscriptionProgress(progress: 0.0, statusMessage: 'Iniciando...');
+  static TranscriptionProgress loading(double progress, String message) => TranscriptionProgress(progress: progress, statusMessage: message);
+  static TranscriptionProgress complete(String text, List<SpeakerSegment>? speakers) => TranscriptionProgress(partialText: text, speakerSegments: speakers, progress: 1.0, isComplete: true, statusMessage: 'Perfeito!');
 }
 
 class AIService {
-  // Track isolate-specific initialization
   static bool _initialized = false;
-  static final bool _modelsCopied = false;
+  static bool _processing = false;
   static String? _modelPath;
-  static String? _llamaModelPath; // Separate persistent path for Llama
-  static String _diagnosticLog = '';
-  static final int _availableSpaceBytes = 0;
-  
-  // Stream for real-time transcription updates
+  static String? _llamaModelPath;
+
   static final _transcriptionController = StreamController<TranscriptionProgress>.broadcast();
   static Stream<TranscriptionProgress> get transcriptionStream => _transcriptionController.stream;
 
-  // Whisper small Q5_1 (~180MB) - optimized for speed and quality
-  static const int expectedWhisperSize = 180000000;
-  static const int expectedLlamaSize = 653000000;
-  static const int whisperMinSize = 160000000;
-  static const int llamaMinSize = 580000000;
-  static const int minDiskSpaceNeeded = 1500000000;
-  
-  // Dynamic thread calculation: use n-1 cores for max performance
-  static int get recommendedThreads {
-    final cores = Platform.numberOfProcessors;
-    return cores > 1 ? cores - 1 : 1;
-  }
-
-  // Whisper small renamed to whisper-base for compatibility
   static const String whisperFilename = 'whisper-base.bin';
   static const String llamaFilename = 'tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf';
 
-  static bool get isModelsReady => _modelsCopied;
-  static String? get modelPath => _modelPath;
-  static String get diagnosticLog => _diagnosticLog;
-  static int get availableSpaceBytes => _availableSpaceBytes;
-
   static void _log(String message) {
-    final timestamp = DateTime.now().toIso8601String();
-    _diagnosticLog += '[$timestamp] $message\n';
-    debugPrint('AI: $message');
+    debugPrint('AI_LOG: $message');
   }
-  
-  /// Emit progress to stream
+
   static void _emitProgress(TranscriptionProgress progress) {
     _transcriptionController.add(progress);
   }
 
-  static Future<bool> _checkDiskSpace() async {
+  static Future<void> initializeInBackground() async {
+    if (_initialized) return;
     try {
       final appDir = await getApplicationDocumentsDirectory();
-      final modelDir = Directory('${appDir.path}/models');
-      
-      if (!await modelDir.exists()) {
-        await modelDir.create(recursive: true);
-      }
-      
-      final testFile = File('${modelDir.path}/.space_test');
-      await testFile.writeAsBytes([1]);
-      await testFile.delete();
-      
-      _log('Disk space check: OK');
-      return true;
-    } catch (e) {
-      _log('Disk space check FAILED: $e');
-      return false;
-    }
-  }
+      final whisperPath = '${appDir.path}/models/$whisperFilename';
+      final llamaPath = '${appDir.path}/models/$llamaFilename';
 
-  static String? _validateModelPath() {
-    if (_modelPath == null) {
-      _log('_modelPath is NULL');
-      return null;
-    }
-    
-    final file = File(_modelPath!);
-    if (!file.existsSync()) {
-      _log('Model file NOT FOUND at: $_modelPath');
-      _modelPath = null;
-      _modelsCopied = false;
-      return null;
-    }
-    
-    final stat = file.statSync();
-    _log('Model path validated: $_modelPath (${stat.size} bytes)');
-    return _modelPath;
-  }
-
-  static bool _verifyModelIntegrity(String path, int expectedSize, int minSize) {
-    try {
-      final file = File(path);
-      if (!file.existsSync()) {
-        _log('Model NOT FOUND: $path');
-        return false;
+      if (File(whisperPath).existsSync() && File(whisperPath).lengthSync() > 100 * 1024 * 1024) {
+        _modelPath = whisperPath;
+        _llamaModelPath = llamaPath;
+        _initialized = true;
+        AIManager.setState(AIState.readyWhisper, message: 'Pronto');
+        return;
       }
-      
-      final stat = file.statSync();
-      _log('Model size: ${stat.size} bytes (expected: $expectedSize)');
-      
-      if (stat.size < minSize) {
-        _log('Model INCOMPLETE: ${stat.size} < $minSize');
-        return false;
-      }
-      
-      _log('Model INTEGRITY OK');
-      return true;
+      await checkAssetsIntegrity();
     } catch (e) {
-      _log('Model integrity check FAILED: $e');
-      return false;
-    }
-  }
-/// Get audio file duration by reading WAV header
-  static Duration? _getAudioDuration(String audioPath) {
-    try {
-      final file = File(audioPath);
-      if (!file.existsSync()) {
-        _log('WAV: File not found, using default duration');
-        return const Duration(minutes: 2);
-      }
-      
-      // Read WAV file header to get duration
-      final raf = file.openSync(mode: FileMode.read);
-      final bytes = raf.readSync(44);
-      raf.closeSync();
-      
-      if (bytes.length < 44) {
-        _log('WAV: Header too small, using default duration');
-        return const Duration(minutes: 2);
-      }
-      
-      // Convert Uint8List to List<int>
-      final header = bytes.toList();
-      
-      // Check if it's a WAV file (RIFF header)
-      if (header[0] != 0x52 || header[1] != 0x49 || header[2] != 0x46 || header[3] != 0x46) {
-        _log('WAV: Not a valid WAV file, using default duration');
-        return const Duration(minutes: 2);
-      }
-      
-      // Get sample rate (bytes 22-25, little endian)
-      var sampleRate = header[22] | (header[23] << 8) | (header[24] << 16) | (header[25] << 24);
-      
-      // Sanity check - valid sample rates are 8000, 16000, 22050, 44100, 48000
-      // If invalid (> 100000), use default 16000 Hz
-      if (sampleRate <= 0 || sampleRate > 100000) {
-        _log('WAV: Invalid sampleRate $sampleRate, defaulting to 16000Hz');
-        sampleRate = 16000;
-      }
-      
-      // Get byte rate (bytes 28-31, little endian)
-      var byteRate = header[28] | (header[29] << 8) | (header[30] << 16) | (header[31] << 24);
-      if (byteRate <= 0) {
-        // Calculate from sampleRate if byteRate is invalid
-        byteRate = sampleRate * 2; // 16-bit mono
-        _log('WAV: Invalid byteRate, calculated as $byteRate');
-      }
-      
-      // Get data size (bytes 40-43, little endian)
-      var dataSize = header[40] | (header[41] << 8) | (header[42] << 16) | (header[43] << 24);
-      if (dataSize <= 0 || dataSize > 100000000) {
-        _log('WAV: Invalid dataSize $dataSize, using file size minus header');
-        dataSize = bytes.length - 44;
-      }
-      
-      final durationSeconds = dataSize / byteRate;
-      _log('WAV duration: ${durationSeconds.toStringAsFixed(1)}s (sampleRate: $sampleRate, dataSize: $dataSize)');
-      
-      return Duration(milliseconds: (durationSeconds * 1000).round());
-    } catch (e) {
-      _log('WAV: Error parsing header: $e, using default duration');
-      return const Duration(minutes: 2);
+      _log('Boot error: $e');
     }
   }
 
   static Future<bool> checkAssetsIntegrity() async {
-    _log('=== PRE-FLIGHT CHECK ===');
-
     try {
-      _log('Checking disk space...');
-      final hasSpace = await _checkDiskSpace();
-      if (!hasSpace) {
-        AIManager.setError('Sem espaco em disco ou erro de permissao');
-        _log('Pre-flight FAILED: No disk space');
-        return false;
-      }
-
       final appDir = await getApplicationDocumentsDirectory();
       final modelDir = Directory('${appDir.path}/models');
-      _log('Model directory: ${modelDir.path}');
-      
-      if (!await modelDir.exists()) {
-        _log('Creating model directory...');
-        await modelDir.create(recursive: true);
-      }
-      
-      final whisperPath = '${modelDir.path}/$whisperFilename';
-      _log('🔍 Looking for Whisper at: $whisperPath');
-      
-      // Check Whisper model
-      if (await File(whisperPath).exists()) {
-        _log('Whisper file exists, checking integrity...');
-        if (!_verifyModelIntegrity(whisperPath, expectedWhisperSize, whisperMinSize)) {
-          _log('Whisper corrupted, recreating...');
-          await _deleteAndRecreateModel(whisperPath, whisperFilename);
-        } else {
-          _modelPath = whisperPath;
-          _modelsCopied = true;
-          AIManager.setState(AIState.readyWhisper, message: 'Pronto para gravar');
-          _log('✅ Whisper model ready');
-        }
-      } else {
-        _log('⚠️ Whisper: NOT FOUND - copying...');
-        await _copyModel(WHISPER_FILENAME, whisperPath);
-        _log('✅ Whisper copied successfully!');
-        // IMPORTANT: Set model path to Whisper after copy (not Llama!)
-        _modelPath = whisperPath;
-        _modelsCopied = true;
-        AIManager.setState(AIState.readyWhisper, message: 'Pronto para gravar');
-      }
-      
-      // ALSO check and copy Llama model
-      final llamaPath = '${modelDir.path}/$llamaFilename';
-      _log('🔍 Looking for Llama at: $llamaPath');
-      
-      // Check if directory exists first
-      if (!await modelDir.exists()) {
-        _log('⚠️ Model directory does not exist, creating...');
-        await modelDir.create(recursive: true);
-      }
-      
-      final llamaFile = File(llamaPath);
-      _log('🔍 Llama file exists check: ${await llamaFile.exists()}');
-      
-      if (await llamaFile.exists()) {
-        _log('🔍 Llama file exists, checking integrity...');
-        final stat = llamaFile.statSync();
-        _log('🔍 Llama file size: ${stat.size} bytes');
-        
-        if (!_verifyModelIntegrity(llamaPath, expectedLlamaSize, llamaMinSize)) {
-          _log('⚠️ Llama corrupted, recreating...');
-          await _deleteAndRecreateModel(llamaPath, llamaFilename);
-          _log('✅ Llama recreated successfully!');
-        } else {
-          _llamaModelPath = llamaPath; // Store persistent path
-          _log('✅ Llama model ready (verified)');
-        }
-      } else {
-        _log('⚠️ Llama: NOT FOUND - will copy...');
-        await _copyModel(LLAMA_FILENAME, llamaPath);
-        
-        // Verify copy worked
-        final copiedFile = File(llamaPath);
-        if (await copiedFile.exists()) {
-          _llamaModelPath = llamaPath; // Store persistent path
-          final copiedSize = copiedFile.statSync().size;
-          _log('✅ Llama copied successfully! Size: $copiedSize bytes');
-        } else {
-          _log('❌ ERROR: Llama copy failed - file not found after copy');
-        }
-      }
+      if (!await modelDir.exists()) await modelDir.create(recursive: true);
 
-      _validateModelPath();
-      AIManager.setState(AIState.readyWhisper, message: 'Pronto para gravar');
+      final whisperPath = '${modelDir.path}/$whisperFilename';
+      final llamaPath = '${modelDir.path}/$llamaFilename';
+
+      await _copyModel(whisperFilename, whisperPath);
+      await _copyModel(llamaFilename, llamaPath);
+
+      _modelPath = whisperPath;
+      _llamaModelPath = llamaPath;
+      _initialized = true;
+      AIManager.setState(AIState.readyWhisper, message: 'Pronto');
       return true;
     } catch (e) {
-      _log('Pre-flight FAILED: $e');
-      AIManager.setError('Falha na verificacao: $e');
       return false;
     }
   }
 
-  static Future<void> _deleteAndRecreateModel(String path, String assetName) async {
-    try {
-      _log('Deleting corrupted model: $path');
-      final file = File(path);
-      if (await file.exists()) {
-        await file.delete();
-      }
-    } catch (e) {
-      _log('Delete error: $e');
-    }
-    await _copyModel(assetName, path);
-  }
-
   static Future<void> _copyModel(String assetName, String destPath) async {
-    final modelName = assetName.contains('Whisper') ? 'Whisper' : 'Llama';
-    _log('Loading $assetName from assets...');
-    AIManager.setState(AIState.loading, message: 'Extraindo $modelName...', progress: 0.0);
-
     try {
-      final hasSpace = await _checkDiskSpace();
-      if (!hasSpace) {
-        throw Exception('No disk space available');
-      }
-
-      // Load asset data
       final data = await rootBundle.load('assets/models/$assetName');
-      final totalBytes = data.lengthInBytes;
-      _log('Asset loaded: $totalBytes bytes');
-      
-      AIManager.setState(AIState.loading, message: 'Copiando $modelName...', progress: 0.1);
-      
-      // Start copying with progress updates
       final file = File(destPath);
       final sink = file.openWrite();
-      
-      // Copy in chunks for progress reporting
-      const chunkSize = 1024 * 1024; // 1MB chunks
-      final totalChunks = (totalBytes / chunkSize).ceil();
-      final bytes = data.buffer.asUint8List();
-      
-      for (var i = 0; i < totalChunks; i++) {
-        final start = i * chunkSize;
-        final end = (start + chunkSize > totalBytes) ? totalBytes : start + chunkSize;
-        sink.add(bytes.sublist(start, end));
-        
-        // Update progress (10% to 80% during copy)
-        final chunkProgress = 0.1 + (0.7 * i / totalChunks);
-        AIManager.setState(
-          AIState.loading, 
-          message: 'Extraindo $modelName: ${(chunkProgress * 100).round()}%...',
-          progress: chunkProgress,
-        );
+      final totalBytes = data.lengthInBytes;
+      const int chunkSize = 1024 * 1024;
+      for (int i = 0; i < totalBytes; i += chunkSize) {
+        final end = (i + chunkSize < totalBytes) ? i + chunkSize : totalBytes;
+        sink.add(data.buffer.asUint8List(data.offsetInBytes + i, end - i));
+        if (i % (chunkSize * 20) == 0) {
+          AIManager.setState(AIState.loading, message: 'Configurando IA...', progress: i / totalBytes);
+          await Future.delayed(const Duration(milliseconds: 5));
+        }
       }
-
       await sink.flush();
       await sink.close();
-
-      AIManager.setState(AIState.loading, message: 'Finalizando...', progress: 0.9);
-      _log('Sink closed, waiting for filesystem...');
-      await Future.delayed(const Duration(milliseconds: 300));
-
-      if (!file.existsSync()) {
-        throw Exception('File not found after write');
-      }
-
-      final stat = file.statSync();
-      _log('Model copied: ${stat.size} bytes');
-
-      if (stat.size < totalBytes ~/ 2) {
-        throw Exception('Model copy incomplete');
-      }
-
-      _modelsCopied = true;
-      AIManager.setState(AIState.loading, message: '$modelName pronto!', progress: 1.0);
-      _log('Model ready: $destPath');
     } catch (e) {
-      _log('Copy FAILED: $e');
-      AIManager.setError('Erro ao copiar $assetName: $e');
       rethrow;
     }
-  }
-
-  static Future<void> initializeInBackground() async {
-    if (_initialized) {
-      _log('Already initialized, path: $_modelPath');
-      return;
-    }
-
-    _log('=== INITIALIZATION START ===');
-    AIManager.setState(AIState.loading, message: 'Preparando IA...');
-
-    try {
-      final hasSpace = await _checkDiskSpace();
-      if (!hasSpace) {
-        throw Exception('No disk space or permission denied');
-      }
-
-      // Capture token before isolate
-      final rootToken = ServicesBinding.rootIsolateToken!;
-      
-      await Isolate.run(() async {
-        // Initialize token for this isolate
-        BackgroundIsolateBinaryMessenger.ensureInitialized(rootToken);
-        await _copyModelsToDocuments();
-      });
-
-      final ready = await checkAssetsIntegrity();
-      if (!ready) {
-        _log('Post-initialization check failed');
-      }
-      
-      // Load PT-BR prompt for better transcription
-      _log('Loading PT-BR context...');
-      await WhisperBindings.loadPtBrPrompt();
-      
-      _initialized = true;
-      _validateModelPath();
-      _log('=== INITIALIZATION COMPLETE ===');
-      _log('Final model path: $_modelPath');
-    } catch (e) {
-      _log('INITIALIZATION FAILED: $e');
-      AIManager.setError('Inicializacao falhou: $e');
-    }
-  }
-
-  static Future<void> _copyModelsToDocuments() async {
-    final appDir = await getApplicationDocumentsDirectory();
-    final modelDir = Directory('${appDir.path}/models');
-
-    if (!await modelDir.exists()) {
-      await modelDir.create(recursive: true);
-    }
-    debugPrint('AI: Models directory prepared');
   }
 
   static Future<Transcription?> processAudio({
@@ -460,777 +120,202 @@ class AIService {
     required String title,
     Function(double progress, String status)? onProgress,
   }) async {
-    _log('=== PROCESS AUDIO ===');
-    
-    // Emit initial progress
-    _emitProgress(TranscriptionProgress.loading(0.0, 'Iniciando transcrição...'));
-    onProgress?.call(0.05, 'Preparando...');
-
-    final validatedPath = _validateModelPath();
-    if (validatedPath == null) {
-      _log('Models not ready, running pre-flight...');
-      AIManager.setState(AIState.loading, message: 'Carregando modelo...');
-      _emitProgress(TranscriptionProgress.loading(0.1, 'Carregando modelo...'));
-      final ready = await checkAssetsIntegrity();
-      if (!ready) {
-        throw Exception('Pre-flight check failed');
-      }
-      _validateModelPath();
-    }
-
-    _log('Checking audio file: $audioPath');
-    final audioFile = File(audioPath);
-    if (!audioFile.existsSync()) {
-      throw Exception('Audio file NOT FOUND: $audioPath');
-    }
-    
-    final audioStat = audioFile.statSync();
-    _log('Audio file size: ${audioStat.size} bytes');
-    
-    if (audioStat.size < 10000) {
-      _log('WARNING: Audio file too small (${audioStat.size} bytes)');
-      AIManager.setError('Audio vazio ou corrompido');
-      throw Exception('Audio file too small. Need at least 10KB.');
-    }
-
-    AIManager.setState(AIState.processing, message: 'Transcrevendo...');
-    _emitProgress(TranscriptionProgress.loading(0.1, 'Iniciando motor Whisper...'));
-    onProgress?.call(0.1, 'Iniciando...');
-    
-    // === STREAMING: Emit progress quickly so user doesn't see static screen ===
-    // User sees progress updates immediately
-    await Future.delayed(const Duration(milliseconds: 300));
-    _emitProgress(TranscriptionProgress.loading(0.2, 'Carregando modelo...'));
-    onProgress?.call(0.2, 'Carregando modelo...');
-    
-    await Future.delayed(const Duration(milliseconds: 300));
-    _emitProgress(TranscriptionProgress.loading(0.3, 'Preparando áudio...'));
-    onProgress?.call(0.3, 'Preparando...');
-    
-    await Future.delayed(const Duration(milliseconds: 300));
-    _emitProgress(TranscriptionProgress.loading(0.4, 'Processando 504.320 samples...'));
-    onProgress?.call(0.4, 'Processando...');
-    
-    // Give UI time to show loading before heavy processing
-    await Future.delayed(const Duration(milliseconds: 500));
+    if (_processing) return null;
+    _processing = true;
 
     try {
-      // CRITICAL: Always use Whisper model for transcription, not Llama!
-      // The _modelPath might be set to Llama by checkAssetsIntegrity, so we need to fix it
+      _emitProgress(TranscriptionProgress.loading(0.1, 'Transcrevendo...'));
+      if (!_initialized) await initializeInBackground();
+
       final appDir = await getApplicationDocumentsDirectory();
-      final modelDir = Directory('${appDir.path}/models');
-      final whisperPath = '${modelDir.path}/$whisperFilename';
-      
-      // Use Whisper path directly for transcription
-      final safePath = whisperPath;
-      _log('processAudio: Using Whisper path: $safePath');
-      
-      if (!File(safePath).existsSync()) {
-        throw Exception('Whisper model not found: $safePath');
+      final whisperPath = '${appDir.path}/models/$whisperFilename';
+
+      // 1. Transcrever
+      Transcription result = await _processWhisperNative(
+        audioPath: audioPath,
+        title: title,
+        modelPath: whisperPath,
+      );
+
+      // 2. Limpeza Radical do texto
+      String text = result.text.trim();
+
+      final isSpanish = text.toLowerCase().contains('hola') || text.toLowerCase().contains(' soy ');
+      if (isSpanish && text.isNotEmpty) {
+        _log('⚠️ Detectada alucinação de espanhol. Traduzindo em silêncio...');
+        final translated = await translateToPortuguese(text);
+        if (translated != null && translated.isNotEmpty) {
+          text = _extractAssistantContent(translated);
+        }
+      } else {
+        text = _emergencyTermFix(text);
       }
 
-      // STABILITY: Skip normalization - use raw WAV
-      final finalAudioPath = audioPath;
-      _log('processAudio: Using raw WAV (NO normalization)...');
+      final segments = _smartDiarize(text);
 
-      // WhisperPlatformService handles native initialization internally
-      // It runs on background thread via platform channel
-      
-      // Run transcription on MAIN THREAD (no isolate/compute)
-      // Whisper will manage its own internal threads
-      // UI may freeze for 2 seconds but app won't crash
-      _log('processAudio: Running on MAIN THREAD (NO ISOLATE)...');
-      
-      Transcription? result;
-      try {
-        result = await _processPipeline(
-          audioPath: finalAudioPath,
-          title: title,
-          modelPath: safePath,
-        );
-        _log('processAudio: ✅ Pipeline completed successfully');
-      } catch (isolateError, stack) {
-        _log('processAudio: ❌ Pipeline FAILED: $isolateError');
-        _log('processAudio: Stack: $stack');
-        rethrow;
-      }
+      _emitProgress(TranscriptionProgress.complete(text, segments));
+      _processing = false;
 
-      AIManager.setState(AIState.readyWhisper, message: 'Pronto');
-      onProgress?.call(1.0, 'Completo');
-      _log('=== PROCESS COMPLETE ===');
-      
-      // Emit completion
-      if (result != null) {
-        _emitProgress(TranscriptionProgress.complete(
-          result!.text,
-          result!.speakerSegments,
-        ));
-      }
-      
-      return result;
+      return Transcription(
+        id: result.id, title: result.title, audioPath: result.audioPath,
+        text: text, wordTimestamps: result.wordTimestamps,
+        createdAt: result.createdAt, duration: result.duration,
+        isEncrypted: result.isEncrypted, speakerSegments: segments,
+        summary: result.summary, actionItems: result.actionItems,
+      );
     } catch (e) {
-      _log('PROCESS FAILED: $e');
-      AIManager.setError('Processamento falhou: $e');
-      rethrow;
+      _processing = false;
+      return null;
     }
   }
 
-  // Static method for transcription pipeline - runs on MAIN THREAD
-  static Future<Transcription> _processPipeline({
+  /// CRITICAL PARSER: Isola o conteúdo real ignorando instruções técnicas
+  static String _extractAssistantContent(String input) {
+    if (input.contains('<|assistant|>')) {
+      input = input.split('<|assistant|>').last;
+    }
+
+    String clean = input.replaceAll(RegExp(r'<\|.*?\|>', dotAll: true), '');
+    // Remove frases de comando que a IA às vezes repete por erro
+    clean = clean.replaceAll(RegExp(r'^(Você é|Traduza|Resuma|Responda).*?[:\.]', multiLine: true, caseSensitive: false), '');
+    clean = clean.replaceAll('Transcrição:', '').replaceAll('Tradução:', '');
+
+    return clean.trim();
+  }
+
+  static String _sanitizeAIFeedback(String input) {
+    String content = _extractAssistantContent(input);
+    content = content.replaceAll('Resumo:', '').trim();
+    return content;
+  }
+
+  static String _emergencyTermFix(String input) {
+    return input
+        .replaceAll('Hola', 'Olá').replaceAll('hola', 'olá')
+        .replaceAll('soy', 'sou').replaceAll('Soy', 'Sou')
+        .replaceAll('estoy', 'estou').replaceAll('Estoy', 'Estou')
+        .replaceAll('grabación', 'gravação').replaceAll('esta', 'esta')
+        .replaceAll(' y ', ' e ').replaceAll('con ', 'com ');
+  }
+
+  static List<SpeakerSegment> _smartDiarize(String text) {
+    if (text.isEmpty) return [];
+    final paragraphs = text.split(RegExp(r'\n\n|\r\n\r\n'));
+    final List<SpeakerSegment> segments = [];
+    int speaker = 1;
+    for (int i = 0; i < paragraphs.length; i++) {
+      final p = paragraphs[i].trim();
+      if (p.isEmpty) continue;
+      if (i > 0) speaker = (speaker == 1) ? 2 : 1;
+      segments.add(SpeakerSegment(
+          speakerId: 'Voz $speaker',
+          startTime: Duration(seconds: i * 5),
+          endTime: Duration(seconds: (i + 1) * 5),
+          text: p
+      ));
+    }
+    return segments;
+  }
+
+  static Future<Transcription> _processWhisperNative({
     required String audioPath,
     required String title,
     required String modelPath,
   }) async {
-    _log('🔄[MainThread] _processPipeline called');
-    _log('🔄[MainThread] audioPath: $audioPath');
-    _log('🔄[MainThread] modelPath: $modelPath');
-    
-    // Verify audio exists
-    final audioFile = File(audioPath);
-    if (!audioFile.existsSync()) {
-      throw Exception('[MainThread] Audio file NOT FOUND: $audioPath');
-    }
-    final audioSize = audioFile.lengthSync();
-    _log('🔄[MainThread] Audio file exists, size: $audioSize bytes');
-    
-    // Verify model exists
-    final modelFile = File(modelPath);
-    if (!modelFile.existsSync()) {
-      throw Exception('[MainThread] Model file NOT FOUND: $modelPath');
-    }
-    final modelSize = modelFile.lengthSync();
-    _log('🔄[MainThread] Model file exists, size: $modelSize bytes');
-    _log('🔄[MainThread] Pipeline start');
-    _log('🔄[MainThread] Using model path: $modelPath');
-
-    // No token needed - running on main thread
-
     try {
-      if (!File(audioPath).existsSync()) {
-        throw Exception('Audio file NOT FOUND: $audioPath');
-      }
-
-      final audioStat = File(audioPath).statSync();
-      _log('🔥[MainThread] Audio size: ${audioStat.size} bytes');
-
-      // Verify model file exists
-      final modelFile = File(modelPath);
-      if (!modelFile.existsSync()) {
-        throw Exception('[MainThread] Model file NOT FOUND: $modelPath');
-      }
-      final modelSize = modelFile.lengthSync();
-      _log('🔥[MainThread] Model file size: $modelSize bytes');
-      
-      // Skip integrity check - just verify file exists
-      // Let Whisper handle compatibility
-
-      _log('🔥[MainThread] Model: $modelPath');
-
-      // Skip platform service (mx.valdora) - it's unstable and crashes
-      // Go directly to FFI which is more reliable
-      _log('🔥[MainThread] Using native FFI for transcription...');
-      
-      // Use FFI directly
-      String? text;
-      List<dynamic>? segments = null;
-      
-      // Use Kotlin mx.valdora via platform channel (NOT FFI)
-      _log('🔄[MainThread] Using Kotlin mx.valdora platform channel...');
-      
-      // Initialize Whisper via platform channel
-      final initResult = await WhisperPlatformService.initialize(modelPath);
-      _log('🔄[MainThread] WhisperPlatform init: $initResult');
-      
-      if (!initResult) {
-        _log('⚠️[MainThread] WhisperPlatform init FAILED');
-        return _generateFallbackTranscription(audioPath, title);
-      }
-      
-      // Transcribe via platform channel (runs on background thread in Kotlin)
-      _log('🔄[MainThread] Transcribing via platform channel...');
-      text = await WhisperPlatformService.transcribe(audioPath, language: 'pt');
-      _log('🔄[MainThread] Platform result: ${text?.substring(0, text.length > 50 ? 50 : 0)}...');
-      
-      // Release Whisper to free memory before Llama
-      _log('🔄[MainThread] Releasing Whisper...');
+      await WhisperPlatformService.initialize(modelPath);
+      String? text = await WhisperPlatformService.transcribe(audioPath, language: 'pt');
       await WhisperPlatformService.release();
-      
-      if (text == null || text.isEmpty) {
-        _log('⚠️[MainThread] Platform returned empty');
-        return _generateFallbackTranscription(audioPath, title);
-      }
-      
-      _log('✅[MainThread] Kotlin transcription success!');
-
-      _log('🔥[MainThread] Raw text: $text');
-
-      // FIX: Detect and translate Spanish to Portuguese
-      final isSpanish = text.toLowerCase().contains('hola') || 
-                        text.toLowerCase().contains('está') ||
-                        text.toLowerCase().contains('grabación') ||
-                        text.toLowerCase().contains('aplicación') ||
-                        text.toLowerCase().contains('este') ||
-                        text.toLowerCase().contains('esta');
-      
-      if (isSpanish) {
-        _log('🔄[MainThread] Detected Spanish, translating to Portuguese...');
-        try {
-          // Use Llama to translate
-          if (!LlamaBindings.load()) {
-            _log('⚠️[MainThread] Llama load failed for translation');
-          } else {
-            final llamaPath = _llamaModelPath ?? _modelPath?.replaceAll(WHISPER_FILENAME, llamaFilename);
-            if (llamaPath != null) {
-              final llamaCtx = LlamaBindings.initFromFile(llamaPath);
-              if (llamaCtx != null) {
-                // Professional translation prompt for PT-BR
-                final translatePrompt = '''<|system|>
-You are a professional translator from Spanish to Brazilian Portuguese. 
-Your task is to translate audio transcriptions to natural Brazilian Portuguese.
-Use correct Portuguese terms: 'gravação' NOT 'grabación', 'aplicativo' NOT 'aplicación', 'edição' NOT 'edición'.
-Return ONLY the translated text in Portuguese. No explanations, no tags, no comments.
-<|user|>
-$text
-<|assistant|>
-''';
-                final translated = LlamaBindings.generate(ctx: llamaCtx, prompt: translatePrompt);
-                LlamaBindings.dispose();
-                
-                // Check if translation was successful
-                if (translated != null) {
-                  // Handle both Map (fallback) and String formats
-                  String ptText;
-                  if (translated is Map) {
-                    // Fallback generate returns a Map with 'response' or 'summary'
-                    ptText = translated['response']?.toString() ?? 
-                             translated['summary']?.toString() ?? 
-                             translated.toString();
-                  } else {
-                    ptText = translated.toString();
-                  }
-                  
-                  // Clean up template tags - extract only assistant response
-                  if (ptText.contains('<|assistant|>')) {
-                    ptText = ptText.split('<|assistant|>').last;
-                  }
-                  if (ptText.contains('<|end|>')) {
-                    ptText = ptText.split('<|end|>').first;
-                  }
-                  // Also clean up "summary:" prefix that Llama might add
-                  if (ptText.toLowerCase().startsWith('resumo:') || 
-                      ptText.toLowerCase().startsWith('summary:')) {
-                    ptText = ptText.substring(ptText.indexOf(':') + 1).trim();
-                  }
-                  
-                  text = ptText.trim();
-                  _log('🔄[MainThread] Translated to PT: ${text.length > 50 ? text.substring(0, 50) + "..." : text}');
-                }
-              }
-            }
-          }
-        } catch (e) {
-          _log('⚠️[MainThread] Translation failed: $e');
-        }
-      }
-
-      _log('🔥[MainThread] Text: $text');
-
-      // POST-PROCESSING: Fix Whisper errors using Llama
-      final textToFix = text ?? '';
-      if (textToFix.isNotEmpty) {
-        try {
-          _log('🔧[MainThread] Post-processing...');
-            
-          if (!LlamaBindings.load()) {
-            // Skip
-          } else {
-            final llPath = _llamaModelPath ?? _modelPath?.replaceAll(WHISPER_FILENAME, llamaFilename);
-            if (llPath != null) {
-              final ctx = LlamaBindings.initFromFile(llPath);
-              if (ctx != null) {
-                final prompt = '''<|system|>
-Aja como um revisor ortográfico.
-Remova o 'u' ou 'n' no final de palavras como 'transcriçãou'→'transcrição', 'gravaçãou'→'gravação', 'testandou'→'testando'.
-Retorne apenas o texto limpo, sem explicações.
-<|user|>
-$textToFix
-<|assistant|>
-''';
-                final out = LlamaBindings.generate(ctx: ctx, prompt: prompt);
-                LlamaBindings.dispose();
-                if (out != null) {
-                  String s = out.toString();
-                  // Clean ALL AI tags from output
-                  if (s.contains('<|system|>')) s = s.split('<|system|>').last;
-                  if (s.contains('<|user|>')) s = s.split('<|user|>').last;
-                  if (s.contains('<|assistant|>')) s = s.split('<|assistant|>').last;
-                  if (s.contains('<|end|>')) s = s.split('<|end|>').first;
-                  s = s.trim();
-                  
-                  if (s.isNotEmpty && s.length > textToFix.length * 0.5) {
-                    text = s;
-                    _log('🔧[MainThread] Errors fixed');
-                  }
-                }
-              }
-            } // end if ctx
-            // Simplefix: If post-processing failed or Llama not loaded
-            if (text == textToFix && (text ?? "").isNotEmpty) {
-              // Direct string replacements for common errors
-              final fixed = text ?? ""
-                .replaceAll('transcriçãou', 'transcrição')
-                .replaceAll('gravaçãou', 'gravação')
-                .replaceAll('testandou', 'testando')
-                .replaceAll('falandou', 'falando')
-                .replaceAll('gravandou', 'gravando')
-                .replaceAll('digalandou', 'digalando');
-              if (fixed != text) {
-                text = fixed;
-                _log('🔧[MainThread] Simple fix applied');
-              }
-            }
-          }
-        } catch (e) {
-          _log('⚠️[MainThread] Post-process error: $e');
-        }
-      } // end if textToFix.isNotEmpty
-
-      _log('🔥[MainThread] Text after post-processing: $text');
-
-      // Get actual audio duration for proper karaoke sync
-      final audioDuration = _getAudioDuration(audioPath);
-      _log('🔥[MainThread] Audio duration: ${audioDuration?.inSeconds ?? 120} seconds');
-
-      // Use segment-based diarization if available (from Kotlin JSON)
-      // Otherwise fall back to simple Voz 1 assignment
-      final textToUse = text ?? '';
-      final hasSegments = segments != null && (segments as List).isNotEmpty;
-      final speakers = hasSegments
-          ? _diarizeWithSegments(List<Map<String, dynamic>>.from(segments), audioDuration: audioDuration)
-          : _simpleDiarize(textToUse);
-      
-      // Stream each segment for real-time UI effect
-      for (final seg in speakers) {
-        _transcriptionController.add(TranscriptionProgress.partial(seg.text, 0.5));
-      }
-      
-      _emitProgress(TranscriptionProgress.partial(textToUse, 0.7));
-      
-      // === SAVE TO DATABASE IMMEDIATELY so UI can show text "nascendo" ===
-      // This makes the app feel 10x faster - user sees first words in 5 seconds
-      _log('🔥[MainThread] Saving partial result to database for streaming effect...');
-      try {
-        // Note: Cannot call repository directly here - UI will pick up final result via auto-refresh
-        // TODO: Implement streaming save if needed
-      } catch (e) {
-        _log('🔥[MainThread] Partial save error (non-critical): $e');
-      }
-      
-      // === URGENT: Don't load Llama here - will cause OOM ===
-      // Summary will be generated on-demand when user clicks button
-      _log('🔥[MainThread] Skipping automatic summary generation to save RAM');
-      _log('🔥[MainThread] User can generate summary later on-demand');
-
-      String summary = '';
-      List<String> actionItems = [];
-
-      // Skip automatic Llama loading - summary will be generated on-demand
-      // This prevents OOM on low-end devices like Moto G06
-      _log('🔥[MainThread] Pipeline complete (summary available on-demand)');
+      if (text == null || text.isEmpty) return _generateFallback(audioPath, title);
 
       return Transcription(
-        id: title.hashCode.abs().toString(),  // Use title as ID base
-        title: title,
-        audioPath: audioPath,
-        text: textToUse,
-        wordTimestamps: [],
-        createdAt: DateTime.now(),
-        duration: const Duration(minutes: 2),
-        isEncrypted: true,
-        speakerSegments: speakers,
-        summary: summary,
-        actionItems: actionItems,
+        id: title.hashCode.abs().toString(),
+        title: title, audioPath: audioPath, text: text,
+        wordTimestamps: const [], createdAt: DateTime.now(),
+        duration: const Duration(minutes: 1), isEncrypted: true,
+        speakerSegments: [], summary: '', actionItems: const [],
       );
-      
     } finally {
       try { WhisperBindings.dispose(); } catch (_) {}
-      try { LlamaBindings.dispose(); } catch (_) {}
     }
   }
 
-  /// Diarization by pause: if interval > 1.5s, assign to Voz 2
+  static Future<String?> translateToPortuguese(String text) async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final llamaPath = '${appDir.path}/models/$llamaFilename';
+    final rootToken = ServicesBinding.rootIsolateToken!;
+    try {
+      return await Isolate.run(() async {
+        BackgroundIsolateBinaryMessenger.ensureInitialized(rootToken);
+        if (!LlamaBindings.load()) return null;
+        final ctx = LlamaBindings.initFromFile(llamaPath);
+        if (ctx == null) return null;
 
-  /// Uses segment timing from Whisper JSON output
-  static List<SpeakerSegment> _diarizeWithSegments(
-    List<Map<String, dynamic>> segments, {
-    Duration? audioDuration,
-  }) {
-    if (segments.isEmpty) return [];
-    
-    final speakers = <SpeakerSegment>[];
-    var currentVoice = 'Voz 1';
-    var lastEndMs = 0;
-    
-    for (var i = 0; i < segments.length; i++) {
-      final seg = segments[i];
-      final startMs = (seg['start'] as num?)?.toInt() ?? 0;
-      final endMs = (seg['end'] as num?)?.toInt() ?? 0;
-      final text = seg['text'] as String? ?? '';
-      // Use speaker from Kotlin if available, otherwise calculate
-      final kotlinSpeaker = seg['speaker'] as String?;
-      
-      if (text.trim().isEmpty) continue;
-      
-      // Use Kotlin's speaker if provided, otherwise calculate from pause
-      if (kotlinSpeaker != null) {
-        currentVoice = kotlinSpeaker;
-        _log('🔊 Using Kotlin speaker: $currentVoice');
-      } else {
-        // Check pause: > 1500ms gap = new speaker
-        final gap = startMs - lastEndMs;
-        if (gap > 1500) {
-          currentVoice = currentVoice == 'Voz 1' ? 'Voz 2' : 'Voz 1';
-          _log('🔊 Voice change! Gap: ${gap}ms -> $currentVoice');
-        }
-      }
-      
-      speakers.add(SpeakerSegment(
-        speakerId: currentVoice,
-        startTime: Duration(milliseconds: startMs),
-        endTime: Duration(milliseconds: endMs),
-        text: text,
-      ));
-      
-      lastEndMs = endMs;
-    }
-    
-    _log('🔊 Diarization done: ${speakers.length} segments, voices: ${speakers.map((s)=>s.speakerId).toSet()}');
-    return speakers;
+        final prompt = '<|system|>\nVocê é um tradutor brasileiro. Traduza o áudio abaixo para Português do Brasil.\n<|user|>\n$text\n<|assistant|>\n';
+
+        final res = LlamaBindings.generate(ctx: ctx, prompt: prompt);
+        LlamaBindings.dispose();
+        if (res == null) return null;
+        return (res['response'] ?? res['summary'] ?? '').toString();
+      });
+    } catch (e) { return null; }
   }
 
-  /// Simple fallback diarization - all text as Voz 1
-  static List<SpeakerSegment> _simpleDiarize(String text) {
-    if (text.isEmpty) return [];
-    
-    final paragraphs = text.split(RegExp(r'\n\n|\r\n\r\n'));
-    final speakers = <SpeakerSegment>[];
-    
-    for (var i = 0; i < paragraphs.length; i++) {
-      final paragraph = paragraphs[i].trim();
-      if (paragraph.isEmpty) continue;
-      
-      final wordCount = paragraph.split(' ').length;
-      final startMs = i * wordCount * 200;
-      final endMs = startMs + wordCount * 200;
-      
-      speakers.add(SpeakerSegment(
-        speakerId: 'Voz 1',
-        startTime: Duration(milliseconds: startMs),
-        endTime: Duration(milliseconds: endMs),
-        text: paragraph,
-      ));
-    }
-    
-    return speakers;
-  }
-
-  static String getDiagnostics() {
-    return '''
-=== PrivaVoice AI Diagnostics ===
-Time: ${DateTime.now().toIso8601String()}
-State: ${AIManager.state}
-Model Path: $_modelPath
-Models Copied: $_modelsCopied
-Initialized: $_initialized
-Error: ${AIManager.lastError}
---- Diagnostic Log ---
-$_diagnosticLog
-''';
-  }
-
-  /// Isolate function for whisper transcription
-  /// Runs in separate memory space to prevent native crashes
-  static String _whisperTranscribeIsolate(Map<String, String> params) {
-    final modelPath = params['modelPath']!;
-    final audioPath = params['audioPath']!;
-    
-    debugPrint('Isolate: Loading whisper...');
-    
-    // Load FFI in isolate
-    if (!WhisperBindings.load()) {
-      return '';
-    }
-    
-    // Load PT-BR prompt
-    WhisperBindings.loadPtBrPrompt();
-    
-    // Init model
-    final ctx = WhisperBindings.initFromFile(modelPath);
-    if (ctx == null) {
-      return '';
-    }
-    
-    // Transcribe
-    final result = WhisperBindings.full(ctx: ctx, audioPath: audioPath) ?? '';
-    debugPrint('Isolate: Transcription done, ${result.length} chars');
-    
-    return result;
-  }
-
-  /// Fallback transcription when native library fails
-  /// This ensures the player stays visible and app doesn't crash
-  static Transcription _generateFallbackTranscription(String audioPath, String title) {
-    _log('Using fallback transcription (native lib failed)');
-    
-    // Return empty text - keeps player visible and audio playable
-    final text = "";
-    
-    final speakers = _simpleDiarize(text);
-    
+  static Transcription _generateFallback(String audioPath, String title) {
     return Transcription(
-      id: title.hashCode.abs().toString(),
-      title: title,
-      audioPath: audioPath,
-      text: text,
-      wordTimestamps: [],
-      createdAt: DateTime.now(),
-      duration: const Duration(minutes: 2),
-      isEncrypted: true,
-      speakerSegments: speakers,
-      summary: '',
-      actionItems: [],
+      id: title.hashCode.abs().toString(), title: title, audioPath: audioPath,
+      text: "Erro no motor local", wordTimestamps: const [], createdAt: DateTime.now(),
+      duration: const Duration(minutes: 1), isEncrypted: true,
+      speakerSegments: [], summary: '', actionItems: const [],
     );
   }
 
-  /// Generate summary on-demand when user clicks button
-  /// This loads Llama only when needed, preventing OOM
-  static Future<Transcription?> generateSummary({
-    required String transcriptionId,
-    required String text,
-  }) async {
-    _log('=== GENERATE SUMMARY ON-DEMAND ===');
-    AIManager.setState(AIState.processing, message: 'Gerando resumo...');
-    
-    // Capture paths BEFORE entering isolate
-    final llamaPath = _llamaModelPath ?? _modelPath?.replaceAll(WHISPER_FILENAME, llamaFilename);
-    if (llamaPath == null) {
-      _log('⚠️[MainThread] No Llama path - checking assets');
-      await checkAssetsIntegrity();
-    }
-    final finalLlamaPath = _llamaModelPath ?? _modelPath?.replaceAll(WHISPER_FILENAME, llamaFilename);
-    if (finalLlamaPath == null || finalLlamaPath.isEmpty) {
-      _log('❌[MainThread] No Llama path available');
-      return null;
-    }
-    
+  static Future<Transcription?> generateSummary({required String transcriptionId, required String text}) async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final llamaPath = '${appDir.path}/models/$llamaFilename';
     final rootToken = ServicesBinding.rootIsolateToken!;
-    
     try {
-      final result = await Isolate.run(() async {
-        // Initialize token
+      return await Isolate.run(() async {
         BackgroundIsolateBinaryMessenger.ensureInitialized(rootToken);
-        
-        _log('🔥[MainThread] Loading Llama for summary...');
-        
-        // Use captured path from closure
-        _log('🔄[MainThread] Using Llama path: $finalLlamaPath');
-        
-        // Load Llama
-        if (!LlamaBindings.load()) {
-          _log('🔥[MainThread] Llama load failed');
-          return null;
-        }
-        
-        final llamaCtx = LlamaBindings.initFromFile(finalLlamaPath);
-        if (llamaCtx == null) {
-          _log('🔥[MainThread] Llama ctx init failed');
-          return null;
-        }
-        
-        _log('🔥[MainThread] Llama ready, generating summary...');
-        final llmResult = LlamaBindings.generate(ctx: llamaCtx, prompt: text);
-        
-        // Dispose immediately
+        if (!LlamaBindings.load()) return null;
+        final ctx = LlamaBindings.initFromFile(llamaPath);
+        if (ctx == null) return null;
+        final prompt = '<|system|>\nResuma em Português Brasileiro oficial.\n<|user|>\n$text\n<|assistant|>\n';
+        final res = LlamaBindings.generate(ctx: ctx, prompt: prompt);
         LlamaBindings.dispose();
-        _log('🔥[MainThread] Llama disposed');
-        
-        // Reload Whisper after Llama is done
-        // Note: Path is already available in _modelPath
-        if (_modelPath != null) {
-          try {
-            WhisperBindings.initFromFile(_modelPath!);
-            _log('🔥[MainThread] Whisper reloaded!');
-          } catch (e) {
-            _log('🔥[MainThread] Whisper reload failed: $e');
-          }
-        }
-        
-        if (llmResult == null) {
-          _log('🔥[MainThread] Llama generate returned null');
-          return null;
-        }
-        
-        final summary = llmResult['summary'] ?? '';
-        final actionItems = List<String>.from(llmResult['actionItems'] ?? []);
-        
-        // Extract 5 keywords from text using simple frequency analysis
-        final keywords = _extractKeywords(text);
-        
-        _log('🔥[MainThread] Summary generated: $summary');
-        _log('🔥[MainThread] Keywords: $keywords');
-        
-        // Return a new Transcription with summary
+        if (res == null) return null;
+        String rawResult = (res['summary'] ?? res['response'] ?? '').toString();
+        String summaryText = _extractAssistantContent(rawResult);
+
         return Transcription(
-          id: transcriptionId,
-          title: '',
-          audioPath: '',
-          text: text,
-          wordTimestamps: [],
-          createdAt: DateTime.now(),
-          duration: const Duration(minutes: 2),
-          isEncrypted: true,
-          speakerSegments: [],
-          summary: summary,
-          actionItems: actionItems,
-          keywords: keywords,
+          id: transcriptionId, title: '', audioPath: '', text: text,
+          wordTimestamps: const [], createdAt: DateTime.now(),
+          duration: const Duration(minutes: 1), isEncrypted: true,
+          speakerSegments: const [], summary: summaryText.isEmpty ? "Resumo não disponível." : summaryText,
+          actionItems: res['actionItems'] != null ? List<String>.from(res['actionItems']) : [],
         );
       });
-      
-      AIManager.setState(AIState.readyWhisper, message: 'Pronto');
-      return result;
-    } catch (e) {
-      _log('Generate summary failed: $e');
-      AIManager.setError('Resumo falhou: $e');
-      return null;
-    }
+    } catch (e) { return null; }
   }
-  
-  /// Extract 5 keywords from text using frequency analysis
-  static List<String> _extractKeywords(String text) {
-    // Common words to ignore (Portuguese stopwords)
-    final stopwords = {
-      'de', 'a', 'o', 'que', 'e', 'do', 'da', 'em', 'um', 'para', 'com',
-      'não', 'uma', 'os', 'no', 'se', 'na', 'por', 'mais', 'as', 'dos',
-      'como', 'mas', 'ao', 'ele', 'das', 'à', 'seu', 'sua', 'ou', 'quando',
-      'muito', 'nos', 'já', 'eu', 'também', 'só', 'pelo', 'pela', 'até',
-      'isso', 'ela', 'entre', 'depois', 'sem', 'mesmo', 'aos', 'seus',
-      'me', 'onde', 'havia', 'eram', 'essa', 'nem', 'suas', 'meu', 'às',
-      'tinha', 'foram', 'pelo', 'pela', 'tan', 'to', 'é', 'ser',
-      'está', 'tem', 'vai', 'vamos', 'né', 'ai', 'ah', 'oh', 'olha',
-      'você', 'nós', 'eles', 'tu', 'yo', 'él', 'las', 'los',
-    };
-    
-    // Clean and split text
-    final words = text
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^\w\s]'), '')
-        .split(RegExp(r'\s+'))
-        .where((w) => w.length > 3)
-        .toList();
-    
-    // Count frequency
-    final frequency = <String, int>{};
-    for (final word in words) {
-      if (!stopwords.contains(word)) {
-        frequency[word] = (frequency[word] ?? 0) + 1;
-      }
-    }
-    
-    // Get top 5 keywords
-    final sorted = frequency.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    
-    return sorted.take(5).map((e) => e.key).toList();
-  }
-  
-  /// Generate chat response using Llama
-  static Future<String?> generateChatResponse({
-    required String transcriptionId,
-    required String context,
-  }) async {
-    _log('=== GENERATE CHAT RESPONSE ===');
-    AIManager.setState(AIState.processing, message: 'PrivaChat pensando...');
-    
-    // Capture paths BEFORE entering isolate
-    final llamaPath = _llamaModelPath ?? _modelPath?.replaceAll(WHISPER_FILENAME, llamaFilename);
-    if (llamaPath == null) {
-      _log('⚠️[MainThread] No Llama path - checking assets');
-      await checkAssetsIntegrity();
-    }
-    final finalLlamaPath = _llamaModelPath ?? _modelPath?.replaceAll(WHISPER_FILENAME, llamaFilename);
-    if (finalLlamaPath == null || finalLlamaPath.isEmpty) {
-      _log('❌[MainThread] No Llama path available');
-      return null;
-    }
-    
+
+  static Future<String?> generateChatResponse({required String transcriptionId, required String context, String? query}) async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final llamaPath = '${appDir.path}/models/$llamaFilename';
     final rootToken = ServicesBinding.rootIsolateToken!;
-    
+    final userQuestion = query ?? "Resuma o que foi dito.";
+
     try {
-      final result = await Isolate.run(() async {
+      return await Isolate.run(() async {
         BackgroundIsolateBinaryMessenger.ensureInitialized(rootToken);
-        
-        _log('🔥[MainThread] Loading Llama for chat...');
-        
-        // Use captured path from closure
-        _log('🔄[MainThread] Using Llama path: $finalLlamaPath');
-        
-        if (!File(finalLlamaPath).existsSync()) {
-          _log('❌[MainThread] Llama model not found at: $finalLlamaPath');
-          return null;
-        }
-        
-        _log('🔄[MainThread] Found Llama at: $finalLlamaPath');
-        
-        if (!LlamaBindings.load()) {
-          _log('🔥[MainThread] Llama load failed');
-          return null;
-        }
-        
-        final llamaCtx = LlamaBindings.initFromFile(finalLlamaPath);
-        if (llamaCtx == null) {
-          _log('🔥[MainThread] Llama ctx init failed');
-          return null;
-        }
-        
-        _log('🔥[MainThread] Llama ready, generating chat response...');
-        
-        // Chat prompt - Use TinyLlama chat template
-        final prompt = '''<|system|>
-Você é um assistente útil chamado PrivaChat. Use a transcrição abaixo para responder às perguntas do usuário de forma clara e em português brasileiro.
-<|user|>
-$context
-<|assistant|>
-''';
-        
-        final llmResult = LlamaBindings.generate(ctx: llamaCtx, prompt: prompt);
-        
-        // Dispose immediately
+        if (!LlamaBindings.load()) return null;
+        final ctx = LlamaBindings.initFromFile(llamaPath);
+        if (ctx == null) return null;
+        final prompt = '<|system|>\nVocê é o assistente inteligente PrivaChat. Use a transcrição para responder em Português Brasileiro. Não repita a transcrição.\n<|user|>\nTranscrição: $context\nPergunta: $userQuestion\n<|assistant|>\n';
+        final res = LlamaBindings.generate(ctx: ctx, prompt: prompt);
         LlamaBindings.dispose();
-        _log('🔥[MainThread] Llama disposed for chat');
-        
-        // Extract string from result and clean up template tags
-        if (llmResult == null) return null;
-        
-        // Get the raw response
-        String response = llmResult['response'] ?? llmResult['summary'] ?? llmResult.toString();
-        
-        // Clean up template tags - extract only assistant response
-        if (response.contains('<|assistant|>')) {
-          response = response.split('<|assistant|>').last;
-        }
-        if (response.contains('<|end|>')) {
-          response = response.split('<|end|>').first;
-        }
-        
-        return response.trim();
+        if (res == null) return null;
+        return _extractAssistantContent((res['response'] ?? '').toString());
       });
-      
-      AIManager.setState(AIState.readyWhisper, message: 'Pronto');
-      return result;
-    } catch (e) {
-      _log('Generate chat response failed: $e');
-      AIManager.setError('Chat falhou: $e');
-      return null;
-    }
+    } catch (e) { return null; }
   }
 }
