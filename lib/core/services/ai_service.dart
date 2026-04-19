@@ -190,7 +190,10 @@ class AIService {
   }
 
   static String _emergencyTermFix(String input) {
-    return input
+    // Regex de segurança: corrige qualquer palavra terminada em 'ou' -> 'o'
+    // Ex: testandou -> testando, transcriçãou -> transcrição
+    var fixed = input.replaceAll(RegExp(r'([a-zA-Záéíóúãõ])ou\b'), r'$1o');
+    return fixed
         .replaceAll('Hola', 'Olá').replaceAll('hola', 'olá')
         .replaceAll('soy', 'sou').replaceAll('Soy', 'Sou')
         .replaceAll('estoy', 'estou').replaceAll('Estoy', 'Estou')

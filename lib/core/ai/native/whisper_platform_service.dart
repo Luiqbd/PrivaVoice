@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 /// Platform channel wrapper for mx.valdora whisper-android library
@@ -41,7 +42,7 @@ class WhisperPlatformService {
   /// CRITICAL FIX: Enhanced language forcing using anchor prompt
   static Future<String?> transcribe(String audioPath, {String language = 'pt'}) async {
     if (!_isInitialized) {
-      print('WhisperPlatform: Not initialized');
+      debugPrint('WhisperPlatform: Not initialized');
       return null;
     }
     
@@ -49,19 +50,17 @@ class WhisperPlatformService {
       final audioFile = File(audioPath);
       if (!await audioFile.exists()) return null;
       
-      // ANCHOR PROMPT: Force the model into the correct dictionary using common tokens.
-      const String ptBrAnchor = "Transcrição em português brasileiro. Brasil. o, que, em, um, para, com, não, uma, os, no, se, na, por, mais, as, dos, como, mas, ao, ele, das, à, seu, sua, ou, quando, muito, nos, já, eu, também, só, pelo, pela, até, isso, ela, entre, depois, sem, mesmo, aos, seus, me, onde, havia, eram, essa, nem, suas, meu, às.";
-
+      // CRITICAL: Force PT language via initialPrompt
       final result = await _channel.invokeMethod<String>('transcribe', {
         'audioPath': audioPath,
-        'language': 'pt', // Explicitly 'pt'
-        'prompt': ptBrAnchor,
+        'language': 'pt',
+        'initialPrompt': 'Olá, sou o Luis Fernando, estou gravando em português brasileiro.',
       });
       
-      print('WhisperPlatform: Result received');
+      debugPrint('WhisperPlatform: Result received');
       return result;
     } catch (e) {
-      print('WhisperPlatform: Transcribe error: $e');
+      debugPrint('WhisperPlatform: Transcribe error: $e');
       return null;
     }
   }
