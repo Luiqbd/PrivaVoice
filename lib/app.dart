@@ -1,14 +1,14 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:path_provider/path_provider.dart';
 import 'core/theme/app_theme.dart';
-import 'core/ai/ai_state.dart';
 import 'core/services/ai_service.dart';
 import 'core/services/permission_service.dart';
 import 'presentation/blocs/onboarding/onboarding_bloc.dart';
 import 'presentation/pages/home_page.dart';
-import 'presentation/pages/onboarding_page.dart';
 import 'presentation/pages/setup_initial_page.dart';
 
 class PrivaVoiceApp extends StatefulWidget {
@@ -19,52 +19,59 @@ class PrivaVoiceApp extends StatefulWidget {
 }
 
 class _PrivaVoiceAppState extends State<PrivaVoiceApp> {
-  bool _showOnboarding = true;  // Show onboarding on first launch
-  bool _permissionsRequested = false;
-  bool _setupShown = false;  // Track if setup screen was shown
+  bool? _isFirstTime;
   final PermissionService _permissionService = PermissionService();
-  Timer? _aiReadyTimer;
 
   @override
   void initState() {
     super.initState();
-    // Request permissions on first launch BEFORE AI init
-    _requestPermissionsOnFirstLaunch();
+    _checkInitialStatus();
   }
 
-  @override
-  void dispose() {
-    _aiReadyTimer?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _requestPermissionsOnFirstLaunch() async {
-    if (_permissionsRequested) return;
-    _permissionsRequested = true;
-
-    // Request all permissions FIRST
-    final granted = await _permissionService.requestAllPermissions();
-    debugPrint('Permissions granted: $granted');
-    
-    // AFTER permissions, initialize AI
-    if (granted) {
-      debugPrint('AI: Permissions granted, initializing AI...');
-      AIService.initializeInBackground();
-    }
-    
-    // Set system UI style
+  Future<void> _checkInitialStatus() async {
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
       systemNavigationBarColor: Color(0xFF0A0A0A),
       systemNavigationBarIconBrightness: Brightness.light,
     ));
+
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+      final whisperFile = File('${appDir.path}/models/${AIService.whisperFilename}');
+      final exists = await whisperFile.exists();
+      
+      setState(() {
+        _isFirstTime = !exists;
+      });
+
+      // Se os modelos já existem, inicializa em background e pede permissões (caso faltem)
+      if (exists) {
+        AIService.initializeInBackground();
+        // Não bloqueia a Home se já tiver os arquivos, mas garante que temos permissão
+        _permissionService.requestAllPermissions();
+      } else {
+        // Se for a primeira vez, apenas inicia o carregamento. 
+        // As permissões serão pedidas após o SetupInitialPage.
+        AIService.initializeInBackground();
+      }
+      
+    } catch (e) {
+      setState(() {
+        _isFirstTime = true;
+      });
+      AIService.initializeInBackground();
+    }
   }
 
-  // Called when setup page completes
-  void _onSetupComplete() {
+  /// Chamado apenas após o término do carregamento da IA
+  Future<void> _onSetupComplete() async {
+    // Agora que a IA está pronta, pedimos as permissões (Microfone, etc)
+    // Isso evita assustar o usuário logo no primeiro segundo de app
+    await _permissionService.requestAllPermissions();
+    
     setState(() {
-      _setupShown = true;
+      _isFirstTime = false;
     });
   }
 
@@ -76,26 +83,24 @@ class _PrivaVoiceAppState extends State<PrivaVoiceApp> {
         title: 'PrivaVoice',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.darkTheme,
-        home: _showOnboarding 
-            ? OnboardingPage(onComplete: _onOnboardingComplete)
-            : _buildAfterOnboarding(),
+        home: _buildInitialRoute(),
       ),
     );
   }
 
-  Widget _buildAfterOnboarding() {
-    // If setup was already shown, go to HomePage
-    if (_setupShown) {
+  Widget _buildInitialRoute() {
+    if (_isFirstTime == null) {
+      return const Scaffold(
+        backgroundColor: Color(0xFF0A0A0A),
+        body: Center(child: CircularProgressIndicator(color: Colors.white)),
+      );
+    }
+
+    if (_isFirstTime == false) {
       return const HomePage();
     }
-    
-    // Show SetupInitialPage while AI initializes (always show for at least once)
-    return SetupInitialPage(onComplete: _onSetupComplete);
-  }
 
-  void _onOnboardingComplete() {
-    setState(() {
-      _showOnboarding = false;
-    });
+    // Tela de carregamento da IA
+    return SetupInitialPage(onComplete: _onSetupComplete);
   }
 }

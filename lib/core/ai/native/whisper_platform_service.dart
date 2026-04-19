@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
 
 /// Platform channel wrapper for mx.valdora whisper-android library
 /// This provides 100% offline transcription without external APIs
@@ -17,26 +16,13 @@ class WhisperPlatformService {
     try {
       _modelPath = modelPath;
       
-      // Check if model file exists and get file size
       final file = File(modelPath);
       if (!await file.exists()) {
         print('WhisperPlatform: Model file not found: $modelPath');
         return false;
       }
       
-      final fileSize = await file.length();
-      print('WhisperPlatform: Model file size: $fileSize bytes');
-      
-      // Model must be at least 100MB
-      const minValidSize = 100 * 1024 * 1024;
-      if (fileSize < minValidSize) {
-        print('WhisperPlatform: Model file too small: $fileSize bytes');
-        return false;
-      }
-      
-      print('WhisperPlatform: Model file verified, initializing...');
-      
-      // Initialize via platform channel - pass modelPath so Kotlin creates context
+      // CRITICAL: Force PT during initialization at engine level
       final result = await _channel.invokeMethod<bool>('init', {
         'modelPath': modelPath,
         'language': 'pt',
@@ -52,7 +38,7 @@ class WhisperPlatformService {
   }
   
   /// Transcribe audio file (must be WAV 16kHz mono)
-  /// CRITICAL: Force PT via prompt appended to audio path comment
+  /// CRITICAL FIX: Enhanced language forcing using anchor prompt
   static Future<String?> transcribe(String audioPath, {String language = 'pt'}) async {
     if (!_isInitialized) {
       print('WhisperPlatform: Not initialized');
@@ -61,21 +47,18 @@ class WhisperPlatformService {
     
     try {
       final audioFile = File(audioPath);
-      if (!await audioFile.exists()) {
-        print('WhisperPlatform: Audio file not found: $audioPath');
-        return null;
-      }
+      if (!await audioFile.exists()) return null;
       
-      // CRITICAL: Force PT language via prompt - this is the only way with mx.valdora
-      // The prompt is used as initial context to bias the model
+      // ANCHOR PROMPT: Force the model into the correct dictionary using common tokens.
+      const String ptBrAnchor = "Transcrição em português brasileiro. Brasil. o, que, em, um, para, com, não, uma, os, no, se, na, por, mais, as, dos, como, mas, ao, ele, das, à, seu, sua, ou, quando, muito, nos, já, eu, também, só, pelo, pela, até, isso, ela, entre, depois, sem, mesmo, aos, seus, me, onde, havia, eram, essa, nem, suas, meu, às.";
+
       final result = await _channel.invokeMethod<String>('transcribe', {
         'audioPath': audioPath,
-        'language': 'pt',
-        // Strong Portuguese prompt to force PT transcription
-        'prompt': 'Este áudio está em português brasileiro. Transcreva em português do Brasil. Palavras comuns em português: olá, bom dia, obrigado, saúde, céu, terra, água, fogo, casa, trabalho, família, amigos, trabalho, informação, dados, sistema, aplicativo, transcrição, áudio, gravação, microfone, processamento, inteligência, artificial, neural, modelo, linguagem, reconhecimento, voz, fala, palavras, frases, sentenças, texto.'
+        'language': 'pt', // Explicitly 'pt'
+        'prompt': ptBrAnchor,
       });
       
-      print('WhisperPlatform: Transcribe result: ${result != null && result.length > 50 ? result.substring(0, 50) + "..." : result ?? "null"}');
+      print('WhisperPlatform: Result received');
       return result;
     } catch (e) {
       print('WhisperPlatform: Transcribe error: $e');
@@ -86,22 +69,14 @@ class WhisperPlatformService {
   /// Release resources
   static Future<void> release() async {
     if (!_isInitialized) return;
-    
     try {
       await _channel.invokeMethod('release');
       _isInitialized = false;
       _modelPath = null;
-      print('WhisperPlatform: Released');
     } catch (e) {
       print('WhisperPlatform: Release error: $e');
     }
   }
   
   static bool get isAvailable => _isInitialized;
-  
-  /// Reset state (for testing or reinit)
-  static void reset() {
-    _isInitialized = false;
-    _modelPath = null;
-  }
 }

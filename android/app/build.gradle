@@ -11,6 +11,7 @@ android {
 
     sourceSets {
         main {
+            // Garante que o Gradle veja as suas libs nativas manuais
             jniLibs.srcDirs = ['src/main/jniLibs']
         }
     }
@@ -35,7 +36,9 @@ android {
         versionCode = 1
         versionName = "1.0.0"
         multiDexEnabled true
+        
         ndk {
+            // Foca na arquitetura 64-bit para máxima performance da IA
             abiFilters 'arm64-v8a'
         }
     }
@@ -50,6 +53,7 @@ android {
 
     packagingOptions {
         jniLibs {
+            // CRITICAL: Força a extração das libs para que o FFI funcione no Android
             useLegacyPackaging = true
         }
     }
@@ -64,10 +68,6 @@ flutter {
 }
 
 dependencies {
-    // Llama.cpp - NLP (Maven Central)
-    // Using native libllama.so from jniLibs instead
     implementation("io.github.ljcamargo:llamacpp-kotlin:0.2.0")
-    
-    // Whisper - mx.valdora (libwhisper.so nativo)
     implementation("mx.valdora:whisper-android:1.0.0")
 }
